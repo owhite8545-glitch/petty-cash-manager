@@ -1379,23 +1379,39 @@ body {
 /* Toast */
 .toast-container {
   position: fixed;
-  bottom: 20px;
-  left: 20px;
+  bottom: 18px;
+  left: 18px;
   z-index: 300;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  pointer-events: none;
 }
 
 .toast {
-  background: #0f172a;
+  background: rgba(15, 23, 42, 0.94);
   color: #fff;
-  padding: 10px 16px;
+  padding: 9px 15px;
   border-radius: var(--radius-md);
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 700;
   box-shadow: var(--shadow-md);
   border-right: 4px solid #10b981;
+  pointer-events: none;
+}
+
+/* Remove tiny spinner arrows from number inputs for cleaner senior-friendly UI */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.only-print {
+  display: none;
 }
 
 .hint-badge {
@@ -1461,6 +1477,32 @@ body {
   background: var(--primary-light);
   border-color: var(--primary);
   color: var(--primary);
+}
+
+.fill-rem-chip {
+  display: none;
+  margin-top: 5px;
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px dashed #16a34a;
+  background: #f0fdf4;
+  color: #15803d;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.fill-rem-chip:hover {
+  background: #dcfce7;
+  border-style: solid;
+}
+
+.daily-entry-table tbody tr:focus-within .fill-rem-chip.has-rem {
+  display: block;
 }
 
 .kpi-sub-split {
@@ -1649,6 +1691,18 @@ body.senior-friendly .day-pill .d-name {
   margin-top: 2px;
 }
 
+.print-official-header {
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+
+.print-header-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 /* Print Styles */
 @media print {
   body {
@@ -1656,6 +1710,29 @@ body.senior-friendly .day-pill .d-name {
   }
   .no-print {
     display: none !important;
+  }
+  body:not(.printing-voucher) .only-print {
+    display: block !important;
+  }
+  body:not(.printing-voucher) #voucherModal {
+    display: none !important;
+  }
+  body.printing-voucher .app-header,
+  body.printing-voucher .nav-tabs-bar,
+  body.printing-voucher .app-main,
+  body.printing-voucher .only-print,
+  body.printing-voucher .toast-container {
+    display: none !important;
+  }
+  body.printing-voucher #voucherModal {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+  body.printing-voucher .voucher-modal-card {
+    max-width: 100% !important;
+    box-shadow: none !important;
   }
   .app-main {
     padding: 0;

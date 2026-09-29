@@ -140,16 +140,41 @@ function getPersonDisplayName(person) {
   return person.name && person.name.trim() ? person.name.trim() : `شخص رقم ${person.num}`;
 }
 
+let activeToastTimer = null;
 function showToast(msg) {
   const container = document.getElementById('toastContainer');
   if (!container) return;
+  container.innerHTML = '';
+  if (activeToastTimer) {
+    clearTimeout(activeToastTimer);
+  }
   const el = document.createElement('div');
   el.className = 'toast';
   el.textContent = msg;
   container.appendChild(el);
-  setTimeout(() => {
+  activeToastTimer = setTimeout(() => {
     el.remove();
-  }, 3000);
+    activeToastTimer = null;
+  }, 2600);
+}
+
+function hasPersonAnyEntryInYear(personId, year) {
+  const prefix = `${year}-`;
+  for (const [dateKey, dayObj] of Object.entries(state.data.entries)) {
+    if (dateKey.startsWith(prefix) && dayObj && dayObj[personId]) {
+      const e = dayObj[personId];
+      if ((Number(e.cash) || 0) > 0 || (Number(e.invoice) || 0) > 0 || (e.note && e.note.trim() !== '')) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function getReportablePeople(year) {
+  const all = state.data.people;
+  const namedOrActive = all.filter(p => (p.name && p.name.trim() !== '') || hasPersonAnyEntryInYear(p.id, year));
+  return namedOrActive.length > 0 ? namedOrActive : all;
 }
 
 // ============================================================================
@@ -516,6 +541,22 @@ function renderDailySummaryCards() {
     totals.received > 0
       ? `المستلم: ${formatNumber(totals.received)} ر.ق | الموزع: ${formatNumber(totals.distributed)} ر.ق | المتبقي: ${formatNumber(totals.remaining)} ر.ق`
       : '';
+
+  updateFillRemainingChips();
+}
+
+function updateFillRemainingChips() {
+  const totals = getDayTotals(state.selectedDate);
+  const rem = totals.remaining;
+  document.querySelectorAll('.fill-rem-chip').forEach(btn => {
+    if (rem > 0.001) {
+      btn.classList.add('has-rem');
+      btn.textContent = `⚡ ضع المتبقي (${formatNumber(rem)} ر.ق)`;
+    } else {
+      btn.classList.remove('has-rem');
+      btn.textContent = '';
+    }
+  });
 }
 
 function renderDailyTable() {
@@ -531,6 +572,10 @@ function renderDailyTable() {
   if (footLabelTd) {
     footLabelTd.setAttribute('colspan', showExt ? '4' : '2');
   }
+  const footNoteTd = document.getElementById('footDailyNote');
+  if (footNoteTd) {
+    footNoteTd.setAttribute('colspan', showExt ? '4' : '2');
+  }
   const toggleBtn = document.getElementById('btnToggleDetailedCols');
   if (toggleBtn) {
     toggleBtn.textContent = showExt
@@ -541,7 +586,7 @@ function renderDailyTable() {
   if (state.data.people.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="10">
+        <td colspan="${showExt ? 10 : 6}">
           <div class="empty-state-box">
             <h4>✨ أهلاً بك! الجدول جاهز لإضافة الأسماء</h4>
             <p>اضغط على الزر الأخضر بالأسفل لتجهيز الـ 60 خانة مرقمة فوراً، أو اكتب الأسماء واحداً تلو الآخر من الأعلى:</p>
@@ -655,6 +700,7 @@ function renderDailyTable() {
           data-pid="${person.id}"
           data-field="cash"
         />
+        <button type="button" class="fill-rem-chip no-print" data-fill-rem="${person.id}"></button>
       </td>
       <td>
         <input
@@ -714,6 +760,23 @@ function renderDailyTable() {
         saveState();
         showToast(`تم حفظ الاسم: ${getPersonDisplayName(person)}`);
       }
+    });
+  });
+
+  // 1-Click Fill Remaining Balance into focused person's cash input
+  tbody.querySelectorAll('[data-fill-rem]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = btn.getAttribute('data-fill-rem');
+      const totals = getDayTotals(state.selectedDate);
+      if (totals.remaining <= 0) return;
+      const cashInp = tbody.querySelector(`input[data-pid="${pid}"][data-field="cash"]`);
+      if (!cashInp) return;
+      const curVal = Number(cashInp.value) || 0;
+      const nextVal = Number((curVal + totals.remaining).toFixed(2));
+      cashInp.value = nextVal;
+      cashInp.dispatchEvent(new Event('input', { bubbles: true }));
+      const person = state.data.people.find(p => p.id === pid);
+      showToast(`تم وضع المتبقي بالكامل لـ ${getPersonDisplayName(person)} ✓`);
     });
   });
 
@@ -801,6 +864,8 @@ function renderDailyTable() {
       openVoucherModal(pid);
     });
   });
+
+  updateFillRemainingChips();
 }
 
 function renderDailyTab() {
@@ -924,7 +989,9 @@ function renderMonthlyMatrixTab() {
     </tr>
   `;
 
-  state.data.people.forEach(person => {
+  const peopleToShowInMonth = q ? state.data.people : getReportablePeople(state.year);
+
+  peopleToShowInMonth.forEach(person => {
     const dispName = getPersonDisplayName(person);
     const metaStr = (person.meta || '').toLowerCase();
     if (q && !dispName.toLowerCase().includes(q) && !metaStr.includes(q) && !String(person.num).includes(q)) {
@@ -1071,8 +1138,10 @@ function renderPersonSidebar() {
   }
 
   const q = state.personSidebarSearch.trim().toLowerCase();
+  const sidebarPeople = q ? state.data.people : getReportablePeople(state.year);
+  document.getElementById('sidebarPeopleCount').textContent = sidebarPeople.length;
 
-  state.data.people.forEach(person => {
+  sidebarPeople.forEach(person => {
     if (state.personSidebarFilter === 'driver' && person.role !== 'driver') return;
     if (state.personSidebarFilter === 'staff' && person.role !== 'staff') return;
     const dispName = getPersonDisplayName(person);
@@ -1451,7 +1520,9 @@ function renderAnnualTab() {
     </tr>
   `;
 
-  state.data.people.forEach(person => {
+  const annualPeople = getReportablePeople(state.year);
+
+  annualPeople.forEach(person => {
     const dispName = getPersonDisplayName(person);
     let pGrandCash = 0;
     let pGrandInv = 0;
@@ -1803,7 +1874,8 @@ function exportCurrentViewToExcel() {
     recRow.push(mRec, '');
     csvRows.push(recRow);
 
-    state.data.people.forEach(p => {
+    const exportPeople = getReportablePeople(state.year);
+    exportPeople.forEach(p => {
       const row = [p.num, `"${getPersonDisplayName(p)}"`, p.role === 'driver' ? 'سائق' : 'ستاف', `"${p.meta || ''}"`];
       workDays.forEach(d => {
         const e = getPersonEntry(formatDateKey(state.year, state.month, d), p.id);
@@ -1826,7 +1898,54 @@ function exportCurrentViewToExcel() {
   showToast('تم تصدير ملف Excel بنجاح 📊');
 }
 
+function printReportWithHeader() {
+  document.body.classList.remove('printing-voucher');
+  const subEl = document.getElementById('printHeaderSubtitle');
+  const dateEl = document.getElementById('printHeaderDate');
+  if (subEl) {
+    if (state.activeTab === 'daily') {
+      const { y, m, d } = parseDateParts(state.selectedDate);
+      subEl.textContent = `كشف التسجيل والتوزيع اليومي — ${getArabicDayName(y, m, d)} ${d} ${ARABIC_MONTHS[m]} ${y}`;
+    } else if (state.activeTab === 'monthly') {
+      subEl.textContent = `كشف الشهر الشامل — ${ARABIC_MONTHS[state.month]} ${state.year}`;
+    } else if (state.activeTab === 'person') {
+      const person = state.data.people.find(p => p.id === state.selectedPersonId) || state.data.people[0];
+      subEl.textContent = person
+        ? `كشف حساب وعهدة: ${getPersonDisplayName(person)} (#${person.num})`
+        : `كشف حساب فردي`;
+    } else if (state.activeTab === 'annual') {
+      subEl.textContent = `التقرير السنوي وتجميع الشهور — سنة ${state.year}`;
+    } else {
+      subEl.textContent = `قائمة السائقين والستاف المسجلين`;
+    }
+  }
+  if (dateEl) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    dateEl.textContent = `تاريخ الطباعة: ${todayStr}`;
+  }
+  window.print();
+}
+
+function printVoucherOnly() {
+  document.body.classList.add('printing-voucher');
+  window.print();
+  setTimeout(() => {
+    document.body.classList.remove('printing-voucher');
+  }, 500);
+}
+
+window.addEventListener('afterprint', () => {
+  document.body.classList.remove('printing-voucher');
+});
+
 function bindEvents() {
+  // Prevent accidental mouse-wheel value changes on focused number inputs
+  document.addEventListener('wheel', (e) => {
+    if (document.activeElement && document.activeElement.type === 'number' && document.activeElement === e.target) {
+      document.activeElement.blur();
+    }
+  }, { passive: true });
+
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       switchTab(btn.getAttribute('data-tab'));
@@ -2023,12 +2142,10 @@ function bindEvents() {
     document.getElementById('voucherModal').classList.add('hidden');
   });
 
-  document.getElementById('btnPrintVoucherNow').addEventListener('click', () => {
-    window.print();
-  });
+  document.getElementById('btnPrintVoucherNow').addEventListener('click', printVoucherOnly);
 
   document.getElementById('btnShareWhatsApp').addEventListener('click', sharePersonStatementWhatsApp);
-  document.getElementById('btnPrintPerson').addEventListener('click', () => window.print());
+  document.getElementById('btnPrintPerson').addEventListener('click', printReportWithHeader);
 
   // Annual Controls
   document.getElementById('annualFromMonth').addEventListener('change', (e) => {
@@ -2121,7 +2238,7 @@ function bindEvents() {
 
   // Header Actions (Excel, Print, Backup Modal)
   document.getElementById('btnExportExcel').addEventListener('click', exportCurrentViewToExcel);
-  document.getElementById('btnPrint').addEventListener('click', () => window.print());
+  document.getElementById('btnPrint').addEventListener('click', printReportWithHeader);
 
   const modal = document.getElementById('backupModal');
   document.getElementById('btnBackupModal').addEventListener('click', () => {

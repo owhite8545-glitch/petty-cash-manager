@@ -4,12 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>نظام إدارة العُهد النقدية اليومية والفواتير (البيتي كاش)</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="senior-friendly">
+  <!-- Official Print-Only Header (Appears on Paper/PDF when printing any report) -->
+  <div class="only-print print-report-header">
+    <div>
+      <h2>كشف حساب النقدية اليومية والفواتير (البيتي كاش - ر.ق)</h2>
+      <p id="printHeaderSubtitle">الفترة: -</p>
+    </div>
+    <div id="printHeaderDate" style="font-size: 0.9rem; font-weight: 700;"></div>
+  </div>
+
   <!-- Top Header -->
   <header class="app-header no-print">
     <div class="header-brand">
@@ -119,7 +129,7 @@
       </div>
 
       <!-- Friday Warning Banner (if a Friday is selected) -->
-      <div id="fridayAlertBanner" class="friday-banner hidden">
+      <div id="fridayAlertBanner" class="friday-banner hidden no-print">
         <span>🕌</span>
         <div>
           <strong>اليوم المختار هو يوم جمعة (إجازة)</strong>
@@ -263,7 +273,7 @@
 
           <div class="toolbar-left">
             <button type="button" id="btnToggleDetailedCols" class="btn btn-sm btn-outline" title="إظهار أو إخفاء الأعمدة الإضافية لتبسيط الشاشة">
-              👁️ عرض مبسط ومريح (إظهار التفاصيل الإضافية)
+              👁️ إظهار تفاصيل إضافية (العهدة وآخر استلام)
             </button>
             <button id="btnClearDayDist" class="btn btn-sm btn-danger-outline" title="مسح أرقام هذا اليوم فقط">
               🗑️ مسح أرقام اليوم
@@ -279,8 +289,8 @@
                 <th style="min-width: 210px;">اسم الشخص</th>
                 <th style="width: 100px;" class="col-extra hidden">الفئة</th>
                 <th style="width: 150px;" class="col-extra hidden no-print">⏱️ آخر استلام سابق</th>
-                <th style="width: 210px;">💵 الفلوس اللي خدها اليوم (ر.ق)</th>
-                <th style="width: 210px;">🧾 الفواتير اللي قدمها (بيتي كاش)</th>
+                <th style="width: 220px;">💵 الفلوس اللي خدها اليوم (ر.ق)</th>
+                <th style="width: 220px;">🧾 الفواتير اللي قدمها (بيتي كاش)</th>
                 <th>📝 ملاحظة (اختياري)</th>
                 <th style="width: 140px;" class="col-extra hidden no-print">إجمالي الشهر</th>
                 <th style="width: 155px;" class="col-extra hidden no-print">موقف الفواتير</th>
@@ -293,7 +303,7 @@
                 <td colspan="2" id="footLabelColspan"><strong>المجموع الكلي لليوم (ر.ق)</strong></td>
                 <td><strong id="footDailyCash">0</strong></td>
                 <td><strong id="footDailyInvoices">0</strong></td>
-                <td colspan="4" id="footDailyNote"></td>
+                <td colspan="2" id="footDailyNote"></td>
               </tr>
             </tfoot>
           </table>
@@ -654,9 +664,9 @@
   </main>
 
   <!-- ==================== MODAL: PRINTABLE PETTY CASH VOUCHER ==================== -->
-  <div id="voucherModal" class="modal-overlay hidden no-print">
+  <div id="voucherModal" class="modal-overlay hidden">
     <div class="modal-card voucher-modal-card">
-      <div class="modal-header">
+      <div class="modal-header no-print">
         <h3>🧾 سند استلام نقدية وتصفية فواتير (Petty Cash)</h3>
         <button id="btnCloseVoucherModal" class="btn-close">✕</button>
       </div>
@@ -708,7 +718,7 @@
             </div>
           </div>
         </div>
-        <div class="modal-btn-row" style="margin-top:14px; justify-content:flex-end;">
+        <div class="modal-btn-row no-print" style="margin-top:14px; justify-content:flex-end;">
           <button type="button" id="btnPrintVoucherNow" class="btn btn-primary">🖨️ طباعة السند للتوقيع</button>
         </div>
       </div>
