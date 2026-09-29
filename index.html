@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>نظام إدارة العُهد النقدية اليومية والفواتير (البيتي كاش)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="senior-friendly">
+  <!-- Top Header -->
+  <header class="app-header no-print">
+    <div class="header-brand">
+      <div class="brand-icon">💰</div>
+      <div>
+        <h1>حسابات النقدية اليومية والفواتير (البيتي كاش)</h1>
+        <p class="subtitle">تسجيل المستلم اليومي وتوزيعه على الأشخاص وكشوف الشهور — بالريال القطري (ر.ق)</p>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <div class="period-selector">
+        <label for="globalYear">السنة:</label>
+        <select id="globalYear" class="select-control"></select>
+
+        <label for="globalMonth">الشهر:</label>
+        <select id="globalMonth" class="select-control">
+          <option value="1">1 - يناير</option>
+          <option value="2">2 - فبراير</option>
+          <option value="3">3 - مارس</option>
+          <option value="4">4 - إبريل</option>
+          <option value="5">5 - مايو</option>
+          <option value="6">6 - يونيو</option>
+          <option value="7">7 - يوليو</option>
+          <option value="8">8 - أغسطس</option>
+          <option value="9">9 - سبتمبر</option>
+          <option value="10">10 - أكتوبر</option>
+          <option value="11">11 - نوفمبر</option>
+          <option value="12">12 - ديسمبر</option>
+        </select>
+      </div>
+
+      <div class="header-actions">
+        <button id="btnToggleFontSize" class="btn btn-outline" title="تكبير حجم الخط والأرقام لراحة العين">
+          <span>🔍</span> حجم الخط: <strong id="fontSizeLabel">كبير</strong>
+        </button>
+        <button id="btnExportExcel" class="btn btn-outline" title="تصدير الجدول الحالي لملف إكسيل">
+          <span>📊</span> تصدير Excel
+        </button>
+        <button id="btnPrint" class="btn btn-outline" title="طباعة الصفحة الحالية">
+          <span>🖨️</span> طباعة
+        </button>
+        <button id="btnBackupModal" class="btn btn-secondary" title="حفظ نسخة احتياطية أو تصفير البيانات">
+          <span>💾</span> الحفظ والبيانات
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs (Big & Clear) -->
+  <nav class="app-nav no-print">
+    <button class="nav-tab active" data-tab="daily">
+      <span class="tab-icon">📝</span>
+      <div>
+        <span class="tab-title">1. التسجيل اليومي</span>
+        <span class="tab-desc">استلام اليوم وتوزيعه على الناس</span>
+      </div>
+    </button>
+    <button class="nav-tab" data-tab="monthly">
+      <span class="tab-icon">📅</span>
+      <div>
+        <span class="tab-title">2. كشف الشهر</span>
+        <span class="tab-desc">جدول الأيام وتوتال آخر الشهر</span>
+      </div>
+    </button>
+    <button class="nav-tab" data-tab="person">
+      <span class="tab-icon">👤</span>
+      <div>
+        <span class="tab-title">3. صفحة كل شخص</span>
+        <span class="tab-desc">التاريخ + الفلوس + الفواتير</span>
+      </div>
+    </button>
+    <button class="nav-tab" data-tab="annual">
+      <span class="tab-icon">📈</span>
+      <div>
+        <span class="tab-title">4. كشف الشهور والسنة</span>
+        <span class="tab-desc">تجميع يناير، فبراير، مارس...</span>
+      </div>
+    </button>
+    <button class="nav-tab" data-tab="people">
+      <span class="tab-icon">👥</span>
+      <div>
+        <span class="tab-title">5. الأسماء (<span id="navPeopleCount">0</span>)</span>
+        <span class="tab-desc">إضافة وتعديل أسماء الأشخاص</span>
+      </div>
+    </button>
+  </nav>
+
+  <!-- Main Content Container -->
+  <main class="app-main">
+
+    <!-- ==================== TAB 1: DAILY DISTRIBUTION ==================== -->
+    <section id="tab-daily" class="tab-section active">
+      <!-- Days Strip for the selected month -->
+      <div class="card day-strip-card no-print">
+        <div class="day-strip-header">
+          <div>
+            <h3>📅 اختر اليوم من شهر <span class="current-month-label">يناير</span>:</h3>
+          </div>
+          <div class="day-nav-buttons">
+            <button id="btnPrevWorkday" class="btn btn-outline">▶ اليوم السابق</button>
+            <input type="date" id="dailyDatePicker" class="input-control date-input" />
+            <button id="btnNextWorkday" class="btn btn-outline">اليوم التالي ◀</button>
+          </div>
+        </div>
+        <div id="monthDaysStrip" class="days-strip"></div>
+      </div>
+
+      <!-- Friday Warning Banner (if a Friday is selected) -->
+      <div id="fridayAlertBanner" class="friday-banner hidden">
+        <span>🕌</span>
+        <div>
+          <strong>اليوم المختار هو يوم جمعة (إجازة)</strong>
+          <p>اضغط على الزر المقابل للانتقال مباشرة ليوم السبت.</p>
+        </div>
+        <button id="btnSkipFriday" class="btn btn-primary">الانتقال ليوم السبت ◀</button>
+      </div>
+
+      <!-- Daily Receipt & Live Balance Dashboard -->
+      <div class="daily-summary-grid">
+        <!-- Box 1: Received Today -->
+        <div class="summary-box receipt-input-box">
+          <div class="summary-label">
+            <span>💵 1. اكتب المبلغ اللي استلمته اليوم:</span>
+            <span id="selectedDateBadge" class="badge badge-primary"></span>
+          </div>
+          <div class="receipt-input-wrapper">
+            <input
+              type="number"
+              id="dailyReceivedInput"
+              class="receipt-big-input"
+              placeholder="اكتب المبلغ هنا..."
+              step="any"
+              min="0"
+            />
+            <span class="currency-tag" title="ريال قطري (QAR)">ر.ق</span>
+          </div>
+
+          <div class="extra-toggle-area no-print">
+            <button type="button" id="btnToggleExtraRow" class="btn-link-simple">
+              + هل طلع مبلغ لأي مكان تاني بره الأشخاص؟ (اضغط هنا)
+            </button>
+            <div id="extraExpenseRow" class="extra-expense-row hidden">
+              <label for="dailyExtraInput">📤 مبلغ خارجي:</label>
+              <input
+                type="number"
+                id="dailyExtraInput"
+                class="input-control extra-mini-input"
+                placeholder="0"
+                step="any"
+                min="0"
+              />
+              <input
+                type="text"
+                id="dailyExtraNoteInput"
+                class="input-control extra-note-input"
+                placeholder="السبب..."
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Box 2: Distributed Today -->
+        <div class="summary-box distributed-box">
+          <div class="summary-label">📤 2. مجموع اللي اتوزع على الناس اليوم</div>
+          <div class="summary-value text-blue" id="dailyDistributedTotal">0</div>
+          <div class="summary-sub">
+            استلم اليوم <strong id="dailyActivePeopleCount">0</strong> شخص
+            <span id="dailySplitWrap" class="split-inline">(<span id="dailyDriversSplit">سائقين: 0</span> | <span id="dailyStaffSplit">ستاف: 0</span>)</span>
+          </div>
+          <div class="summary-actions no-print">
+            <button type="button" id="btnCopyPrevDay" class="btn btn-sm btn-outline">
+              📋 نسخ توزيعة اليوم السابق
+            </button>
+          </div>
+        </div>
+
+        <!-- Box 3: Balance & Reconciliation -->
+        <div class="summary-box balance-box" id="dailyBalanceBox">
+          <div class="summary-label">⚖️ 3. المتبقي من فلوس اليوم (المطابقة)</div>
+          <div class="summary-value" id="dailyRemainingValue">0</div>
+          <div class="summary-status" id="dailyMatchStatus">اكتب المبلغ المستلم بالأول</div>
+          <div class="summary-actions no-print">
+            <button type="button" id="btnCarryOverNextDay" class="btn btn-sm btn-outline hidden">
+              🔄 ترحيل المتبقي ليوم الغد
+            </button>
+          </div>
+        </div>
+
+        <!-- Box 4: Invoices (Petty Cash) Today -->
+        <div class="summary-box invoices-box">
+          <div class="summary-label">🧾 4. مجموع الفواتير المقدمة اليوم</div>
+          <div class="summary-value text-purple" id="dailyInvoicesTotal">0</div>
+          <div class="summary-sub">
+            قدم الفواتير <strong id="dailyInvoicePeopleCount">0</strong> شخص
+            <span id="monthUnsettledCount" class="hidden"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Simple & Clean Quick Add Person Bar -->
+      <div class="card quick-person-bar-card no-print">
+        <div class="quick-person-bar">
+          <div class="qp-title">
+            <span>👤 إضافة اسم جديد:</span>
+          </div>
+          <input
+            type="text"
+            id="quickAddPersonName"
+            class="input-control"
+            placeholder="اكتب اسم الشخص هنا واضغط إضافة..."
+          />
+          <select id="quickAddPersonRole" class="select-control">
+            <option value="driver">🚛 سائق</option>
+            <option value="staff">👔 ستاف</option>
+          </select>
+          <input
+            type="text"
+            id="quickAddPersonMeta"
+            class="input-control hidden"
+            style="max-width: 185px;"
+            placeholder="رقم السيارة / القسم"
+          />
+          <button type="button" id="btnQuickAddPerson" class="btn btn-primary">➕ إضافة الاسم</button>
+          <button type="button" id="btnOpenBulkAdd" class="btn btn-outline">📋 إضافة كل الأسماء / 60 خانة</button>
+        </div>
+      </div>
+
+      <!-- Filter & Search Bar for Daily Distribution Table -->
+      <div class="card table-card">
+        <div class="table-toolbar no-print">
+          <div class="toolbar-right">
+            <div class="search-wrapper">
+              <span class="search-icon">🔍</span>
+              <input
+                type="text"
+                id="dailySearchInput"
+                class="input-control search-input"
+                placeholder="ابحث عن اسم شخص..."
+              />
+            </div>
+
+            <div class="filter-pills" id="dailyCategoryFilter">
+              <button class="pill active" data-filter="all">الكل (<span id="countAll">0</span>)</button>
+              <button class="pill" data-filter="driver">🚛 السائقين (<span id="countDrivers">0</span>)</button>
+              <button class="pill" data-filter="staff">👔 الستاف (<span id="countStaff">0</span>)</button>
+              <button class="pill" data-filter="active_today">✅ أخذوا اليوم (<span id="countTodayActive">0</span>)</button>
+              <button class="pill" data-filter="unsettled_month">⚠️ عليهم فواتير (<span id="countUnsettled">0</span>)</button>
+            </div>
+          </div>
+
+          <div class="toolbar-left">
+            <button type="button" id="btnToggleDetailedCols" class="btn btn-sm btn-outline" title="إظهار أو إخفاء الأعمدة الإضافية لتبسيط الشاشة">
+              👁️ عرض مبسط ومريح (إظهار التفاصيل الإضافية)
+            </button>
+            <button id="btnClearDayDist" class="btn btn-sm btn-danger-outline" title="مسح أرقام هذا اليوم فقط">
+              🗑️ مسح أرقام اليوم
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table daily-entry-table" id="dailyTableEl">
+            <thead>
+              <tr>
+                <th style="width: 55px;">رقم</th>
+                <th style="min-width: 210px;">اسم الشخص</th>
+                <th style="width: 100px;" class="col-extra hidden">الفئة</th>
+                <th style="width: 150px;" class="col-extra hidden no-print">⏱️ آخر استلام سابق</th>
+                <th style="width: 210px;">💵 الفلوس اللي خدها اليوم (ر.ق)</th>
+                <th style="width: 210px;">🧾 الفواتير اللي قدمها (بيتي كاش)</th>
+                <th>📝 ملاحظة (اختياري)</th>
+                <th style="width: 140px;" class="col-extra hidden no-print">إجمالي الشهر</th>
+                <th style="width: 155px;" class="col-extra hidden no-print">موقف الفواتير</th>
+                <th style="width: 135px;" class="no-print">صفحة الشخص</th>
+              </tr>
+            </thead>
+            <tbody id="dailyDistributionBody"></tbody>
+            <tfoot>
+              <tr class="totals-row">
+                <td colspan="2" id="footLabelColspan"><strong>المجموع الكلي لليوم (ر.ق)</strong></td>
+                <td><strong id="footDailyCash">0</strong></td>
+                <td><strong id="footDailyInvoices">0</strong></td>
+                <td colspan="4" id="footDailyNote"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: MONTHLY MATRIX VIEW ==================== -->
+    <section id="tab-monthly" class="tab-section">
+      <div class="card monthly-header-card">
+        <div class="monthly-title-row">
+          <div>
+            <h2>📊 كشف شهر <span class="current-month-label">يناير</span> بالكامل (ر.ق)</h2>
+            <p class="text-muted">يوضح اللي استلمته كل يوم، واللي خده كل شخص في أيام الشهر، والتوتال في آخر الشهر</p>
+          </div>
+
+          <div class="monthly-controls no-print">
+            <label class="checkbox-label">
+              <input type="checkbox" id="chkHideFridays" checked />
+              <span>بدون أيام الجمعة (إخفاء الجمعة)</span>
+            </label>
+
+            <label class="checkbox-label">
+              <input type="checkbox" id="chkShowOnlyActiveMonth" />
+              <span>إظهار اللي خدوا في الشهر بس</span>
+            </label>
+
+            <select id="monthlyViewMode" class="select-control">
+              <option value="cash">الجدول يعرض: 💵 الفلوس المستلمة</option>
+              <option value="invoices">الجدول يعرض: 🧾 الفواتير المقدمة</option>
+              <option value="both">الجدول يعرض: الفلوس + الفواتير معاً</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Monthly KPI Summary Cards -->
+        <div class="monthly-kpis">
+          <div class="kpi-item">
+            <span class="kpi-label">توتال اللي استلمته في الشهر (ر.ق)</span>
+            <strong class="kpi-value text-green" id="monthTotalReceived">0</strong>
+          </div>
+          <div class="kpi-item">
+            <span class="kpi-label">توتال اللي اتوزع على الناس (ر.ق)</span>
+            <strong class="kpi-value text-blue" id="monthTotalDistributed">0</strong>
+            <small class="kpi-sub-split" id="monthSplitSub">سائقين: 0 | ستاف: 0</small>
+          </div>
+          <div class="kpi-item">
+            <span class="kpi-label">الفرق / المتبقي في الشهر</span>
+            <strong class="kpi-value" id="monthTotalDiff">0</strong>
+          </div>
+          <div class="kpi-item">
+            <span class="kpi-label">توتال الفواتير المقدمة بالشهر (ر.ق)</span>
+            <strong class="kpi-value text-purple" id="monthTotalInvoices">0</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-toolbar no-print">
+          <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input
+              type="text"
+              id="monthlySearchInput"
+              class="input-control search-input"
+              placeholder="ابحث عن اسم شخص في الشهر..."
+            />
+          </div>
+          <div class="hint-badge">
+            💡 اضغط على أي اسم لفتح صفحته، أو اضغط على أي رقم في الجدول لتعديله
+          </div>
+        </div>
+
+        <div class="table-responsive matrix-scroll">
+          <table class="data-table matrix-table" id="monthlyMatrixTable">
+            <thead id="monthlyMatrixHead"></thead>
+            <tbody id="monthlyMatrixBody"></tbody>
+            <tfoot id="monthlyMatrixFoot"></tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: INDIVIDUAL PERSON LEDGER PAGE ==================== -->
+    <section id="tab-person" class="tab-section">
+      <div class="person-layout">
+        <!-- Sidebar list of people -->
+        <aside class="person-sidebar card no-print">
+          <div class="sidebar-header">
+            <h3>👤 اختر الاسم (<span id="sidebarPeopleCount">0</span>)</h3>
+            <input
+              type="text"
+              id="personSidebarSearch"
+              class="input-control"
+              placeholder="ابحث بالاسم أو الرقم..."
+            />
+            <div class="sidebar-filter-btns">
+              <button class="mini-pill active" data-pfilter="all">الكل</button>
+              <button class="mini-pill" data-pfilter="driver">السائقين</button>
+              <button class="mini-pill" data-pfilter="staff">الستاف</button>
+            </div>
+          </div>
+          <div id="personSidebarList" class="person-list"></div>
+        </aside>
+
+        <!-- Dedicated Person Sheet (Ruled Ledger) -->
+        <div class="person-sheet-container">
+          <div class="card person-ledger-card">
+            <!-- Person Sheet Header -->
+            <div class="ledger-header">
+              <div class="person-profile-info">
+                <div class="person-avatar" id="ledgerPersonNumber">#-</div>
+                <div>
+                  <div class="person-title-line">
+                    <h2 id="ledgerPersonName">اختر اسماً من القائمة</h2>
+                    <span id="ledgerPersonRole" class="role-badge driver">-</span>
+                    <span id="ledgerPersonMeta" class="meta-badge hidden"></span>
+                    <span id="ledgerSettlementBadge" class="settlement-badge"></span>
+                  </div>
+                  <p class="text-muted" id="ledgerPeriodSubtitle">صفحة الشخص المسطرة: التاريخ + الفلوس اللي استلمها + الفواتير اللي قدمها (البيتي كاش)</p>
+                </div>
+              </div>
+
+              <div class="ledger-controls no-print">
+                <select id="ledgerScopeSelect" class="select-control">
+                  <option value="month">عرض الشهر الحالي فقط</option>
+                  <option value="year">عرض السنة كلها</option>
+                </select>
+                <button id="btnPrintPerson" class="btn btn-primary">
+                  🖨️ طباعة صفحة الشخص
+                </button>
+                <button id="btnShareWhatsApp" class="btn btn-success">
+                  📲 إرسال واتساب
+                </button>
+                <button id="btnOpenVoucherModal" class="btn btn-outline">
+                  🧾 سند توقيع
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick Inline Add Form on Person's Page -->
+            <div id="personQuickEntryBox" class="person-quick-entry no-print">
+              <h4>➕ إضافة سطر جديد في صفحة <span id="quickEntryPersonName">-</span>:</h4>
+              <div class="quick-entry-fields">
+                <div class="field-group">
+                  <label>التاريخ</label>
+                  <input type="date" id="pEntryDate" class="input-control" />
+                </div>
+                <div class="field-group">
+                  <label>💵 الفلوس اللي استلمها (ر.ق)</label>
+                  <input type="number" id="pEntryCash" class="input-control" placeholder="0" step="any" />
+                </div>
+                <div class="field-group">
+                  <label>🧾 الفواتير اللي قدمها (بيتي كاش)</label>
+                  <input type="number" id="pEntryInvoice" class="input-control" placeholder="0" step="any" />
+                </div>
+                <div class="field-group field-grow">
+                  <label>📝 البيان / الملاحظة (أو اضغط على نوع الفاتورة)</label>
+                  <input type="text" id="pEntryNote" class="input-control" placeholder="بيان الفاتورة..." />
+                  <div class="quick-invoice-tags">
+                    <button type="button" class="tag-chip" data-ptag="⛽ بترول/وقود">⛽ بترول/وقود</button>
+                    <button type="button" class="tag-chip" data-ptag="🔧 صيانة">🔧 صيانة</button>
+                    <button type="button" class="tag-chip" data-ptag="📦 مشتريات">📦 مشتريات</button>
+                    <button type="button" class="tag-chip" data-ptag="☕ نثريات">☕ نثريات</button>
+                  </div>
+                </div>
+                <div class="field-group field-btn">
+                  <button id="btnSavePersonEntry" class="btn btn-primary">حفظ السطر ✓</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ruled Ledger Table (التاريخ | الفلوس اللي استلمها | الفواتير اللي قدمها) -->
+            <div class="table-responsive">
+              <table class="data-table ruled-ledger-table">
+                <thead>
+                  <tr>
+                    <th style="width: 60px;">م</th>
+                    <th style="width: 150px;">التاريخ</th>
+                    <th style="width: 115px;">اليوم</th>
+                    <th style="width: 220px;" class="col-cash-head">💵 الفلوس اللي استلمها (ر.ق)</th>
+                    <th style="width: 220px;" class="col-inv-head">🧾 الفواتير المقدمة (بيتي كاش)</th>
+                    <th>📝 البيان / الملاحظات</th>
+                    <th style="width: 110px;" class="no-print">تعديل / حذف</th>
+                  </tr>
+                </thead>
+                <tbody id="personLedgerBody"></tbody>
+                <tfoot>
+                  <tr class="ledger-totals-row">
+                    <td colspan="3"><strong>التوتال الكلي (كل خانة لوحدها)</strong></td>
+                    <td class="col-cash-total"><strong id="personTotalCash">0</strong></td>
+                    <td class="col-inv-total"><strong id="personTotalInvoices">0</strong></td>
+                    <td colspan="2" id="personNetSummaryCell"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <!-- Bottom Separate Totals Summary Cards -->
+            <div class="person-bottom-totals">
+              <div class="p-total-card cash-card">
+                <span class="p-total-label">💵 توتال الفلوس اللي استلمها (لوحده)</span>
+                <strong class="p-total-val" id="cardPersonCashTotal">0</strong>
+              </div>
+              <div class="p-total-card invoice-card">
+                <span class="p-total-label">🧾 توتال الفواتير اللي قدمها (لوحده)</span>
+                <strong class="p-total-val" id="cardPersonInvTotal">0</strong>
+              </div>
+              <div class="p-total-card net-card">
+                <span class="p-total-label">⚖️ الفرق (الفلوس ناقص الفواتير)</span>
+                <strong class="p-total-val" id="cardPersonNetDiff">0</strong>
+                <span class="p-total-sub" id="cardPersonNetStatus"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: ANNUAL & MULTI-MONTH SUMMARY ==================== -->
+    <section id="tab-annual" class="tab-section">
+      <div class="card monthly-header-card">
+        <div class="monthly-title-row">
+          <div>
+            <h2>📈 كشف الشهور والتقرير السنوي لسنة <span id="annualYearLabel">2026</span> (ر.ق)</h2>
+            <p class="text-muted">يجمع لك كل شهر (يناير، فبراير، مارس...) عشان تعرف توتال كل شهر وتوتال كل شخص في السنة</p>
+          </div>
+
+          <div class="monthly-controls no-print">
+            <label>من شهر:</label>
+            <select id="annualFromMonth" class="select-control">
+              <option value="1">1 - يناير</option>
+              <option value="2">2 - فبراير</option>
+              <option value="3">3 - مارس</option>
+              <option value="4">4 - إبريل</option>
+              <option value="5">5 - مايو</option>
+              <option value="6">6 - يونيو</option>
+              <option value="7">7 - يوليو</option>
+              <option value="8">8 - أغسطس</option>
+              <option value="9">9 - سبتمبر</option>
+              <option value="10">10 - أكتوبر</option>
+              <option value="11">11 - نوفمبر</option>
+              <option value="12">12 - ديسمبر</option>
+            </select>
+
+            <label>إلى شهر:</label>
+            <select id="annualToMonth" class="select-control">
+              <option value="1">1 - يناير</option>
+              <option value="2">2 - فبراير</option>
+              <option value="3">3 - مارس</option>
+              <option value="4">4 - إبريل</option>
+              <option value="5">5 - مايو</option>
+              <option value="6">6 - يونيو</option>
+              <option value="7">7 - يوليو</option>
+              <option value="8">8 - أغسطس</option>
+              <option value="9">9 - سبتمبر</option>
+              <option value="10">10 - أكتوبر</option>
+              <option value="11">11 - نوفمبر</option>
+              <option value="12" selected>12 - ديسمبر</option>
+            </select>
+
+            <select id="annualDataType" class="select-control">
+              <option value="cash">عرض: 💵 الفلوس المستلمة</option>
+              <option value="invoices">عرض: 🧾 الفواتير المقدمة</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="monthly-kpis">
+          <div class="kpi-item">
+            <span class="kpi-label">توتال المستلم في الشهور (ر.ق)</span>
+            <strong class="kpi-value text-green" id="annualTotalReceived">0</strong>
+          </div>
+          <div class="kpi-item">
+            <span class="kpi-label">توتال الموزع على الأشخاص (ر.ق)</span>
+            <strong class="kpi-value text-blue" id="annualTotalDistributed">0</strong>
+          </div>
+          <div class="kpi-item">
+            <span class="kpi-label">توتال الفواتير المقدمة (ر.ق)</span>
+            <strong class="kpi-value text-purple" id="annualTotalInvoices">0</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-responsive matrix-scroll">
+          <table class="data-table matrix-table" id="annualMatrixTable">
+            <thead id="annualMatrixHead"></thead>
+            <tbody id="annualMatrixBody"></tbody>
+            <tfoot id="annualMatrixFoot"></tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 5: MANAGE PEOPLE (DRIVERS & STAFF) ==================== -->
+    <section id="tab-people" class="tab-section">
+      <div class="card">
+        <div class="people-header">
+          <div>
+            <h2>👥 إدارة أسماء الأشخاص (السائقين والستاف)</h2>
+            <p class="text-muted">تقدر تضيف الأسماء واحد واحد، أو تجهز 60 خانة مرقمة، أو تلصق القائمة كلها مرة واحدة</p>
+          </div>
+
+          <div class="add-person-bar">
+            <input
+              type="text"
+              id="newPersonNameInput"
+              class="input-control"
+              placeholder="اسم الشخص الجديد..."
+            />
+            <select id="newPersonRoleSelect" class="select-control">
+              <option value="driver">🚛 سائق</option>
+              <option value="staff">👔 ستاف</option>
+            </select>
+            <input
+              type="text"
+              id="newPersonMetaInput"
+              class="input-control"
+              placeholder="رقم السيارة / القسم (اختياري)"
+            />
+            <button id="btnAddNewPerson" class="btn btn-primary">➕ إضافة اسم</button>
+            <button id="btnCreate60Slots" class="btn btn-outline">
+              🔢 تجهيز 60 خانة مرقمة
+            </button>
+            <button id="btnClearAllPeople" class="btn btn-danger-outline">
+              🗑️ مسح كل الأسماء
+            </button>
+          </div>
+        </div>
+
+        <!-- Bulk Paste Box -->
+        <div class="bulk-paste-box">
+          <h4>📋 لصق مجموعة أسماء دفعة واحدة:</h4>
+          <p class="text-muted">ضع كل اسم في سطر مستقل ثم اضغط على الزر الأخضر لإضافتهم كلهم مرة واحدة:</p>
+          <div class="bulk-paste-controls">
+            <textarea
+              id="bulkNamesTextarea"
+              class="input-control bulk-textarea"
+              rows="4"
+              placeholder="مثال:&#10;جعفر&#10;أشرف&#10;ياسر"
+            ></textarea>
+            <div class="bulk-side-actions">
+              <label>نوع هذه المجموعة:</label>
+              <select id="bulkRoleSelect" class="select-control">
+                <option value="driver">🚛 سائقين</option>
+                <option value="staff">👔 ستاف</option>
+              </select>
+              <button type="button" id="btnAddBulkNames" class="btn btn-success">✅ إضافة الأسماء كلها</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="people-grid" id="peopleManagementGrid"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MODAL: PRINTABLE PETTY CASH VOUCHER ==================== -->
+  <div id="voucherModal" class="modal-overlay hidden no-print">
+    <div class="modal-card voucher-modal-card">
+      <div class="modal-header">
+        <h3>🧾 سند استلام نقدية وتصفية فواتير (Petty Cash)</h3>
+        <button id="btnCloseVoucherModal" class="btn-close">✕</button>
+      </div>
+      <div class="modal-body" id="voucherPrintableArea">
+        <div class="voucher-box">
+          <div class="voucher-top">
+            <div>
+              <h3>سند عُهدة نقدية وتصفية فواتير (Petty Cash)</h3>
+              <p id="vPeriodText">تاريخ السند: -</p>
+            </div>
+            <div class="voucher-currency-badge">العملة: ريال قطري (QAR)</div>
+          </div>
+          <table class="voucher-table">
+            <tr>
+              <th>اسم المستلم:</th>
+              <td id="vPersonName">-</td>
+              <th>الفئة / الرقم:</th>
+              <td id="vPersonRole">-</td>
+            </tr>
+            <tr>
+              <th>رقم السيارة / القسم:</th>
+              <td id="vPersonMeta">-</td>
+              <th>الفترة المحاسبية:</th>
+              <td id="vScopeLabel">-</td>
+            </tr>
+            <tr>
+              <th>💵 إجمالي المبالغ المستلمة:</th>
+              <td id="vTotalCash" style="font-weight:800; color:#15803d;">0 ر.ق</td>
+              <th>🧾 إجمالي الفواتير المقدمة:</th>
+              <td id="vTotalInv" style="font-weight:800; color:#6d28d9;">0 ر.ق</td>
+            </tr>
+            <tr>
+              <th>⚖️ الصافي / المتبقي في العهدة:</th>
+              <td colspan="3" id="vNetStatus" style="font-weight:800;">0 ر.ق</td>
+            </tr>
+          </table>
+          <div class="voucher-signatures">
+            <div class="sig-block">
+              <p>توقيع المستلم (السائق / الموظف)</p>
+              <div class="sig-line">.........................................</div>
+            </div>
+            <div class="sig-block">
+              <p>مسؤول العهدة والحركة (Petty Cash)</p>
+              <div class="sig-line">.........................................</div>
+            </div>
+            <div class="sig-block">
+              <p>اعتماد المحاسب / الإدارة</p>
+              <div class="sig-line">.........................................</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-btn-row" style="margin-top:14px; justify-content:flex-end;">
+          <button type="button" id="btnPrintVoucherNow" class="btn btn-primary">🖨️ طباعة السند للتوقيع</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: BACKUP / RESTORE / RESET ==================== -->
+  <div id="backupModal" class="modal-overlay hidden no-print">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>💾 حفظ البيانات والنسخ الاحتياطي</h3>
+        <button id="btnCloseBackupModal" class="btn-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-section">
+          <h4>1. حفظ نسخة احتياطية على الجهاز</h4>
+          <p class="text-muted">البرنامج يحفظ كل شيء تلقائياً، ويمكنك أيضاً تحميل ملف نسخة احتياطية للاحتفاظ به.</p>
+          <button id="btnDownloadBackup" class="btn btn-primary">⬇️ تحميل ملف النسخة الاحتياطية</button>
+        </div>
+
+        <hr />
+
+        <div class="modal-section">
+          <h4>2. استرجاع بيانات من ملف محفوظ</h4>
+          <input type="file" id="fileRestoreBackup" accept=".json" class="input-control" />
+        </div>
+
+        <hr />
+
+        <div class="modal-section">
+          <h4>3. تصفير البرنامج (بدء على نظافة)</h4>
+          <div class="modal-btn-row">
+            <button id="btnResetNumbersOnly" class="btn btn-outline">🧹 مسح الأرقام فقط (مع بقاء الأسماء)</button>
+            <button id="btnFactoryResetAll" class="btn btn-danger-outline">🗑️ مسح شامل (تصفير الأسماء والأرقام)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toastContainer" class="toast-container no-print"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
