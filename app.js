@@ -137,6 +137,9 @@ function saveState() {
 
 function formatNumber(val) {
   const num = Number(val) || 0;
+  if (num < 0) {
+    return '\u200E-' + Math.abs(num).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  }
   return num.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
