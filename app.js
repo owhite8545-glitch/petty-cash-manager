@@ -484,8 +484,18 @@ function updateMonthLabels() {
 // TAB 1: Daily Entry & Distribution (Simple & Clear for 64yo User)
 // ============================================================================
 
-function renderDaysStrip() {
+function updateActiveDayPillHasData() {
+  const activePill = document.querySelector('#monthDaysStrip .day-pill.active');
+  if (activePill) {
+    const totals = getDayTotals(state.selectedDate);
+    const hasData = totals.received > 0 || totals.distributed > 0 || totals.invoices > 0 || totals.extraAmount > 0;
+    activePill.classList.toggle('has-data', hasData);
+  }
+}
+
+function renderDaysStrip(shouldCenter = false) {
   const strip = document.getElementById('monthDaysStrip');
+  if (!strip) return;
   const daysCount = getDaysInMonth(state.year, state.month);
   strip.innerHTML = '';
 
@@ -502,9 +512,6 @@ function renderDaysStrip() {
     if (hasData) pill.classList.add('has-data');
     if (dateKey === state.selectedDate) {
       pill.classList.add('active');
-      setTimeout(() => {
-        pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      }, 50);
     }
 
     pill.innerHTML = `
@@ -519,6 +526,17 @@ function renderDaysStrip() {
     });
 
     strip.appendChild(pill);
+  }
+
+  // Only scroll the strip horizontally, NEVER scroll the window vertically!
+  if (shouldCenter) {
+    setTimeout(() => {
+      const activePill = strip.querySelector('.day-pill.active');
+      if (activePill) {
+        const scrollTarget = activePill.offsetLeft - (strip.clientWidth / 2) + (activePill.clientWidth / 2);
+        strip.scrollTo({ left: scrollTarget, behavior: 'smooth' });
+      }
+    }, 50);
   }
 
   const datePicker = document.getElementById('dailyDatePicker');
@@ -910,7 +928,7 @@ function renderDailyTable() {
       }
 
       renderDailySummaryCards();
-      renderDaysStrip();
+      updateActiveDayPillHasData();
     });
 
     // Senior-friendly Enter / ArrowDown / ArrowUp navigation to move to next person's same column
@@ -950,7 +968,7 @@ function renderDailyTable() {
 }
 
 function renderDailyTab() {
-  renderDaysStrip();
+  renderDaysStrip(true);
   renderDailySummaryCards();
   renderDailyTable();
 }
@@ -2754,13 +2772,13 @@ function bindEvents() {
   document.getElementById('dailyReceivedInput').addEventListener('input', (e) => {
     setDayReceived(state.selectedDate, e.target.value);
     renderDailySummaryCards();
-    renderDaysStrip();
+    updateActiveDayPillHasData();
   });
 
   document.getElementById('dailyExtraInput').addEventListener('input', (e) => {
     setDayExtra(state.selectedDate, { amount: e.target.value });
     renderDailySummaryCards();
-    renderDaysStrip();
+    updateActiveDayPillHasData();
   });
 
   document.getElementById('dailyExtraNoteInput').addEventListener('input', (e) => {

@@ -712,8 +712,9 @@ body {
   font-weight: 800;
   color: #1e293b;
   position: sticky;
-  top: 0;
-  z-index: 10;
+  top: 60px;
+  z-index: 30;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
 .data-table tbody tr:hover {
