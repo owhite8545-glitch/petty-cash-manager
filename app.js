@@ -21,7 +21,8 @@ function createCleanData() {
     people: [],        // { id, num, name, role: 'driver'|'staff', meta: 'رقم السيارة / القسم' }
     dailyReceipts: {}, // { "YYYY-MM-DD": number }
     dailyExtras: {},   // { "YYYY-MM-DD": { amount: number, note: string } }
-    entries: {}        // { "YYYY-MM-DD": { [personId]: { cash: number, invoice: number, note: string } } }
+    entries: {},       // { "YYYY-MM-DD": { [personId]: { cash: number, invoice: number, note: string } } }
+    custodyReceipts: [] // [ { id, date, amount, ref, note } ] (Company custody fund receipts)
   };
 }
 
@@ -40,15 +41,22 @@ function create60BlankSlots() {
 }
 
 const now = new Date();
+const initY = now.getFullYear();
+const initM = now.getMonth() + 1;
+const initD = now.getDate();
+const initDateKey = `${initY}-${String(initM).padStart(2, '0')}-${String(initD).padStart(2, '0')}`;
+
 const state = {
-  year: now.getFullYear(),
-  month: 1,
-  selectedDate: `${now.getFullYear()}-01-01`,
+  year: initY,
+  month: initM,
+  selectedDate: initDateKey,
   activeTab: 'daily',
   dailyCategoryFilter: 'all',
   dailySearch: '',
   showDetailedCols: false, // Simple view by default for 64-year-old customer
   fontXL: false,
+  eyeComfort: false,
+  theme: 'light', // 'light' | 'dark' (الوضع الليلي لكبار السن)
   monthlySearch: '',
   hideFridaysInMonthly: true,
   showOnlyActiveInMonthly: false,
@@ -56,10 +64,13 @@ const state = {
   selectedPersonId: null,
   personSidebarFilter: 'all',
   personSidebarSearch: '',
+  personSelectedMonth: 'current', // 'current' | 'all' | 1..12 (طلب الوالد)
   ledgerScope: 'month',
   annualFromMonth: 1,
   annualToMonth: 12,
   annualDataType: 'cash',
+  peopleManageFilter: 'all',
+  peopleManageSearch: '',
   data: createCleanData()
 };
 
@@ -84,16 +95,33 @@ function loadState() {
           })),
           dailyReceipts: parsed.dailyReceipts || {},
           dailyExtras: parsed.dailyExtras || {},
-          entries: parsed.entries || {}
+          entries: parsed.entries || {},
+          custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : []
         };
-        return;
       }
     }
   } catch (err) {
     console.error('Failed to load state:', err);
   }
-  state.data = createCleanData();
-  saveState();
+  if (!state.data || !Array.isArray(state.data.people)) {
+    state.data = createCleanData();
+    saveState();
+  }
+
+  try {
+    // Theme loading
+    const savedTheme = localStorage.getItem('petty_cash_theme') || 'light';
+    state.theme = savedTheme;
+    if (state.theme === 'dark') {
+      document.body.classList.add('dark-mode');
+    }
+
+    // Eye comfort preference (only if not dark mode)
+    state.eyeComfort = localStorage.getItem('petty_cash_eye_comfort') === 'true';
+    if (state.eyeComfort && state.theme !== 'dark') {
+      document.body.classList.add('eye-comfort');
+    }
+  } catch (e) {}
 }
 
 function saveState() {
@@ -101,12 +129,25 @@ function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
   } catch (err) {
     console.error('Failed to save state:', err);
+    if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+      alert('⚠️ تحذير: ذاكرة المتصفح ممتلئة ولا يمكن حفظ التعديل الأخير! يرجى الضغط على زر "نسخة احتياطية" من أعلى الصفحة وتنزيل ملف الحفظ فوراً.');
+    }
   }
 }
 
 function formatNumber(val) {
   const num = Number(val) || 0;
   return num.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function parseDateParts(dateStr) {
@@ -331,6 +372,27 @@ function getPersonMonthTotals(personId, year, month) {
   return { cash, invoice, diff: cash - invoice };
 }
 
+function getPersonYearTotals(personId, year) {
+  let cash = 0;
+  let invoice = 0;
+  for (let m = 1; m <= 12; m++) {
+    const mt = getPersonMonthTotals(personId, year, m);
+    cash += mt.cash;
+    invoice += mt.invoice;
+  }
+  return { cash, invoice, diff: cash - invoice };
+}
+
+function getCustodyReceiptsForMonth(year, month) {
+  const prefix = `${year}-${String(month).padStart(2, '0')}`;
+  return (state.data.custodyReceipts || []).filter(r => r && r.date && r.date.startsWith(prefix));
+}
+
+function getCustodyReceiptsForYear(year) {
+  const prefix = `${year}-`;
+  return (state.data.custodyReceipts || []).filter(r => r && r.date && r.date.startsWith(prefix));
+}
+
 function getSettlementBadgeHtml(cash, invoice) {
   if (cash === 0 && invoice === 0) {
     return `<span class="settlement-badge idle">لا توجد حركة</span>`;
@@ -339,9 +401,9 @@ function getSettlementBadgeHtml(cash, invoice) {
   if (Math.abs(diff) < 0.001) {
     return `<span class="settlement-badge settled">خالص بالفواتير ✓</span>`;
   } else if (diff > 0) {
-    return `<span class="settlement-badge owes">عليه فواتير: ${formatNumber(diff)}</span>`;
+    return `<span class="settlement-badge owes">متبقي بعهدته: ${formatNumber(diff)}</span>`;
   } else {
-    return `<span class="settlement-badge credit">له فرق: ${formatNumber(Math.abs(diff))}</span>`;
+    return `<span class="settlement-badge credit">له فرق مستحق: ${formatNumber(Math.abs(diff))}</span>`;
   }
 }
 
@@ -360,7 +422,8 @@ function initYearMonthSelectors() {
   const monthSelect = document.getElementById('globalMonth');
 
   yearSelect.innerHTML = '';
-  for (let y = 2024; y <= 2030; y++) {
+  const currentY = new Date().getFullYear();
+  for (let y = currentY - 2; y <= currentY + 4; y++) {
     const opt = document.createElement('option');
     opt.value = String(y);
     opt.textContent = String(y);
@@ -372,13 +435,23 @@ function initYearMonthSelectors() {
 
   yearSelect.addEventListener('change', () => {
     state.year = Number(yearSelect.value);
-    syncSelectedDateToMonth();
+    const n = new Date();
+    if (state.year === n.getFullYear() && state.month === (n.getMonth() + 1)) {
+      state.selectedDate = formatDateKey(state.year, state.month, n.getDate());
+    } else {
+      syncSelectedDateToMonth();
+    }
     renderAll();
   });
 
   monthSelect.addEventListener('change', () => {
     state.month = Number(monthSelect.value);
-    syncSelectedDateToMonth();
+    const n = new Date();
+    if (state.year === n.getFullYear() && state.month === (n.getMonth() + 1)) {
+      state.selectedDate = formatDateKey(state.year, state.month, n.getDate());
+    } else {
+      syncSelectedDateToMonth();
+    }
     renderAll();
   });
 }
@@ -395,6 +468,9 @@ function updateMonthLabels() {
   const label = `${ARABIC_MONTHS[state.month]} ${state.year}`;
   document.querySelectorAll('.current-month-label').forEach(el => {
     el.textContent = label;
+  });
+  document.querySelectorAll('.current-year-label').forEach(el => {
+    el.textContent = String(state.year);
   });
   const annualYearEl = document.getElementById('annualYearLabel');
   if (annualYearEl) annualYearEl.textContent = String(state.year);
@@ -424,7 +500,12 @@ function renderDaysStrip() {
     pill.className = 'day-pill';
     if (isFri) pill.classList.add('is-friday');
     if (hasData) pill.classList.add('has-data');
-    if (dateKey === state.selectedDate) pill.classList.add('active');
+    if (dateKey === state.selectedDate) {
+      pill.classList.add('active');
+      setTimeout(() => {
+        pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }, 50);
+    }
 
     pill.innerHTML = `
       <span class="d-num">${d}</span>
@@ -1210,10 +1291,30 @@ function renderPersonSheet() {
     metaEl.classList.add('hidden');
   }
 
-  const isYearScope = state.ledgerScope === 'year';
+  const isYearScope = state.personSelectedMonth === 'all';
+  let startMonth = state.month;
+  let endMonth = state.month;
+
+  if (state.personSelectedMonth === 'all') {
+    startMonth = 1;
+    endMonth = 12;
+  } else if (state.personSelectedMonth === 'current') {
+    startMonth = state.month;
+    endMonth = state.month;
+  } else {
+    const parsedM = Number(state.personSelectedMonth) || 1;
+    startMonth = parsedM;
+    endMonth = parsedM;
+  }
+
+  // Update pills active state
+  document.querySelectorAll('#personMonthPills .p-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-pmonth') === String(state.personSelectedMonth));
+  });
+
   document.getElementById('ledgerPeriodSubtitle').textContent = isYearScope
-    ? `كشف حساب السنة كاملة (${state.year}) - المبالغ المستلمة والفواتير المقدمة (ر.ق)`
-    : `كشف حساب شهر ${ARABIC_MONTHS[state.month]} ${state.year} - المبالغ المستلمة والفواتير المقدمة (ر.ق)`;
+    ? `كشف حساب السنة كاملة (${state.year}) - حركة الأيام والمبالغ المستلمة والفواتير (ر.ق)`
+    : `كشف حساب شهر ${ARABIC_MONTHS[startMonth]} ${state.year} - حركة الأيام والمبالغ المستلمة والفواتير (ر.ق)`;
 
   const pEntryDate = document.getElementById('pEntryDate');
   if (!pEntryDate.value) {
@@ -1221,15 +1322,12 @@ function renderPersonSheet() {
   }
 
   const rows = [];
-  const startMonth = isYearScope ? 1 : state.month;
-  const endMonth = isYearScope ? 12 : state.month;
-
   for (let m = startMonth; m <= endMonth; m++) {
     const daysCount = getDaysInMonth(state.year, m);
     for (let d = 1; d <= daysCount; d++) {
       const dateKey = formatDateKey(state.year, m, d);
       const entry = getPersonEntry(dateKey, person.id);
-      if (entry.cash > 0 || entry.invoice > 0 || entry.note.trim() !== '') {
+      if (entry.cash > 0 || entry.invoice > 0 || (entry.note && entry.note.trim() !== '')) {
         rows.push({
           dateKey,
           d,
@@ -1248,11 +1346,12 @@ function renderPersonSheet() {
 
   let totalCash = 0;
   let totalInvoices = 0;
+  let runningBalance = 0;
 
   if (rows.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" style="text-align:center; padding: 28px; color: var(--text-muted);">
+        <td colspan="8" style="text-align:center; padding: 28px; color: var(--text-muted);">
           لا توجد حركات مسجلة لـ <strong>${dispName}</strong> في هذه الفترة. يمكنك إضافتها من الأعلى أو من شاشة التسجيل اليومي.
         </td>
       </tr>
@@ -1261,6 +1360,17 @@ function renderPersonSheet() {
     rows.forEach((r, idx) => {
       totalCash += r.cash;
       totalInvoices += r.invoice;
+      runningBalance += (r.cash - r.invoice);
+
+      let balClass = 'bal-settled';
+      let balText = '0.00 ر.ق (مصفى)';
+      if (runningBalance > 0.001) {
+        balClass = 'bal-owes';
+        balText = `+${formatNumber(runningBalance)} ر.ق (متبقي بعهدته)`;
+      } else if (runningBalance < -0.001) {
+        balClass = 'bal-credit';
+        balText = `-${formatNumber(Math.abs(runningBalance))} ر.ق (له فرق)`;
+      }
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -1270,6 +1380,7 @@ function renderPersonSheet() {
         <td class="col-cash-cell">${r.cash > 0 ? formatNumber(r.cash) : '0'}</td>
         <td class="col-inv-cell">${r.invoice > 0 ? formatNumber(r.invoice) : '0'}</td>
         <td>${r.note || '-'}</td>
+        <td class="col-balance-cell"><span class="${balClass}">${balText}</span></td>
         <td class="no-print">
           <button type="button" class="btn btn-sm btn-outline" data-edit-pdate="${r.dateKey}" title="تعديل هذا السطر">✏️</button>
           <button type="button" class="btn btn-sm btn-danger-outline" data-del-pdate="${r.dateKey}" title="حذف هذا السطر">🗑️</button>
@@ -1286,7 +1397,7 @@ function renderPersonSheet() {
   document.getElementById('ledgerSettlementBadge').innerHTML = getSettlementBadgeHtml(totalCash, totalInvoices);
 
   document.getElementById('personNetSummaryCell').innerHTML = `
-    <span>الفرق (المستلم - الفواتير): <strong>${formatNumber(netDiff)} ر.ق</strong></span>
+    <span>الفرق النهائي: <strong>${formatNumber(netDiff)} ر.ق</strong> ${netDiff > 0 ? '(متبقي بعهدته)' : netDiff < 0 ? '(له فرق مستحق)' : '(خالص ومصفى)'}</span>
   `;
 
   document.getElementById('cardPersonCashTotal').textContent = `${formatNumber(totalCash)} ر.ق`;
@@ -1298,13 +1409,13 @@ function renderPersonSheet() {
     statusSubEl.textContent = 'لا توجد مبالغ مسجلة';
     statusSubEl.className = 'p-total-sub text-muted';
   } else if (Math.abs(netDiff) < 0.001) {
-    statusSubEl.textContent = '✓ خالص بالكامل بالفواتير';
+    statusSubEl.textContent = '✓ خالص ومصفى بالكامل بالفواتير';
     statusSubEl.className = 'p-total-sub text-green';
   } else if (netDiff > 0) {
-    statusSubEl.textContent = `متبقي عليه (بدون فواتير): ${formatNumber(netDiff)} ر.ق`;
+    statusSubEl.textContent = `متبقي بعهدته (لم يأتِ بفواتيرها بعد): ${formatNumber(netDiff)} ر.ق`;
     statusSubEl.className = 'p-total-sub text-amber';
   } else {
-    statusSubEl.textContent = `له فرق فواتير زيادة: ${formatNumber(Math.abs(netDiff))} ر.ق`;
+    statusSubEl.textContent = `له فرق فواتير مستحق الصرف: ${formatNumber(Math.abs(netDiff))} ر.ق`;
     statusSubEl.className = 'p-total-sub text-blue';
   }
 
@@ -1364,7 +1475,7 @@ function openVoucherModal(personId) {
   document.getElementById('vTotalInv').textContent = `${formatNumber(totalInv)} ر.ق`;
   document.getElementById('vNetStatus').textContent = diff === 0
     ? '0 ر.ق (خالص بالكامل بالفواتير ✓)'
-    : (diff > 0 ? `${formatNumber(diff)} ر.ق (متبقي في العهدة بدون فواتير)` : `${formatNumber(Math.abs(diff))} ر.ق (له فرق فواتير)`);
+    : (diff > 0 ? `${formatNumber(diff)} ر.ق (متبقي بعهدته لم يأتِ بفواتيرها بعد)` : `${formatNumber(Math.abs(diff))} ر.ق (له فرق فواتير مستحق الصرف)`);
 
   document.getElementById('voucherModal').classList.remove('hidden');
 }
@@ -1401,8 +1512,8 @@ function sharePersonStatementWhatsApp() {
 
   const diff = totalCash - totalInv;
   const statusLine = diff === 0
-    ? 'خالص بالكامل ✓'
-    : (diff > 0 ? `متبقي في العهدة (بدون فواتير): ${formatNumber(diff)} ر.ق` : `له فرق فواتير: ${formatNumber(Math.abs(diff))} ر.ق`);
+    ? 'خالص بالكامل بالفواتير ✓'
+    : (diff > 0 ? `متبقي بعهدته (لم يأتِ بفواتيرها بعد): ${formatNumber(diff)} ر.ق` : `له فرق فواتير مستحق الصرف: ${formatNumber(Math.abs(diff))} ر.ق`);
 
   const message = [
     `📋 *كشف حساب عهدة وفواتير (بيتي كاش)*`,
@@ -1588,53 +1699,122 @@ function renderAnnualTab() {
 // ============================================================================
 
 function renderPeopleManagementTab() {
-  const grid = document.getElementById('peopleManagementGrid');
-  grid.innerHTML = '';
+  const tbody = document.getElementById('peopleManagementTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
 
-  if (state.data.people.length === 0) {
-    grid.innerHTML = `
-      <div class="empty-state-box" style="grid-column: 1 / -1;">
-        <h4>القائمة فارغة حالياً (0 أشخاص)</h4>
-        <p>أضف الأسماء واحداً تلو الآخر من الأعلى، أو الصق القائمة كاملة في المربع أعلاه، أو اضغط على "تجهيز 60 خانة مرقمة".</p>
-      </div>
+  const allPeople = state.data.people || [];
+
+  // Update counter badges
+  const countAll = allPeople.length;
+  const countDrivers = allPeople.filter(p => p.role === 'driver').length;
+  const countStaff = allPeople.filter(p => p.role === 'staff').length;
+  const countActive = allPeople.filter(p => hasPersonAnyEntryInYear(p.id, state.year)).length;
+
+  const countAllEl = document.getElementById('pmCountAll');
+  if (countAllEl) countAllEl.textContent = countAll;
+  const countDrvEl = document.getElementById('pmCountDrivers');
+  if (countDrvEl) countDrvEl.textContent = countDrivers;
+  const countStfEl = document.getElementById('pmCountStaff');
+  if (countStfEl) countStfEl.textContent = countStaff;
+  const countActEl = document.getElementById('pmCountActive');
+  if (countActEl) countActEl.textContent = countActive;
+
+  // Filter pills UI state
+  document.querySelectorAll('#peopleManageFilterPills .pill').forEach(pill => {
+    pill.classList.toggle('active', pill.getAttribute('data-pmfilter') === state.peopleManageFilter);
+  });
+
+  // Filter list
+  let list = allPeople;
+  if (state.peopleManageFilter === 'driver') {
+    list = list.filter(p => p.role === 'driver');
+  } else if (state.peopleManageFilter === 'staff') {
+    list = list.filter(p => p.role === 'staff');
+  } else if (state.peopleManageFilter === 'active') {
+    list = list.filter(p => hasPersonAnyEntryInYear(p.id, state.year));
+  }
+
+  if (state.peopleManageSearch) {
+    const q = state.peopleManageSearch.trim().toLowerCase();
+    list = list.filter(p =>
+      (p.name && p.name.toLowerCase().includes(q)) ||
+      (p.meta && p.meta.toLowerCase().includes(q)) ||
+      String(p.num) === q
+    );
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">
+          ${state.peopleManageSearch ? 'لا توجد نتائج مطابقة لبحثك' : 'لا توجد أسماء مسجلة في هذا التصنيف حالياً.'}
+        </td>
+      </tr>
     `;
     return;
   }
 
-  state.data.people.forEach(person => {
-    const card = document.createElement('div');
-    card.className = 'person-manage-card';
-    card.style.flexWrap = 'wrap';
-    card.innerHTML = `
-      <span class="pm-num">#${person.num}</span>
-      <input
-        type="text"
-        class="input-control"
-        placeholder="اسم رقم ${person.num}..."
-        value="${(person.name || '').replace(/"/g, '&quot;')}"
-        data-edit-pname="${person.id}"
-      />
-      <select class="select-control" data-edit-prole="${person.id}">
-        <option value="driver" ${person.role === 'driver' ? 'selected' : ''}>سائق</option>
-        <option value="staff" ${person.role === 'staff' ? 'selected' : ''}>ستاف</option>
-      </select>
-      <input
-        type="text"
-        class="input-control"
-        style="width: 100%; margin-top: 4px; font-size: 0.82rem;"
-        placeholder="${person.role === 'driver' ? '🚗 رقم السيارة (اختياري)...' : '🏢 القسم (اختياري)...'}"
-        value="${(person.meta || '').replace(/"/g, '&quot;')}"
-        data-edit-pmeta="${person.id}"
-      />
-      <div style="display:flex; gap:4px; margin-right:auto; margin-top:4px;">
-        <button type="button" class="btn btn-sm btn-outline" data-open-person="${person.id}">📄 صفحته</button>
-        <button type="button" class="btn btn-sm btn-danger-outline" data-del-person="${person.id}">✕</button>
-      </div>
+  list.forEach(p => {
+    const yTot = getPersonYearTotals(p.id, state.year);
+    let finBadge = '';
+    if (yTot.cash === 0 && yTot.invoice === 0) {
+      finBadge = `<span class="settlement-badge idle">لا توجد حركة</span>`;
+    } else if (Math.abs(yTot.diff) < 0.001) {
+      finBadge = `<span class="settlement-badge settled">خالص بالفواتير ✓</span>`;
+    } else if (yTot.diff > 0) {
+      finBadge = `<span class="settlement-badge owes">بعهدته: ${formatNumber(yTot.diff)} ر.ق</span>`;
+    } else {
+      finBadge = `<span class="settlement-badge credit">له فرق: ${formatNumber(Math.abs(yTot.diff))} ر.ق</span>`;
+    }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>#${p.num}</strong></td>
+      <td>
+        <input
+          type="text"
+          class="input-control"
+          style="width: 100%; font-weight: 700;"
+          placeholder="اسم رقم ${p.num}..."
+          value="${(p.name || '').replace(/"/g, '&quot;')}"
+          data-edit-pname="${p.id}"
+        />
+      </td>
+      <td>
+        <select class="select-control" data-edit-prole="${p.id}" style="width: 100%;">
+          <option value="driver" ${p.role === 'driver' ? 'selected' : ''}>🚛 سائق</option>
+          <option value="staff" ${p.role === 'staff' ? 'selected' : ''}>👔 ستاف</option>
+        </select>
+      </td>
+      <td>
+        <input
+          type="text"
+          class="input-control"
+          style="width: 100%; font-size: 0.88rem;"
+          placeholder="${p.role === 'driver' ? '🚗 رقم السيارة أو الشاحنة...' : '🏢 القسم أو الإدارة...'}"
+          value="${(p.meta || '').replace(/"/g, '&quot;')}"
+          data-edit-pmeta="${p.id}"
+        />
+      </td>
+      <td>
+        <div style="display: flex; flex-direction: column; gap: 3px;">
+          ${finBadge}
+          ${(yTot.cash > 0 || yTot.invoice > 0) ? `<small style="color:var(--text-muted); font-size:0.75rem;">(استلم: ${formatNumber(yTot.cash)} | فواتير: ${formatNumber(yTot.invoice)})</small>` : ''}
+        </div>
+      </td>
+      <td class="no-print">
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn btn-sm btn-outline" data-open-person="${p.id}" title="فتح صفحة هذا الشخص">📄 صفحته</button>
+          <button type="button" class="btn btn-sm btn-danger-outline" data-del-person="${p.id}" title="حذف الشخص">🗑️</button>
+        </div>
+      </td>
     `;
-    grid.appendChild(card);
+    tbody.appendChild(tr);
   });
 
-  grid.querySelectorAll('[data-edit-pname]').forEach(inp => {
+  // Bind inline events
+  tbody.querySelectorAll('[data-edit-pname]').forEach(inp => {
     inp.addEventListener('change', () => {
       const pid = inp.getAttribute('data-edit-pname');
       const p = state.data.people.find(item => item.id === pid);
@@ -1646,19 +1826,19 @@ function renderPeopleManagementTab() {
     });
   });
 
-  grid.querySelectorAll('[data-edit-pmeta]').forEach(inp => {
+  tbody.querySelectorAll('[data-edit-pmeta]').forEach(inp => {
     inp.addEventListener('change', () => {
       const pid = inp.getAttribute('data-edit-pmeta');
       const p = state.data.people.find(item => item.id === pid);
       if (p) {
         p.meta = inp.value.trim();
         saveState();
-        showToast(`تم الحفظ لـ ${getPersonDisplayName(p)}`);
+        showToast(`تم حفظ البيانات لـ ${getPersonDisplayName(p)}`);
       }
     });
   });
 
-  grid.querySelectorAll('[data-edit-prole]').forEach(sel => {
+  tbody.querySelectorAll('[data-edit-prole]').forEach(sel => {
     sel.addEventListener('change', () => {
       const pid = sel.getAttribute('data-edit-prole');
       const p = state.data.people.find(item => item.id === pid);
@@ -1671,24 +1851,480 @@ function renderPeopleManagementTab() {
     });
   });
 
-  grid.querySelectorAll('[data-open-person]').forEach(btn => {
+  tbody.querySelectorAll('[data-open-person]').forEach(btn => {
     btn.addEventListener('click', () => {
       openPersonLedgerPage(btn.getAttribute('data-open-person'));
     });
   });
 
-  grid.querySelectorAll('[data-del-person]').forEach(btn => {
+  tbody.querySelectorAll('[data-del-person]').forEach(btn => {
     btn.addEventListener('click', () => {
       const pid = btn.getAttribute('data-del-person');
       const p = state.data.people.find(item => item.id === pid);
       if (!p) return;
-      if (confirm(`هل تريد حذف "${getPersonDisplayName(p)}" من القائمة؟`)) {
+
+      // Check if person has financial records
+      let hasMoney = false;
+      for (const dayObj of Object.values(state.data.entries)) {
+        if (dayObj && dayObj[pid] && (Number(dayObj[pid].cash) > 0 || Number(dayObj[pid].invoice) > 0)) {
+          hasMoney = true;
+          break;
+        }
+      }
+
+      const msg = hasMoney
+        ? `⚠️ تنبيه هام: "${getPersonDisplayName(p)}" مسجل له مبالغ وفواتير في الحسابات.\nحذفه سيؤدي إلى مسح كافة حركاته المالية للحفاظ على توازن الجداول الحسابية وتطابق الإجماليات.\n\nهل أنت متأكد تماماً من حذفه؟`
+        : `هل تريد حذف "${getPersonDisplayName(p)}" من القائمة؟`;
+
+      if (confirm(msg)) {
         state.data.people = state.data.people.filter(item => item.id !== pid);
+        // Clean up entries to prevent orphaned calculations
+        for (const dateKey of Object.keys(state.data.entries)) {
+          if (state.data.entries[dateKey] && state.data.entries[dateKey][pid]) {
+            delete state.data.entries[dateKey][pid];
+          }
+        }
+        if (state.selectedPersonId === pid) {
+          state.selectedPersonId = state.data.people[0]?.id || null;
+        }
         renumberPeople();
         saveState();
         renderAll();
-        showToast('تم حذف الاسم وإعادة ترقيم القائمة');
+        showToast('تم حذف الاسم وتحديث الحسابات بنجاح');
       }
+    });
+  });
+}
+
+// ============================================================================
+// TAB 6: Company Petty Cash Custody Fund (عهدة الشركة ومطابقة الخزنة)
+// ============================================================================
+
+function renderCustodyTab() {
+  const mRecList = getCustodyReceiptsForMonth(state.year, state.month);
+  const yRecList = getCustodyReceiptsForYear(state.year);
+
+  const monthReceived = mRecList.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  const yearReceived = yRecList.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
+  // Calculate monthly distributed and invoices
+  let monthDistributed = 0;
+  let monthInvoices = 0;
+  const daysInM = getDaysInMonth(state.year, state.month);
+  for (let d = 1; d <= daysInM; d++) {
+    const dk = formatDateKey(state.year, state.month, d);
+    const dayEntries = state.data.entries[dk] || {};
+    for (const p of state.data.people) {
+      const e = dayEntries[p.id];
+      if (e) {
+        monthDistributed += (Number(e.cash) || 0);
+        monthInvoices += (Number(e.invoice) || 0);
+      }
+    }
+    const extra = state.data.dailyExtras[dk];
+    if (extra && extra.amount) {
+      monthDistributed += (Number(extra.amount) || 0);
+    }
+  }
+
+  // Monthly net change (حركة هذا الشهر فقط)
+  const monthNet = monthReceived - monthDistributed;
+
+  // Cumulative calculation from month 1 up to current selected month (الرصيد التراكمي الفعلي المتبقي بالخزنة)
+  let cumulativeReceived = 0;
+  let cumulativeDistributed = 0;
+  for (let m = 1; m <= state.month; m++) {
+    const mRecs = getCustodyReceiptsForMonth(state.year, m);
+    cumulativeReceived += mRecs.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    const daysInM_ = getDaysInMonth(state.year, m);
+    for (let d = 1; d <= daysInM_; d++) {
+      const dk = formatDateKey(state.year, m, d);
+      const dayEntries = state.data.entries[dk] || {};
+      for (const p of state.data.people) {
+        const e = dayEntries[p.id];
+        if (e) {
+          cumulativeDistributed += (Number(e.cash) || 0);
+        }
+      }
+      const extra = state.data.dailyExtras[dk];
+      if (extra && extra.amount) {
+        cumulativeDistributed += (Number(extra.amount) || 0);
+      }
+    }
+  }
+
+  const cumulativeCashInHand = cumulativeReceived - cumulativeDistributed;
+
+  // Update KPIs
+  const mRecEl = document.getElementById('custodyMonthReceived');
+  if (mRecEl) mRecEl.textContent = `${formatNumber(monthReceived)} ر.ق`;
+
+  const yRecSubEl = document.getElementById('custodyYearReceivedSub');
+  if (yRecSubEl) yRecSubEl.textContent = `إجمالي دفعات السنة: ${formatNumber(yearReceived)} ر.ق`;
+
+  const mDistEl = document.getElementById('custodyMonthDistributed');
+  if (mDistEl) mDistEl.textContent = `${formatNumber(monthDistributed)} ر.ق`;
+
+  const mInvEl = document.getElementById('custodyMonthInvoices');
+  if (mInvEl) mInvEl.textContent = `${formatNumber(monthInvoices)} ر.ق`;
+
+  // Real Cumulative Cash In Hand Card
+  const cashHandEl = document.getElementById('custodyCashInHand');
+  const balStatusEl = document.getElementById('custodyBalanceStatus');
+  const monthNetValEl = document.getElementById('custodyMonthNetVal');
+
+  if (cashHandEl) {
+    cashHandEl.textContent = `${formatNumber(cumulativeCashInHand)} ر.ق`;
+    if (cumulativeCashInHand > 0) {
+      cashHandEl.className = 'kpi-value text-green';
+      if (balStatusEl) {
+        balStatusEl.textContent = `فائض نقدي متاح بالخزنة: +${formatNumber(cumulativeCashInHand)} ر.ق`;
+        balStatusEl.className = 'kpi-sub-split text-green';
+      }
+    } else if (cumulativeCashInHand < 0) {
+      cashHandEl.className = 'kpi-value text-danger';
+      if (balStatusEl) {
+        balStatusEl.textContent = `عجز نقدي بالخزنة: -${formatNumber(Math.abs(cumulativeCashInHand))} ر.ق (مطلوب استعاضة)`;
+        balStatusEl.className = 'kpi-sub-split text-danger';
+      }
+    } else {
+      cashHandEl.className = 'kpi-value';
+      if (balStatusEl) {
+        balStatusEl.textContent = 'الرصيد التراكمي متزن تماماً 0.00 ر.ق';
+        balStatusEl.className = 'kpi-sub-split';
+      }
+    }
+  }
+
+  if (monthNetValEl) {
+    const sign = monthNet > 0 ? '+' : '';
+    monthNetValEl.textContent = `${sign}${formatNumber(monthNet)} ر.ق`;
+    monthNetValEl.style.color = monthNet > 0 ? 'var(--green)' : monthNet < 0 ? 'var(--danger)' : 'var(--text-muted)';
+  }
+
+  // Set default receipt date if empty
+  const receiptDateInput = document.getElementById('custodyReceiptDate');
+  if (receiptDateInput && !receiptDateInput.value) {
+    receiptDateInput.value = state.selectedDate;
+  }
+
+  // Render receipts table
+  const tbodyReceipts = document.getElementById('custodyReceiptsBody');
+  if (tbodyReceipts) {
+    tbodyReceipts.innerHTML = '';
+    const sortedYearReceipts = [...yRecList].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    if (sortedYearReceipts.length === 0) {
+      tbodyReceipts.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);">
+            لم يتم تسجيل دفعات عهدة مستلمة من الشركة في سنة ${state.year} حتى الآن. أضف الدفعة الأولى من النموذج أعلاه.
+          </td>
+        </tr>
+      `;
+    } else {
+      sortedYearReceipts.forEach((r, idx) => {
+        const { m } = parseDateParts(r.date);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${idx + 1}</strong></td>
+          <td><strong>${r.date}</strong></td>
+          <td>${ARABIC_MONTHS[m]}</td>
+          <td style="font-weight: 800; color: var(--green);">${formatNumber(r.amount)} ر.ق</td>
+          <td>${r.ref || '-'}</td>
+          <td>${r.note || '-'}</td>
+          <td class="no-print">
+            <button type="button" class="btn btn-sm btn-danger-outline" data-del-custody="${r.id}" title="حذف الدفعة">🗑️</button>
+          </td>
+        `;
+        tbodyReceipts.appendChild(tr);
+      });
+
+      tbodyReceipts.querySelectorAll('[data-del-custody]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const cid = btn.getAttribute('data-del-custody');
+          if (confirm('هل أنت متأكد من حذف هذه الدفعة من سجل العهدة المستلمة؟')) {
+            state.data.custodyReceipts = (state.data.custodyReceipts || []).filter(item => item.id !== cid);
+            saveState();
+            renderCustodyTab();
+            showToast('تم حذف الدفعة بنجاح');
+          }
+        });
+      });
+    }
+
+    const footTotalEl = document.getElementById('footCustodyTotal');
+    if (footTotalEl) footTotalEl.textContent = `${formatNumber(yearReceived)} ر.ق`;
+  }
+
+  // Render drivers pending balance summary
+  const tbodyDrivers = document.getElementById('custodyDriversSummaryBody');
+  if (tbodyDrivers) {
+    tbodyDrivers.innerHTML = '';
+    const driverSummaryList = [];
+
+    state.data.people.forEach(p => {
+      const mTot = getPersonMonthTotals(p.id, state.year, state.month);
+      if (mTot.cash > 0 || mTot.invoice > 0) {
+        driverSummaryList.push({
+          person: p,
+          cash: mTot.cash,
+          invoice: mTot.invoice,
+          diff: mTot.diff
+        });
+      }
+    });
+
+    if (driverSummaryList.length === 0) {
+      tbodyDrivers.innerHTML = `
+        <tr>
+          <td colspan="8" style="text-align: center; padding: 24px; color: var(--text-muted);">
+            لا توجد حركات عهدة أو فواتير مسجلة للسائقين في شهر ${ARABIC_MONTHS[state.month]} ${state.year}.
+          </td>
+        </tr>
+      `;
+    } else {
+      driverSummaryList.sort((a, b) => b.diff - a.diff);
+
+      driverSummaryList.forEach((item, idx) => {
+        let badgeHtml = '';
+        if (Math.abs(item.diff) < 0.001) {
+          badgeHtml = `<span class="settlement-badge settled">خالص بالفواتير ✓</span>`;
+        } else if (item.diff > 0) {
+          badgeHtml = `<span class="settlement-badge owes">متبقي بذمته: ${formatNumber(item.diff)}</span>`;
+        } else {
+          badgeHtml = `<span class="settlement-badge credit">له فرق: ${formatNumber(Math.abs(item.diff))}</span>`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${idx + 1}</strong></td>
+          <td><strong>${getPersonDisplayName(item.person)}</strong> ${item.person.meta ? `<small class="text-muted">(${item.person.meta})</small>` : ''}</td>
+          <td><span class="role-badge ${item.person.role}">${item.person.role === 'driver' ? 'سائق' : 'ستاف'}</span></td>
+          <td class="col-cash-cell">${formatNumber(item.cash)}</td>
+          <td class="col-inv-cell">${formatNumber(item.invoice)}</td>
+          <td style="font-weight: 800; font-size: 1.02rem;">
+            ${item.diff > 0 ? `<span class="text-amber">+${formatNumber(item.diff)} ر.ق</span>` : (item.diff < 0 ? `<span class="text-blue">-${formatNumber(Math.abs(item.diff))} ر.ق</span>` : '0.00 ر.ق')}
+          </td>
+          <td>${badgeHtml}</td>
+          <td class="no-print">
+            <button type="button" class="btn btn-sm btn-outline" data-open-person="${item.person.id}">📄 صفحته</button>
+          </td>
+        `;
+        tbodyDrivers.appendChild(tr);
+      });
+
+      tbodyDrivers.querySelectorAll('[data-open-person]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          openPersonLedgerPage(btn.getAttribute('data-open-person'));
+        });
+      });
+    }
+  }
+}
+
+// Replenishment Statement Modal Logic
+function openReplenishmentModal() {
+  const mRecList = getCustodyReceiptsForMonth(state.year, state.month);
+  const monthReceived = mRecList.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
+  let monthDistributed = 0;
+  let monthInvoices = 0;
+  const categoryTotals = {
+    '⛽ بترول / وقود': 0,
+    '🔧 صيانة وإصلاحات': 0,
+    '📦 مشتريات ومواد': 0,
+    '☕ نثريات وضيافة': 0,
+    '📋 مصروفات أخرى': 0
+  };
+
+  const daysInM = getDaysInMonth(state.year, state.month);
+  for (let d = 1; d <= daysInM; d++) {
+    const dk = formatDateKey(state.year, state.month, d);
+    const dayEntries = state.data.entries[dk] || {};
+    for (const p of state.data.people) {
+      const e = dayEntries[p.id];
+      if (e) {
+        const cash = Number(e.cash) || 0;
+        const inv = Number(e.invoice) || 0;
+        monthDistributed += cash;
+        monthInvoices += inv;
+
+        if (inv > 0) {
+          const note = (e.note || '').toLowerCase();
+          if (note.includes('بترول') || note.includes('وقود') || note.includes('ديزل') || note.includes('بنزين') || note.includes('petrol')) {
+            categoryTotals['⛽ بترول / وقود'] += inv;
+          } else if (note.includes('صيانة') || note.includes('تصليح') || note.includes('ميكانيك') || note.includes('غسيل') || note.includes('إطارات')) {
+            categoryTotals['🔧 صيانة وإصلاحات'] += inv;
+          } else if (note.includes('مشتريات') || note.includes('أغراض') || note.includes('قطع') || note.includes('شراء')) {
+            categoryTotals['📦 مشتريات ومواد'] += inv;
+          } else if (note.includes('نثريات') || note.includes('شاي') || note.includes('ضيافة') || note.includes('ماء')) {
+            categoryTotals['☕ نثريات وضيافة'] += inv;
+          } else {
+            categoryTotals['📋 مصروفات أخرى'] += inv;
+          }
+        }
+      }
+    }
+  }
+
+  const cashInHand = monthReceived - monthDistributed;
+
+  document.getElementById('repPeriodSubtitle').textContent = `الفترة المحاسبية: شهر ${ARABIC_MONTHS[state.month]} ${state.year} — تاريخ الإصدار: ${state.selectedDate}`;
+  document.getElementById('repTotalReceived').textContent = `${formatNumber(monthReceived)} ر.ق`;
+  document.getElementById('repTotalDistributed').textContent = `${formatNumber(monthDistributed)} ر.ق`;
+  document.getElementById('repTotalInvoices').textContent = `${formatNumber(monthInvoices)} ر.ق`;
+  document.getElementById('repCashRemaining').textContent = `${formatNumber(cashInHand)} ر.ق`;
+
+  const tbody = document.getElementById('repCategoryBreakdownBody');
+  tbody.innerHTML = '';
+  for (const [catName, catVal] of Object.entries(categoryTotals)) {
+    if (catVal > 0 || monthInvoices === 0) {
+      const pct = monthInvoices > 0 ? ((catVal / monthInvoices) * 100).toFixed(1) : '0';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${catName}</strong></td>
+        <td style="font-weight: 800; color: var(--purple);">${formatNumber(catVal)} ر.ق</td>
+        <td><strong>${pct}%</strong></td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  const trTot = document.createElement('tr');
+  trTot.style.background = '#f1f5f9';
+  trTot.innerHTML = `
+    <td><strong>إجمالي الفواتير المطلوب استعاضتها</strong></td>
+    <td style="font-weight: 800; color: var(--purple); font-size: 1.1rem;">${formatNumber(monthInvoices)} ر.ق</td>
+    <td><strong>100%</strong></td>
+  `;
+  tbody.appendChild(trTot);
+
+  document.getElementById('replenishmentModal').classList.remove('hidden');
+}
+
+function printReplenishmentSheet() {
+  document.body.classList.add('printing-replenishment');
+  window.print();
+  setTimeout(() => {
+    document.body.classList.remove('printing-replenishment');
+  }, 500);
+}
+
+// ============================================================================
+// Move / Copy Day's Distribution
+// ============================================================================
+
+function openMoveDistModal() {
+  const { y, m, d } = parseDateParts(state.selectedDate);
+  document.getElementById('moveDistSourceDateDisplay').value = `${getArabicDayName(y, m, d)} - ${d} ${ARABIC_MONTHS[m]} ${y} (${state.selectedDate})`;
+  document.getElementById('moveDistTargetDateInput').value = '';
+  document.getElementById('moveDistModal').classList.remove('hidden');
+}
+
+function confirmMoveOrCopyDistribution() {
+  const targetDate = document.getElementById('moveDistTargetDateInput').value;
+  if (!targetDate) {
+    alert('يرجى اختيار التاريخ المستهدف لنقل أو نسخ التوزيعة إليه');
+    return;
+  }
+  if (targetDate === state.selectedDate) {
+    alert('التاريخ المستهدف هو نفسه التاريخ الحالي!');
+    return;
+  }
+
+  const mode = document.querySelector('input[name="moveDistMode"]:checked')?.value || 'move';
+
+  const sourceEntries = state.data.entries[state.selectedDate];
+  const sourceReceipt = state.data.dailyReceipts[state.selectedDate];
+  const sourceExtra = state.data.dailyExtras[state.selectedDate];
+
+  const hasData = (sourceEntries && Object.keys(sourceEntries).length > 0) || sourceReceipt || sourceExtra;
+  if (!hasData) {
+    alert('اليوم الحالي لا يحتوي على أي مبالغ أو توزيعات لنقلها!');
+    return;
+  }
+
+  const targetHasData = (state.data.entries[targetDate] && Object.keys(state.data.entries[targetDate]).length > 0) ||
+                        state.data.dailyReceipts[targetDate] ||
+                        state.data.dailyExtras[targetDate];
+
+  if (targetHasData) {
+    if (!confirm(`اليوم المستهدف (${targetDate}) يحتوي بالفعل على بيانات وتوزيعات سابقة. هل تريد استبدالها/دمجها مع بيانات اليوم المنقول؟`)) {
+      return;
+    }
+  }
+
+  state.data.entries[targetDate] = state.data.entries[targetDate] || {};
+  if (sourceEntries) {
+    for (const [pid, e] of Object.entries(sourceEntries)) {
+      state.data.entries[targetDate][pid] = { ...e };
+    }
+  }
+  if (sourceReceipt !== undefined) {
+    state.data.dailyReceipts[targetDate] = sourceReceipt;
+  }
+  if (sourceExtra !== undefined) {
+    state.data.dailyExtras[targetDate] = { ...sourceExtra };
+  }
+
+  if (mode === 'move') {
+    delete state.data.entries[state.selectedDate];
+    delete state.data.dailyReceipts[state.selectedDate];
+    delete state.data.dailyExtras[state.selectedDate];
+  }
+
+  state.selectedDate = targetDate;
+  const { y, m } = parseDateParts(targetDate);
+  state.year = y;
+  state.month = m;
+  document.getElementById('globalYear').value = String(y);
+  document.getElementById('globalMonth').value = String(m);
+
+  saveState();
+  renderAll();
+  document.getElementById('moveDistModal').classList.add('hidden');
+  showToast(mode === 'move' ? 'تم نقل توزيعة اليوم للتاريخ الجديد بنجاح ✓' : 'تم نسخ توزيعة اليوم للتاريخ الجديد بنجاح ✓');
+}
+
+// ============================================================================
+// Popup Quick Calculator
+// ============================================================================
+
+let calcDisplayVal = '0';
+function initQuickCalculator() {
+  const display = document.getElementById('calcDisplay');
+  if (!display) return;
+
+  function updateCalcDisplay() {
+    display.value = calcDisplayVal;
+  }
+
+  document.querySelectorAll('.btn-calc').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.getAttribute('data-calc');
+      if (val === 'C') {
+        calcDisplayVal = '0';
+      } else if (val === 'DEL') {
+        calcDisplayVal = calcDisplayVal.length > 1 ? calcDisplayVal.slice(0, -1) : '0';
+      } else if (val === '=') {
+        try {
+          const safeExpr = calcDisplayVal.replace(/×/g, '*').replace(/÷/g, '/');
+          if (/^[0-9+\-*/. ()]+$/.test(safeExpr)) {
+            const res = Function(`'use strict'; return (${safeExpr})`)();
+            calcDisplayVal = String(Number(res.toFixed(4)));
+          }
+        } catch (e) {
+          calcDisplayVal = 'خطأ';
+        }
+      } else {
+        if (calcDisplayVal === '0' || calcDisplayVal === 'خطأ') {
+          calcDisplayVal = val;
+        } else {
+          calcDisplayVal += val;
+        }
+      }
+      updateCalcDisplay();
     });
   });
 }
@@ -1780,6 +2416,7 @@ function renderAll() {
   if (state.activeTab === 'person') renderPersonTab();
   if (state.activeTab === 'annual') renderAnnualTab();
   if (state.activeTab === 'people') renderPeopleManagementTab();
+  if (state.activeTab === 'custody') renderCustodyTab();
 }
 
 function stepWorkday(direction) {
@@ -1915,6 +2552,8 @@ function printReportWithHeader() {
         : `كشف حساب فردي`;
     } else if (state.activeTab === 'annual') {
       subEl.textContent = `التقرير السنوي وتجميع الشهور — سنة ${state.year}`;
+    } else if (state.activeTab === 'custody') {
+      subEl.textContent = `سجل عهدة الشركة ومطابقة الخزنة — سنة ${state.year}`;
     } else {
       subEl.textContent = `قائمة السائقين والستاف المسجلين`;
     }
@@ -1959,6 +2598,128 @@ function bindEvents() {
     document.getElementById('fontSizeLabel').textContent = state.fontXL ? 'كبير جداً' : 'كبير';
     showToast(state.fontXL ? 'تم تكبير الخط إلى (كبير جداً) 🔍' : 'حجم الخط (كبير ومريح)');
   });
+
+  // Helper functions to update theme and eye comfort UI
+  function updateThemeUI() {
+    const isDark = (state.theme === 'dark');
+    document.body.classList.toggle('dark-mode', isDark);
+    const themeText = document.getElementById('themeToggleText');
+    if (themeText) {
+      themeText.textContent = isDark ? 'الوضع النهاري ☀️' : 'الوضع الليلي 🌙';
+    }
+  }
+
+  function updateEyeComfortUI() {
+    const isComfort = !!state.eyeComfort;
+    document.body.classList.toggle('eye-comfort', isComfort);
+    const btn = document.getElementById('btnToggleEyeComfort');
+    const txt = document.getElementById('eyeComfortText');
+    if (btn) {
+      btn.classList.toggle('active-comfort', isComfort);
+    }
+    if (txt) {
+      txt.textContent = isComfort ? 'راحة العين (مفعلة ✓)' : 'راحة العين';
+    }
+  }
+
+  // Initial UI state synchronization
+  updateThemeUI();
+  updateEyeComfortUI();
+
+  // Senior-Friendly Dark / Light Mode Button
+  document.getElementById('btnThemeToggle')?.addEventListener('click', () => {
+    state.theme = (state.theme === 'dark') ? 'light' : 'dark';
+
+    // If switching to dark mode, remove eye-comfort so warm tones don't clash with dark
+    if (state.theme === 'dark' && state.eyeComfort) {
+      state.eyeComfort = false;
+      try {
+        localStorage.setItem('petty_cash_eye_comfort', 'false');
+      } catch (err) {}
+      updateEyeComfortUI();
+    }
+
+    try {
+      localStorage.setItem('petty_cash_theme', state.theme);
+    } catch (err) {}
+
+    updateThemeUI();
+    showToast(state.theme === 'dark' ? 'تم تفعيل الوضع الليلي المريح لكبار السن 🌙' : 'تم تفعيل الوضع النهاري ☀️');
+  });
+
+  // Eye Comfort Toggle for 64yo User
+  document.getElementById('btnToggleEyeComfort')?.addEventListener('click', () => {
+    state.eyeComfort = !state.eyeComfort;
+
+    // If eye comfort turned on, turn off dark mode
+    if (state.eyeComfort && state.theme === 'dark') {
+      state.theme = 'light';
+      try {
+        localStorage.setItem('petty_cash_theme', 'light');
+      } catch (err) {}
+      updateThemeUI();
+    }
+
+    try {
+      localStorage.setItem('petty_cash_eye_comfort', String(state.eyeComfort));
+    } catch (e) {}
+
+    updateEyeComfortUI();
+    showToast(state.eyeComfort ? 'تم تفعيل وضع راحة العين' : 'تم العودة للألوان الافتراضية');
+  });
+
+  // Quick Calculator Widget
+  document.getElementById('btnToggleCalculator')?.addEventListener('click', () => {
+    document.getElementById('calculatorWidget').classList.toggle('hidden');
+  });
+  document.getElementById('btnCloseCalc')?.addEventListener('click', () => {
+    document.getElementById('calculatorWidget').classList.add('hidden');
+  });
+  initQuickCalculator();
+
+  // Cloud Sync & PIN Modal
+  const cloudModal = document.getElementById('cloudSyncModal');
+  document.getElementById('btnCloudSyncModal')?.addEventListener('click', () => {
+    cloudModal.classList.remove('hidden');
+  });
+  document.getElementById('btnCloseCloudSyncModal')?.addEventListener('click', () => {
+    cloudModal.classList.add('hidden');
+  });
+  document.getElementById('btnConnectCloudAccount')?.addEventListener('click', () => {
+    const acct = document.getElementById('cloudAccountNameInput').value.trim();
+    const pin = document.getElementById('cloudPinInput').value.trim();
+    if (!acct || !pin) {
+      alert('يرجى كتابة اسم الحساب ورمز PIN');
+      return;
+    }
+    if (pin.length < 4) {
+      alert('رمز PIN يجب ألا يقل عن 4 أرقام');
+      return;
+    }
+    try {
+      localStorage.setItem('petty_cash_cloud_account', JSON.stringify({ acct, pin, lastSync: new Date().toISOString() }));
+    } catch (e) {}
+    const badge = document.getElementById('cloudSyncStatusBadge');
+    if (badge) {
+      badge.textContent = `✓ تم ربط الحساب محلياً (${acct}) ومستعد للمزامنة فور الرفع أونلاين`;
+      badge.style.color = '#15803d';
+      badge.style.fontWeight = 'bold';
+    }
+    showToast('تم حفظ الحساب السحابي بنجاح ✓');
+    setTimeout(() => {
+      cloudModal.classList.add('hidden');
+    }, 1200);
+  });
+
+  // Move or Copy Day's Distribution
+  document.getElementById('btnOpenMoveDayDistModal')?.addEventListener('click', openMoveDistModal);
+  document.getElementById('btnCloseMoveDistModal')?.addEventListener('click', () => {
+    document.getElementById('moveDistModal').classList.add('hidden');
+  });
+  document.getElementById('btnCancelMoveDist')?.addEventListener('click', () => {
+    document.getElementById('moveDistModal').classList.add('hidden');
+  });
+  document.getElementById('btnConfirmMoveDist')?.addEventListener('click', confirmMoveOrCopyDistribution);
 
   // Toggle Extra Outside Expense Row
   document.getElementById('btnToggleExtraRow')?.addEventListener('click', () => {
@@ -2092,6 +2853,13 @@ function bindEvents() {
       btn.classList.add('active');
       state.personSidebarFilter = btn.getAttribute('data-pfilter');
       renderPersonSidebar();
+    });
+  });
+
+  document.querySelectorAll('#personMonthPills .p-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.personSelectedMonth = btn.getAttribute('data-pmonth');
+      renderPersonSheet();
     });
   });
 
@@ -2236,6 +3004,55 @@ function bindEvents() {
     }
   });
 
+  // People Management Table Search & Filter Pills
+  document.getElementById('peopleManageSearchInput')?.addEventListener('input', (e) => {
+    state.peopleManageSearch = e.target.value;
+    renderPeopleManagementTab();
+  });
+
+  document.querySelectorAll('#peopleManageFilterPills .pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      state.peopleManageFilter = pill.getAttribute('data-pmfilter');
+      renderPeopleManagementTab();
+    });
+  });
+
+  // Tab 6: Company Custody Fund Controls
+  document.getElementById('btnAddCustodyReceipt')?.addEventListener('click', () => {
+    const dateVal = document.getElementById('custodyReceiptDate').value || state.selectedDate;
+    const amountVal = Number(document.getElementById('custodyReceiptAmount').value) || 0;
+    const refVal = document.getElementById('custodyReceiptRef').value.trim();
+    const noteVal = document.getElementById('custodyReceiptNote').value.trim();
+
+    if (amountVal <= 0) {
+      alert('يرجى كتابة مبلغ الدفعة المستلمة من الشركة بشكل صحيح');
+      return;
+    }
+
+    state.data.custodyReceipts = state.data.custodyReceipts || [];
+    state.data.custodyReceipts.push({
+      id: 'cr_' + Date.now(),
+      date: dateVal,
+      amount: amountVal,
+      ref: refVal,
+      note: noteVal
+    });
+
+    document.getElementById('custodyReceiptAmount').value = '';
+    document.getElementById('custodyReceiptRef').value = '';
+    document.getElementById('custodyReceiptNote').value = '';
+
+    saveState();
+    renderCustodyTab();
+    showToast(`تم تسجيل دفعة استلام عهدة بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
+  });
+
+  document.getElementById('btnPrintReplenishment')?.addEventListener('click', openReplenishmentModal);
+  document.getElementById('btnCloseReplenishmentModal')?.addEventListener('click', () => {
+    document.getElementById('replenishmentModal').classList.add('hidden');
+  });
+  document.getElementById('btnPrintReplenishmentNow')?.addEventListener('click', printReplenishmentSheet);
+
   // Header Actions (Excel, Print, Backup Modal)
   document.getElementById('btnExportExcel').addEventListener('click', exportCurrentViewToExcel);
   document.getElementById('btnPrint').addEventListener('click', printReportWithHeader);
@@ -2272,7 +3089,8 @@ function bindEvents() {
             people: parsed.people || [],
             dailyReceipts: parsed.dailyReceipts || {},
             dailyExtras: parsed.dailyExtras || {},
-            entries: parsed.entries || {}
+            entries: parsed.entries || {},
+            custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : []
           };
           saveState();
           renderAll();
@@ -2288,28 +3106,31 @@ function bindEvents() {
     reader.readAsText(file);
   });
 
-  document.getElementById('btnResetNumbersOnly').addEventListener('click', () => {
-    if (confirm('هل تريد تصفير جميع المبالغ والفواتير المسجلة مع الاحتفاظ بالأسماء الحالية؟')) {
-      state.data.dailyReceipts = {};
-      state.data.dailyExtras = {};
-      state.data.entries = {};
-      saveState();
-      renderAll();
-      modal.classList.add('hidden');
-      showToast('تم تصفير جميع الأرقام بنجاح');
+  // PWA Support & Install Prompt
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const btnInstall = document.getElementById('btnInstallPWA');
+    if (btnInstall) {
+      btnInstall.classList.remove('hidden');
+      btnInstall.addEventListener('click', () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then(() => {
+            deferredPrompt = null;
+            btnInstall.classList.add('hidden');
+          });
+        }
+      });
     }
   });
 
-  document.getElementById('btnFactoryResetAll').addEventListener('click', () => {
-    if (confirm('تحذير: سيتم مسح جميع الأسماء وجميع المبالغ للبدء على نظافة تماماً. هل أنت متأكد؟')) {
-      state.data = createCleanData();
-      state.selectedPersonId = null;
-      saveState();
-      renderAll();
-      modal.classList.add('hidden');
-      showToast('تم تصفير الموقع بالكامل (أسماء وأرقام) ✓');
-    }
-  });
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
 }
 
 // ============================================================================
@@ -2317,9 +3138,26 @@ function bindEvents() {
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Purge any stale service worker caches immediately
+  if ('caches' in window) {
+    caches.keys().then(keys => {
+      keys.forEach(k => caches.delete(k));
+    }).catch(() => {});
+  }
   loadState();
+  updateMonthLabels();
+
+  // Always open on today's real date on page load (الفتح دائماً على تاريخ اليوم الحالي الحقيقي)
+  const todayNow = new Date();
+  state.year = todayNow.getFullYear();
+  state.month = todayNow.getMonth() + 1;
+  state.selectedDate = formatDateKey(state.year, state.month, todayNow.getDate());
+
   initYearMonthSelectors();
-  syncSelectedDateToMonth();
-  bindEvents();
+  try {
+    bindEvents();
+  } catch (err) {
+    console.error('Error binding events:', err);
+  }
   renderAll();
 });

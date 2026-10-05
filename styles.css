@@ -846,6 +846,16 @@ body {
   padding: 12px 16px;
 }
 
+.custody-balance-card {
+  border-right: 4px solid var(--primary);
+  background: linear-gradient(to left, rgba(15, 118, 110, 0.06), var(--bg-subtle));
+}
+
+body.dark-mode .custody-balance-card {
+  border-right: 4px solid #14b8a6 !important;
+  background: linear-gradient(to left, rgba(20, 184, 166, 0.12), #151f32) !important;
+}
+
 .kpi-label {
   display: block;
   font-size: 0.82rem;
@@ -1734,6 +1744,23 @@ body.senior-friendly .day-pill .d-name {
     max-width: 100% !important;
     box-shadow: none !important;
   }
+  body.printing-replenishment .app-header,
+  body.printing-replenishment .app-nav,
+  body.printing-replenishment .app-main,
+  body.printing-replenishment .only-print,
+  body.printing-replenishment .toast-container {
+    display: none !important;
+  }
+  body.printing-replenishment #replenishmentModal {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+  body.printing-replenishment .voucher-modal-card {
+    max-width: 100% !important;
+    box-shadow: none !important;
+  }
   .app-main {
     padding: 0;
     max-width: 100%;
@@ -1752,3 +1779,1026 @@ body.senior-friendly .day-pill .d-name {
     overflow: visible !important;
   }
 }
+
+/* ============================================================================
+   Eye Comfort Mode (وضع راحة العين لكبار السن - 64 سنة)
+   ألوان دافئة مريحة خالية من التوهج الأزرق لتقليل إجهاد النظر أثناء العمل الطويل
+   ============================================================================ */
+body.eye-comfort {
+  --bg-body: #f5efe6 !important;
+  --bg-card: #fdfbf7 !important;
+  --bg-subtle: #eee6d6 !important;
+  --text-main: #292524 !important;
+  --text-muted: #57534e !important;
+  --border-color: #e2d7c5 !important;
+  --border-strong: #cfbeaa !important;
+  background-color: #f5efe6 !important;
+  color: #292524 !important;
+}
+
+body.eye-comfort .app-header {
+  background: linear-gradient(135deg, #1f2a24 0%, #17382d 100%) !important;
+}
+
+body.eye-comfort .app-nav {
+  background: #fdfbf7 !important;
+  border-bottom: 1px solid #e2d7c5 !important;
+}
+
+body.eye-comfort .card,
+body.eye-comfort .person-sidebar,
+body.eye-comfort .modal-card,
+body.eye-comfort .bulk-paste-box,
+body.eye-comfort .summary-box {
+  background-color: #fdfbf7 !important;
+  border-color: #e2d7c5 !important;
+  box-shadow: 0 2px 8px rgba(41, 37, 36, 0.06) !important;
+}
+
+body.eye-comfort .receipt-input-box {
+  background: #fbf7ee !important;
+  border-right-color: #0f766e !important;
+}
+
+body.eye-comfort .receipt-big-input {
+  background-color: #fffefb !important;
+  border-color: #cfbeaa !important;
+  color: #0f766e !important;
+}
+
+body.eye-comfort .receipt-big-input:focus {
+  border-color: #b45309 !important;
+  box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.2) !important;
+}
+
+body.eye-comfort .data-table {
+  background-color: #fdfbf7 !important;
+}
+
+body.eye-comfort .data-table th,
+body.eye-comfort .matrix-table th {
+  background: #ebdcc6 !important;
+  color: #292524 !important;
+  border-color: #cfbeaa !important;
+}
+
+body.eye-comfort .data-table td,
+body.eye-comfort .matrix-table td,
+body.eye-comfort .ruled-ledger-table td,
+body.eye-comfort .sticky-col {
+  background-color: #fdfbf7 !important;
+  border-color: #e2d7c5 !important;
+  color: #292524 !important;
+}
+
+body.eye-comfort .data-table tbody tr:nth-child(even) td {
+  background-color: #f8f4ec !important;
+}
+
+body.eye-comfort .input-control,
+body.eye-comfort .select-control,
+body.eye-comfort .cell-input,
+body.eye-comfort .bulk-textarea,
+body.eye-comfort #globalMonth,
+body.eye-comfort #globalYear {
+  background-color: #fffefb !important;
+  border-color: #cfbeaa !important;
+  color: #292524 !important;
+}
+
+body.eye-comfort .input-control:focus,
+body.eye-comfort .select-control:focus,
+body.eye-comfort .cell-input:focus {
+  border-color: #b45309 !important;
+  box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.2) !important;
+}
+
+body.eye-comfort .btn-outline {
+  background-color: #fffefb !important;
+  border-color: #cfbeaa !important;
+  color: #292524 !important;
+}
+
+body.eye-comfort .btn-outline:hover {
+  background-color: #eee6d6 !important;
+}
+
+body.eye-comfort .p-pill {
+  background-color: #fffefb !important;
+  border-color: #cfbeaa !important;
+  color: #292524 !important;
+}
+
+body.eye-comfort .p-pill.active {
+  background-color: #0f766e !important;
+  color: #fff !important;
+}
+
+body.eye-comfort .person-month-strip,
+body.eye-comfort .person-quick-entry {
+  background-color: #f8f4ec !important;
+  border-color: #e2d7c5 !important;
+}
+
+body.eye-comfort .friday-banner {
+  background: #fbf3db !important;
+  border-color: #e5cd96 !important;
+  color: #78350f !important;
+}
+
+body.eye-comfort .matrix-received-row td {
+  background: #f0f7ee !important;
+  color: #166534 !important;
+  border-bottom: 2px solid #15803d !important;
+}
+
+body.eye-comfort .matrix-distributed-row td {
+  background: #f4f6fb !important;
+  color: #1e40af !important;
+}
+
+/* Person Month Selector Pills */
+.person-month-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.p-strip-label {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.p-month-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.p-pill {
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.p-pill:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.p-pill.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.25);
+}
+
+/* Ruled Ledger Running Balance Styling */
+.col-balance-head {
+  background: #e0e7ff !important;
+  color: #3730a3 !important;
+}
+
+.col-balance-cell {
+  background: #f8fafc;
+  font-weight: 800;
+  font-size: 1.02rem;
+}
+
+.col-balance-cell.bal-owes {
+  color: #b45309;
+}
+
+.col-balance-cell.bal-credit {
+  color: #1d4ed8;
+}
+
+.col-balance-cell.bal-settled {
+  color: #15803d;
+}
+
+/* People Management Table */
+.people-manage-table th,
+.people-manage-table td {
+  padding: 12px 14px;
+}
+
+.people-manage-table .pm-name-input {
+  font-size: 1.05rem;
+  font-weight: 800;
+  width: 100%;
+}
+
+.people-manage-table .pm-meta-input {
+  font-size: 0.9rem;
+  font-weight: 600;
+  width: 100%;
+}
+
+/* Custody Fund Form & Table */
+.custody-receipt-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Popup Quick Calculator Widget */
+.calc-popup-card {
+  position: fixed;
+  top: 76px;
+  left: 24px;
+  width: 270px;
+  background: #0f172a;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  border: 2px solid #334155;
+  z-index: 250;
+  overflow: hidden;
+}
+
+.calc-header {
+  padding: 10px 14px;
+  background: #1e293b;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.calc-body {
+  padding: 12px;
+}
+
+.calc-display {
+  width: 100%;
+  font-family: 'Cairo', monospace, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-align: left;
+  padding: 10px 12px;
+  background: #020617;
+  color: #10b981;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  outline: none;
+}
+
+.calc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.btn-calc {
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 800;
+  height: 42px;
+  border: none;
+  border-radius: 8px;
+  background: #334155;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-calc:hover {
+  background: #475569;
+}
+
+.btn-calc:active {
+  transform: scale(0.96);
+}
+
+.btn-calc-op {
+  background: #475569;
+  color: #38bdf8;
+}
+
+.btn-calc-eq {
+  background: #10b981;
+  color: #fff;
+  grid-column: span 1;
+}
+
+.btn-calc-eq:hover {
+  background: #059669;
+}
+
+/* Overdue Alert Badge */
+.overdue-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+/* ============================================================================
+   Senior-Friendly Animated Theme Toggle Button (زر وسويتش الوضع الليلي والنهاري)
+   - زر كبير واضح مع أنيميشن انزلاق ناعم بين الشمس والقمر
+   - مخصص لسهولة الرؤية والضغط لكبار السن (64 سنة)
+   ============================================================================ */
+.btn-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  user-select: none;
+}
+
+.btn-theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.55);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.btn-theme-toggle:active {
+  transform: translateY(0);
+}
+
+.toggle-slider-track {
+  width: 44px;
+  height: 24px;
+  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+  border-radius: 9999px;
+  position: relative;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  transition: background 0.35s ease, border-color 0.35s ease;
+  direction: ltr; /* Keeps slide direction consistent */
+  flex-shrink: 0;
+}
+
+.toggle-slider-thumb {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.3s ease;
+  overflow: hidden;
+}
+
+.toggle-slider-thumb .icon-sun,
+.toggle-slider-thumb .icon-moon {
+  position: absolute;
+  font-size: 11px;
+  line-height: 1;
+  transition: opacity 0.25s ease, transform 0.3s ease;
+}
+
+.toggle-slider-thumb .icon-sun {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+.toggle-slider-thumb .icon-moon {
+  opacity: 0;
+  transform: scale(0.3) rotate(-90deg);
+}
+
+.theme-toggle-label {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Eye Comfort Active Badge in Header */
+#btnToggleEyeComfort.active-comfort {
+  background: #fef3c7 !important;
+  color: #78350f !important;
+  border-color: #d97706 !important;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.35) !important;
+  font-weight: 800;
+}
+
+/* When Dark Mode is Active */
+body.dark-mode .btn-theme-toggle {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: #818cf8;
+  color: #e0e7ff;
+}
+
+body.dark-mode .btn-theme-toggle:hover {
+  background: rgba(99, 102, 241, 0.35);
+  border-color: #a5b4fc;
+}
+
+body.dark-mode .toggle-slider-track {
+  background: linear-gradient(135deg, #4338ca 0%, #1e1b4b 100%);
+  border-color: #818cf8;
+}
+
+body.dark-mode .toggle-slider-thumb {
+  transform: translateX(19px);
+  background: #0f172a;
+}
+
+body.dark-mode .toggle-slider-thumb .icon-sun {
+  opacity: 0;
+  transform: scale(0.3) rotate(90deg);
+}
+
+body.dark-mode .toggle-slider-thumb .icon-moon {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+/* ============================================================================
+   Senior-Friendly Dark Mode (الوضع الليلي الهادئ والمريح لكبار السن)
+   - خلفية كحلية داكنة راقية (Midnight Slate #0b1120) بدون سواد دامس يجهد العين
+   - حدود واضحة ومتباينة بين خانات وأسطر الجداول
+   - ألوان متباينة للأرقام والفواتير لسهولة القراءة
+   ============================================================================ */
+
+body.dark-mode {
+  --bg-body: #0b1120;
+  --bg-card: #151f32;
+  --bg-subtle: #1e293b;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --border-color: #273549;
+  --border-strong: #3b4e68;
+
+  --primary: #14b8a6;
+  --primary-hover: #2dd4bf;
+  --primary-light: rgba(20, 184, 166, 0.18);
+
+  --blue: #38bdf8;
+  --blue-light: rgba(56, 189, 248, 0.18);
+
+  --green: #4ade80;
+  --green-light: rgba(74, 222, 128, 0.18);
+
+  --purple: #c084fc;
+  --purple-light: rgba(192, 132, 252, 0.18);
+
+  --amber: #fbbf24;
+  --amber-light: rgba(251, 191, 36, 0.18);
+
+  --danger: #f87171;
+  --danger-light: rgba(248, 113, 113, 0.18);
+
+  background-color: var(--bg-body);
+  color: var(--text-main);
+}
+
+/* Header in dark mode */
+body.dark-mode .app-header {
+  background: linear-gradient(135deg, #070d17 0%, #0d2825 100%);
+  border-bottom: 1px solid #1e293b;
+}
+
+/* Navigation tabs in dark mode */
+body.dark-mode .app-nav {
+  background: #111a2c;
+  border-bottom: 1px solid #273549;
+}
+
+body.dark-mode .nav-tab {
+  color: #94a3b8;
+  border-bottom-color: transparent;
+}
+
+body.dark-mode .nav-tab:hover {
+  background: #18243b;
+  color: #f1f5f9;
+}
+
+body.dark-mode .nav-tab.active {
+  background: #151f32;
+  color: #2dd4bf;
+  border-bottom-color: #2dd4bf;
+}
+
+body.dark-mode .nav-tab.active .tab-desc {
+  color: #94a3b8;
+}
+
+/* Cards & containers in dark mode */
+body.dark-mode .card,
+body.dark-mode .person-sidebar,
+body.dark-mode .modal-card,
+body.dark-mode .bulk-paste-box,
+body.dark-mode .summary-box {
+  background-color: #151f32 !important;
+  border-color: #273549 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  color: #f1f5f9;
+}
+
+body.dark-mode .receipt-input-box {
+  background: #101c2e !important;
+  border-right: 5px solid #14b8a6 !important;
+}
+
+body.dark-mode .balance-box.matched {
+  background: rgba(16, 185, 129, 0.14) !important;
+  border-right-color: #10b981 !important;
+}
+
+body.dark-mode .balance-box.over {
+  background: rgba(239, 68, 68, 0.14) !important;
+  border-right-color: #ef4444 !important;
+}
+
+/* Form inputs & textareas (including big receipt input) */
+body.dark-mode .input-control,
+body.dark-mode .select-control,
+body.dark-mode .bulk-textarea {
+  background-color: #0d1522 !important;
+  color: #f1f5f9 !important;
+  border-color: #3b4e68 !important;
+}
+
+body.dark-mode .receipt-big-input {
+  background-color: #0d1522 !important;
+  color: #2dd4bf !important;
+  border: 2px solid #273549 !important;
+}
+
+body.dark-mode .receipt-big-input:focus {
+  background-color: #0f1a2d !important;
+  border-color: #2dd4bf !important;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25) !important;
+}
+
+body.dark-mode .currency-tag {
+  color: #94a3b8 !important;
+}
+
+body.dark-mode .extra-expense-row {
+  border-top-color: #273549 !important;
+}
+
+body.dark-mode .btn-link-simple {
+  color: #38bdf8 !important;
+}
+
+body.dark-mode .input-control:focus,
+body.dark-mode .select-control:focus,
+body.dark-mode .bulk-textarea:focus {
+  border-color: #2dd4bf !important;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25) !important;
+  background-color: #0f1a2d !important;
+}
+
+body.dark-mode .input-control[readonly] {
+  background-color: #1a2538 !important;
+  color: #cbd5e1 !important;
+}
+
+/* Table styling in Dark Mode (High clarity for senior accountant) */
+body.dark-mode .data-table,
+body.dark-mode .matrix-table,
+body.dark-mode .ruled-ledger-table {
+  background-color: #151f32 !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .data-table th,
+body.dark-mode .matrix-table th,
+body.dark-mode .ruled-ledger-table th {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+  font-weight: 800;
+}
+
+body.dark-mode .data-table td,
+body.dark-mode .matrix-table td,
+body.dark-mode .ruled-ledger-table td {
+  border: 1px solid #273549 !important;
+  background-color: #151f32 !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .data-table tbody tr:nth-child(even) td,
+body.dark-mode .matrix-table tbody tr:nth-child(even) td {
+  background-color: #111a2b !important;
+}
+
+body.dark-mode .data-table tbody tr:hover td,
+body.dark-mode .matrix-table tbody tr:hover td {
+  background-color: #1b2840 !important;
+}
+
+/* Cash and invoice specific columns in tables */
+body.dark-mode .col-cash-head {
+  background: #064e3b !important;
+  color: #6ee7b7 !important;
+  border-color: #047857 !important;
+}
+
+body.dark-mode .col-inv-head {
+  background: #3b0764 !important;
+  color: #e9d5ff !important;
+  border-color: #6b21a8 !important;
+}
+
+body.dark-mode .col-cash-cell {
+  background-color: rgba(6, 78, 59, 0.28) !important;
+  color: #4ade80 !important;
+}
+
+body.dark-mode .col-inv-cell {
+  background-color: rgba(59, 7, 100, 0.28) !important;
+  color: #c084fc !important;
+}
+
+body.dark-mode .col-balance-head {
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .col-balance-cell {
+  background-color: #121c2c !important;
+}
+
+/* Balance tags in Dark Mode */
+body.dark-mode .bal-owes,
+body.dark-mode .col-balance-cell .bal-owes,
+body.dark-mode .col-balance-cell.bal-owes {
+  color: #fbbf24 !important;
+  font-weight: 800;
+}
+
+body.dark-mode .bal-credit,
+body.dark-mode .col-balance-cell .bal-credit,
+body.dark-mode .col-balance-cell.bal-credit {
+  color: #38bdf8 !important;
+  font-weight: 800;
+}
+
+body.dark-mode .bal-settled,
+body.dark-mode .col-balance-cell .bal-settled,
+body.dark-mode .col-balance-cell.bal-settled {
+  color: #4ade80 !important;
+  font-weight: 800;
+}
+
+/* Number inputs inside tables */
+body.dark-mode .cell-input {
+  background: #0d1522;
+  color: #f1f5f9;
+  border: 1.5px solid #3b4e68;
+}
+
+body.dark-mode .cell-input:focus {
+  background: #101c2e;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3);
+}
+
+body.dark-mode .cell-input-cash {
+  color: #4ade80;
+  font-weight: 800;
+}
+
+body.dark-mode .cell-input-invoice {
+  color: #c084fc;
+  font-weight: 800;
+}
+
+/* Totals rows & sticky columns */
+body.dark-mode .totals-row td,
+body.dark-mode .ledger-totals-row td {
+  background: #090e17 !important;
+  color: #fff !important;
+  border-color: #334155 !important;
+}
+
+/* Friday Banner & Matrix Special Rows in Dark Mode */
+body.dark-mode .friday-banner {
+  background: rgba(245, 158, 11, 0.16) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  color: #fcd34d !important;
+}
+
+body.dark-mode .matrix-received-row td {
+  background: rgba(16, 185, 129, 0.18) !important;
+  color: #4ade80 !important;
+  border-bottom: 2px solid #059669 !important;
+}
+
+body.dark-mode .matrix-distributed-row td {
+  background: rgba(56, 189, 248, 0.16) !important;
+  color: #38bdf8 !important;
+}
+
+body.dark-mode .sticky-col {
+  background-color: #151f32 !important;
+}
+
+body.dark-mode .data-table tbody tr:nth-child(even) .sticky-col {
+  background-color: #111a2b !important;
+}
+
+/* Day strip pills in Tab 1 */
+body.dark-mode .day-pill {
+  background: #151f32;
+  border-color: #273549;
+  color: #cbd5e1;
+}
+
+body.dark-mode .day-pill:hover {
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
+body.dark-mode .day-pill.active {
+  background: #0f766e;
+  border-color: #2dd4bf;
+  color: #ffffff;
+}
+
+body.dark-mode .day-pill.friday {
+  background: #161c28;
+  color: #64748b;
+  border-color: #262c38;
+}
+
+/* Summary cards & KPIs */
+body.dark-mode .daily-kpi-card,
+body.dark-mode .kpi-item,
+body.dark-mode .p-total-card {
+  background: #151f32;
+  border-color: #273549;
+}
+
+body.dark-mode .p-total-card.cash-card {
+  border-top-color: #10b981;
+}
+
+body.dark-mode .p-total-card.invoice-card {
+  border-top-color: #a855f7;
+}
+
+body.dark-mode .p-total-card.net-card {
+  border-top-color: #0ea5e9;
+}
+
+/* Person Tab Sidebar & Month Strip */
+body.dark-mode .person-sidebar {
+  background: #151f32;
+  border-color: #273549;
+}
+
+body.dark-mode .person-sidebar-item {
+  border-bottom-color: #1e293b;
+  color: #cbd5e1;
+}
+
+body.dark-mode .person-sidebar-item:hover {
+  background: #1a273e;
+}
+
+body.dark-mode .person-sidebar-item.active {
+  background: #1a2f44;
+  border-right-color: #38bdf8;
+}
+
+body.dark-mode .person-month-strip {
+  background: #111a2b;
+  border-color: #273549;
+}
+
+body.dark-mode .p-pill {
+  background: #182337;
+  border-color: #2d3d54;
+  color: #cbd5e1;
+}
+
+body.dark-mode .p-pill:hover {
+  background: #202e48;
+  color: #f1f5f9;
+}
+
+body.dark-mode .p-pill.active {
+  background: #1d4ed8;
+  border-color: #60a5fa;
+  color: #fff;
+}
+
+body.dark-mode .person-quick-entry {
+  background: #101826;
+  border-color: #273549;
+}
+
+body.dark-mode .quick-invoice-tags .tag-chip,
+body.dark-mode .tag-chip {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+body.dark-mode .quick-invoice-tags .tag-chip:hover,
+body.dark-mode .tag-chip:hover {
+  background: #2d3d54;
+  color: #fff;
+}
+
+/* Modals in Dark Mode */
+body.dark-mode .modal-card {
+  background: #151f32;
+  border-color: #3b4e68;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  color: #f1f5f9;
+}
+
+body.dark-mode .modal-header {
+  border-bottom-color: #273549;
+}
+
+body.dark-mode .voucher-box {
+  background: #0d1522;
+  border-color: #273549;
+  color: #f1f5f9;
+}
+
+body.dark-mode .voucher-table th {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+body.dark-mode .voucher-table td {
+  border-color: #273549;
+  color: #f1f5f9;
+}
+
+/* Buttons in dark mode */
+body.dark-mode .btn-outline {
+  background: #151f32 !important;
+  border-color: #3b4e68 !important;
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode .btn-outline:hover {
+  background: #1e293b !important;
+  color: #fff !important;
+  border-color: #64748b !important;
+}
+
+body.dark-mode .btn-secondary {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+body.dark-mode .btn-secondary:hover {
+  background: #475569;
+}
+
+/* Settlement badges in Dark Mode */
+body.dark-mode .settlement-badge.owes {
+  background: rgba(251, 191, 36, 0.16);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+body.dark-mode .settlement-badge.credit {
+  background: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+body.dark-mode .settlement-badge.settled {
+  background: rgba(74, 222, 128, 0.16);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.4);
+}
+
+body.dark-mode .settlement-badge.idle {
+  background: rgba(148, 163, 184, 0.16);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+/* Filter pills */
+body.dark-mode .filter-pills .pill {
+  background: #111a2b;
+  border-color: #273549;
+  color: #94a3b8;
+}
+
+body.dark-mode .filter-pills .pill:hover {
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
+body.dark-mode .filter-pills .pill.active {
+  background: #0f766e;
+  border-color: #2dd4bf;
+  color: #fff;
+}
+
+/* Bulk paste box */
+body.dark-mode .bulk-paste-box {
+  background: #101826;
+  border-color: #273549;
+}
+
+/* Toast */
+body.dark-mode .toast {
+  background: #1e293b;
+  color: #f1f5f9;
+  border: 1px solid #475569;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Quick Calculator widget */
+body.dark-mode .calc-popup-card {
+  border-color: #475569;
+}
+
+/* ============================================================================
+   Silky Smooth Theme Transitions (انتقال فائق النعومة والهدوء بدون تقطيع)
+   - تدرج لوني انسيابي وموحد لجميع العناصر في نفس اللحظة (0.35 ثانية)
+   - إزالة التحريك على box-shadow لمنع سقوط الفريمات أو التهنيج
+   ============================================================================ */
+body,
+.app-header,
+.app-nav,
+.nav-tab,
+.card,
+.summary-box,
+.receipt-input-box,
+.receipt-big-input,
+.input-control,
+.select-control,
+.bulk-textarea,
+.cell-input,
+.data-table,
+.data-table th,
+.data-table td,
+.matrix-table,
+.matrix-table th,
+.matrix-table td,
+.ruled-ledger-table,
+.ruled-ledger-table th,
+.ruled-ledger-table td,
+.sticky-col,
+.person-sidebar,
+.person-sidebar-item,
+.p-total-card,
+.daily-kpi-card,
+.modal-card,
+.voucher-box,
+.voucher-table th,
+.voucher-table td,
+.day-pill,
+.p-pill,
+.tag-chip,
+.btn,
+.btn-outline,
+.btn-theme-toggle,
+.toggle-slider-track,
+.period-selector {
+  transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+

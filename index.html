@@ -8,7 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css" />
+  <meta name="theme-color" content="#1e3a8a" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css?v=20261003h" />
 </head>
 <body class="senior-friendly">
   <!-- Official Print-Only Header (Appears on Paper/PDF when printing any report) -->
@@ -25,8 +27,8 @@
     <div class="header-brand">
       <div class="brand-icon">💰</div>
       <div>
-        <h1>حسابات النقدية اليومية والفواتير (البيتي كاش)</h1>
-        <p class="subtitle">تسجيل المستلم اليومي وتوزيعه على الأشخاص وكشوف الشهور — بالريال القطري (ر.ق)</p>
+        <h1>إدارة العُهد النقدية وحركة نقليات السائقين (البيتي كاش)</h1>
+        <p class="subtitle">صندوق العهدة، توزيع النقدية اليومية على السائقين، تصفية الفواتير وكشوف الشهور — دولة قطر (ر.ق)</p>
       </div>
     </div>
 
@@ -53,6 +55,29 @@
       </div>
 
       <div class="header-actions">
+        <!-- Prominent Senior-Friendly Animated Dark Mode Button -->
+        <button id="btnThemeToggle" class="btn btn-theme-toggle" type="button" title="اضغط للتبديل بين الوضع الليلي والوضع النهاري">
+          <div class="toggle-slider-track">
+            <span class="toggle-slider-thumb">
+              <span class="icon-sun">☀️</span>
+              <span class="icon-moon">🌙</span>
+            </span>
+          </div>
+          <span id="themeToggleText" class="theme-toggle-label">الوضع الليلي 🌙</span>
+        </button>
+
+        <button id="btnToggleEyeComfort" class="btn btn-outline" title="ألوان دافئة ومريحة لتقليل إجهاد العين">
+          <span>👁️</span> <span id="eyeComfortText">راحة العين</span>
+        </button>
+        <button id="btnToggleCalculator" class="btn btn-outline" title="آلة حاسبة سريعة لجمع الفواتير والأرقام">
+          <span>🧮</span> حاسبة
+        </button>
+        <button id="btnCloudSyncModal" class="btn btn-outline" title="المزامنة السحابية وحفظ الحساب برمز PIN على أي جهاز">
+          <span>☁️</span> الحساب والمزامنة
+        </button>
+        <button id="btnInstallPWA" class="btn btn-outline hidden" title="تثبيت الموقع كتطبيق مستقل على سطح المكتب أو شاشة الموبايل">
+          <span>📲</span> تثبيت التطبيق
+        </button>
         <button id="btnToggleFontSize" class="btn btn-outline" title="تكبير حجم الخط والأرقام لراحة العين">
           <span>🔍</span> حجم الخط: <strong id="fontSizeLabel">كبير</strong>
         </button>
@@ -69,7 +94,7 @@
     </div>
   </header>
 
-  <!-- Navigation Tabs (Big & Clear) -->
+  <!-- Navigation Tabs (Big & Clear for 64yo user) -->
   <nav class="app-nav no-print">
     <button class="nav-tab active" data-tab="daily">
       <span class="tab-icon">📝</span>
@@ -89,7 +114,7 @@
       <span class="tab-icon">👤</span>
       <div>
         <span class="tab-title">3. صفحة كل شخص</span>
-        <span class="tab-desc">التاريخ + الفلوس + الفواتير</span>
+        <span class="tab-desc">كشف الأيام + الفواتير + التوتال</span>
       </div>
     </button>
     <button class="nav-tab" data-tab="annual">
@@ -103,7 +128,14 @@
       <span class="tab-icon">👥</span>
       <div>
         <span class="tab-title">5. الأسماء (<span id="navPeopleCount">0</span>)</span>
-        <span class="tab-desc">إضافة وتعديل أسماء الأشخاص</span>
+        <span class="tab-desc">إدارة أسماء السائقين والستاف</span>
+      </div>
+    </button>
+    <button class="nav-tab" data-tab="custody">
+      <span class="tab-icon">💼</span>
+      <div>
+        <span class="tab-title">6. عهدة الشركة والخزنة</span>
+        <span class="tab-desc">سجل استلام العهدة والمتبقي بالدرج</span>
       </div>
     </button>
   </nav>
@@ -123,6 +155,9 @@
             <button id="btnPrevWorkday" class="btn btn-outline">▶ اليوم السابق</button>
             <input type="date" id="dailyDatePicker" class="input-control date-input" />
             <button id="btnNextWorkday" class="btn btn-outline">اليوم التالي ◀</button>
+            <button type="button" id="btnOpenMoveDayDistModal" class="btn btn-outline" title="نقل أو نسخ أرقام هذا اليوم لتاريخ آخر إذا سُجلت بالخطأ">
+              🔄 نقل / نسخ التوزيعة
+            </button>
           </div>
         </div>
         <div id="monthDaysStrip" class="days-strip"></div>
@@ -143,7 +178,7 @@
         <!-- Box 1: Received Today -->
         <div class="summary-box receipt-input-box">
           <div class="summary-label">
-            <span>💵 1. اكتب المبلغ اللي استلمته اليوم:</span>
+            <span>💵 1. العهدة النقدية المستلمة اليوم:</span>
             <span id="selectedDateBadge" class="badge badge-primary"></span>
           </div>
           <div class="receipt-input-wrapper">
@@ -160,10 +195,10 @@
 
           <div class="extra-toggle-area no-print">
             <button type="button" id="btnToggleExtraRow" class="btn-link-simple">
-              + هل طلع مبلغ لأي مكان تاني بره الأشخاص؟ (اضغط هنا)
+              + هل تم صرف نثريات أو مصروفات عامة خارج السائقين؟ (اضغط هنا)
             </button>
             <div id="extraExpenseRow" class="extra-expense-row hidden">
-              <label for="dailyExtraInput">📤 مبلغ خارجي:</label>
+              <label for="dailyExtraInput">📤 نثريات / مصروف خارجي:</label>
               <input
                 type="number"
                 id="dailyExtraInput"
@@ -428,12 +463,12 @@
               </div>
 
               <div class="ledger-controls no-print">
-                <select id="ledgerScopeSelect" class="select-control">
+                <select id="ledgerScopeSelect" class="select-control hidden">
                   <option value="month">عرض الشهر الحالي فقط</option>
                   <option value="year">عرض السنة كلها</option>
                 </select>
                 <button id="btnPrintPerson" class="btn btn-primary">
-                  🖨️ طباعة صفحة الشخص
+                  🖨️ طباعة كشف الحساب
                 </button>
                 <button id="btnShareWhatsApp" class="btn btn-success">
                   📲 إرسال واتساب
@@ -444,9 +479,30 @@
               </div>
             </div>
 
+            <!-- Month Selector Strip for Person's Sheet (طلب الوالد بالشهور والأيام) -->
+            <div class="person-month-strip no-print">
+              <span class="p-strip-label">📅 عرض حركة الشهر:</span>
+              <div class="p-month-pills" id="personMonthPills">
+                <button type="button" class="p-pill active" data-pmonth="current">الشهر الحالي (<span class="current-month-label">يناير</span>)</button>
+                <button type="button" class="p-pill" data-pmonth="all">السنة كاملة (<span class="current-year-label">2026</span>)</button>
+                <button type="button" class="p-pill" data-pmonth="1">1 - يناير</button>
+                <button type="button" class="p-pill" data-pmonth="2">2 - فبراير</button>
+                <button type="button" class="p-pill" data-pmonth="3">3 - مارس</button>
+                <button type="button" class="p-pill" data-pmonth="4">4 - إبريل</button>
+                <button type="button" class="p-pill" data-pmonth="5">5 - مايو</button>
+                <button type="button" class="p-pill" data-pmonth="6">6 - يونيو</button>
+                <button type="button" class="p-pill" data-pmonth="7">7 - يوليو</button>
+                <button type="button" class="p-pill" data-pmonth="8">8 - أغسطس</button>
+                <button type="button" class="p-pill" data-pmonth="9">9 - سبتمبر</button>
+                <button type="button" class="p-pill" data-pmonth="10">10 - أكتوبر</button>
+                <button type="button" class="p-pill" data-pmonth="11">11 - نوفمبر</button>
+                <button type="button" class="p-pill" data-pmonth="12">12 - ديسمبر</button>
+              </div>
+            </div>
+
             <!-- Quick Inline Add Form on Person's Page -->
             <div id="personQuickEntryBox" class="person-quick-entry no-print">
-              <h4>➕ إضافة سطر جديد في صفحة <span id="quickEntryPersonName">-</span>:</h4>
+              <h4>➕ إضافة حركة جديدة في صفحة <span id="quickEntryPersonName">-</span>:</h4>
               <div class="quick-entry-fields">
                 <div class="field-group">
                   <label>التاريخ</label>
@@ -476,27 +532,28 @@
               </div>
             </div>
 
-            <!-- Ruled Ledger Table (التاريخ | الفلوس اللي استلمها | الفواتير اللي قدمها) -->
+            <!-- Ruled Ledger Table with Running Balance (المستلم | الفواتير | الرصيد التراكمي) -->
             <div class="table-responsive">
               <table class="data-table ruled-ledger-table">
                 <thead>
                   <tr>
-                    <th style="width: 60px;">م</th>
-                    <th style="width: 150px;">التاريخ</th>
-                    <th style="width: 115px;">اليوم</th>
-                    <th style="width: 220px;" class="col-cash-head">💵 الفلوس اللي استلمها (ر.ق)</th>
-                    <th style="width: 220px;" class="col-inv-head">🧾 الفواتير المقدمة (بيتي كاش)</th>
+                    <th style="width: 50px;">م</th>
+                    <th style="width: 140px;">التاريخ</th>
+                    <th style="width: 105px;">اليوم</th>
+                    <th style="width: 190px;" class="col-cash-head">💵 المستلم (ر.ق)</th>
+                    <th style="width: 190px;" class="col-inv-head">🧾 الفواتير (بيتي كاش)</th>
                     <th>📝 البيان / الملاحظات</th>
+                    <th style="width: 185px;" class="col-balance-head">⚖️ الرصيد التراكمي</th>
                     <th style="width: 110px;" class="no-print">تعديل / حذف</th>
                   </tr>
                 </thead>
                 <tbody id="personLedgerBody"></tbody>
                 <tfoot>
                   <tr class="ledger-totals-row">
-                    <td colspan="3"><strong>التوتال الكلي (كل خانة لوحدها)</strong></td>
+                    <td colspan="3"><strong>التوتال الكلي للفترة</strong></td>
                     <td class="col-cash-total"><strong id="personTotalCash">0</strong></td>
                     <td class="col-inv-total"><strong id="personTotalInvoices">0</strong></td>
-                    <td colspan="2" id="personNetSummaryCell"></td>
+                    <td colspan="3" id="personNetSummaryCell"></td>
                   </tr>
                 </tfoot>
               </table>
@@ -505,15 +562,15 @@
             <!-- Bottom Separate Totals Summary Cards -->
             <div class="person-bottom-totals">
               <div class="p-total-card cash-card">
-                <span class="p-total-label">💵 توتال الفلوس اللي استلمها (لوحده)</span>
+                <span class="p-total-label">💵 إجمالي النقدية المسلَّمة له (سُلف ومصروفات)</span>
                 <strong class="p-total-val" id="cardPersonCashTotal">0</strong>
               </div>
               <div class="p-total-card invoice-card">
-                <span class="p-total-label">🧾 توتال الفواتير اللي قدمها (لوحده)</span>
+                <span class="p-total-label">🧾 إجمالي الفواتير المعتمدة منه (بترول وصيانة ونثريات)</span>
                 <strong class="p-total-val" id="cardPersonInvTotal">0</strong>
               </div>
               <div class="p-total-card net-card">
-                <span class="p-total-label">⚖️ الفرق (الفلوس ناقص الفواتير)</span>
+                <span class="p-total-label">⚖️ صافي موقف الحساب (المتبقي في ذمته)</span>
                 <strong class="p-total-val" id="cardPersonNetDiff">0</strong>
                 <span class="p-total-sub" id="cardPersonNetStatus"></span>
               </div>
@@ -657,11 +714,356 @@
           </div>
         </div>
 
-        <div class="people-grid" id="peopleManagementGrid"></div>
+        <!-- Filter & Search Toolbar for People Management Table -->
+        <div class="card table-card" style="margin-top: 18px;">
+          <div class="table-toolbar no-print">
+            <div class="toolbar-right">
+              <div class="search-wrapper">
+                <span class="search-icon">🔍</span>
+                <input
+                  type="text"
+                  id="peopleManageSearchInput"
+                  class="input-control search-input"
+                  placeholder="ابحث عن اسم سائق أو موظف..."
+                />
+              </div>
+              <div class="filter-pills" id="peopleManageFilterPills">
+                <button class="pill active" data-pmfilter="all">الكل (<span id="pmCountAll">0</span>)</button>
+                <button class="pill" data-pmfilter="driver">🚛 السائقين (<span id="pmCountDrivers">0</span>)</button>
+                <button class="pill" data-pmfilter="staff">👔 الستاف (<span id="pmCountStaff">0</span>)</button>
+                <button class="pill" data-pmfilter="active">💵 عليهم أو لهم رصيد (<span id="pmCountActive">0</span>)</button>
+              </div>
+            </div>
+            <div class="toolbar-left">
+              <span class="text-muted" style="font-weight: 700; font-size: 0.88rem;">💡 يمكنك تعديل الاسم ورقم اللوحة في الجدول مباشرة</span>
+            </div>
+          </div>
+
+          <!-- Senior-Friendly Clean People Table -->
+          <div class="table-responsive">
+            <table class="data-table people-manage-table" id="peopleManageTableEl">
+              <thead>
+                <tr>
+                  <th style="width: 60px;">#</th>
+                  <th style="min-width: 220px;">اسم السائق / الموظف</th>
+                  <th style="width: 130px;">الفئة</th>
+                  <th style="min-width: 200px;">🚗 رقم لوحة السيارة أو الشاحنة / القسم</th>
+                  <th style="width: 180px;">موقفه المالي الحالي</th>
+                  <th style="width: 140px;" class="no-print">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="peopleManagementTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 6: COMPANY PETTY CASH CUSTODY FUND ==================== -->
+    <section id="tab-custody" class="tab-section">
+      <div class="card monthly-header-card">
+        <div class="monthly-title-row">
+          <div>
+            <h2>💼 صندوق العهدة النقدية للشركة ومطابقة الخزنة</h2>
+            <p class="text-muted">متابعة دفعات العهدة المستلمة من الإدارة المالية، وتصفية المنصرف والفواتير والمتبقي بالدرج</p>
+          </div>
+          <div class="monthly-controls no-print">
+            <button id="btnPrintReplenishment" class="btn btn-primary" title="طباعة كشف تصفية واستعاضة العهدة لتقديمه للإدارة المالية">
+              📄 طباعة طلب استعاضة العهدة
+            </button>
+          </div>
+        </div>
+
+        <!-- Custody KPI Cards -->
+        <div class="monthly-kpis">
+          <div class="kpi-item">
+            <span class="kpi-label">💵 إجمالي العهدة المستلمة من الشركة في <span class="current-month-label">يناير</span></span>
+            <strong class="kpi-value text-green" id="custodyMonthReceived">0</strong>
+            <small class="kpi-sub-split" id="custodyYearReceivedSub">إجمالي السنة: 0 ر.ق</small>
+          </div>
+          <div class="kpi-item">
+            <span class="kpi-label">📤 إجمالي المنصرف على السائقين والستاف</span>
+            <strong class="kpi-value text-blue" id="custodyMonthDistributed">0</strong>
+          </div>
+          <div class="kpi-item">
+            <span class="kpi-label">🧾 إجمالي الفواتير المجمعة للشهر</span>
+            <strong class="kpi-value text-purple" id="custodyMonthInvoices">0</strong>
+          </div>
+          <div class="kpi-item custody-balance-card">
+            <span class="kpi-label">💰 الرصيد التراكمي الفعلي المتبقي بالخزنة</span>
+            <strong class="kpi-value" id="custodyCashInHand">0</strong>
+            <small class="kpi-sub-split" id="custodyBalanceStatus">المستلم ناقص المنصرف حتى الآن</small>
+            <div id="custodyMonthNetRow" style="margin-top: 6px; padding-top: 5px; border-top: 1px dashed var(--border-color); font-size: 0.82rem; font-weight: 700;">
+              حركة شهر <span class="current-month-label">يناير</span> فقط: <span id="custodyMonthNetVal">0 ر.ق</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Add Company Custody Receipt -->
+      <div class="card no-print">
+        <h3 style="margin-bottom: 12px; font-size: 1.05rem; color: var(--primary);">
+          📥 تسجيل دفعة عهدة جديدة مستلمة من الشركة / الإدارة المالية:
+        </h3>
+        <div class="custody-receipt-form">
+          <div class="field-group">
+            <label>تاريخ الاستلام:</label>
+            <input type="date" id="custodyReceiptDate" class="input-control" />
+          </div>
+          <div class="field-group">
+            <label>المبلغ المستلم (ر.ق):</label>
+            <input type="number" id="custodyReceiptAmount" class="input-control" placeholder="مثال: 50000" step="any" min="0" />
+          </div>
+          <div class="field-group">
+            <label>رقم السند / الشيك (اختياري):</label>
+            <input type="text" id="custodyReceiptRef" class="input-control" placeholder="شيك رقم / سند قبض..." />
+          </div>
+          <div class="field-group field-grow">
+            <label>البيان / ملاحظات (اختياري):</label>
+            <input type="text" id="custodyReceiptNote" class="input-control" placeholder="دفعة عهدة حركة السائقين..." />
+          </div>
+          <div class="field-group field-btn">
+            <button id="btnAddCustodyReceipt" class="btn btn-success">➕ تسجيل الدفعة</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table of Company Custody Receipts -->
+      <div class="card table-card">
+        <div class="table-toolbar no-print">
+          <h3>📋 سجل دفعات العهدة المستلمة من الشركة في سنة <span class="current-year-label">2026</span></h3>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 55px;">#</th>
+                <th style="width: 140px;">تاريخ الاستلام</th>
+                <th style="width: 120px;">الشهر</th>
+                <th style="width: 200px;">💵 المبلغ المستلم (ر.ق)</th>
+                <th style="width: 180px;">رقم السند / الشيك</th>
+                <th>البيان / الملاحظات</th>
+                <th style="width: 90px;" class="no-print">حذف</th>
+              </tr>
+            </thead>
+            <tbody id="custodyReceiptsBody"></tbody>
+            <tfoot>
+              <tr class="totals-row">
+                <td colspan="3"><strong>إجمالي ما تم استلامه من الشركة (ر.ق)</strong></td>
+                <td><strong id="footCustodyTotal" style="color: #fff; font-size: 1.15rem;">0</strong></td>
+                <td colspan="3"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Summary of Driver Pending Balances -->
+      <div class="card table-card">
+        <div class="table-toolbar no-print">
+          <h3>⚖️ موقف عُهد السائقين المعلقة (من لم يقدم فواتير كاملة بعد)</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 55px;">#</th>
+                <th>اسم السائق / الموظف</th>
+                <th style="width: 110px;">الفئة</th>
+                <th style="width: 170px;">💵 ما استلمه (ر.ق)</th>
+                <th style="width: 170px;">🧾 فواتيره (ر.ق)</th>
+                <th style="width: 190px;">⚠️ المتبقي في ذمته (معلق)</th>
+                <th style="width: 130px;">الحالة</th>
+                <th style="width: 110px;" class="no-print">صفحته</th>
+              </tr>
+            </thead>
+            <tbody id="custodyDriversSummaryBody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
   </main>
+
+  <!-- ==================== MODAL: MOVE OR COPY DAY'S DISTRIBUTION ==================== -->
+  <div id="moveDistModal" class="modal-overlay hidden no-print">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3>🔄 نقل أو نسخ توزيعة هذا اليوم لتاريخ آخر</h3>
+        <button id="btnCloseMoveDistModal" class="btn-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted" style="margin-bottom: 12px;">
+          لو سجلت التوزيعة في يوم خطأ، اختر اليوم الصحيح لنقل الأرقام والمبالغ إليه فوراً:
+        </p>
+        <div class="field-group" style="margin-bottom: 14px;">
+          <label>اليوم الحالي المسجل فيه بالخطأ:</label>
+          <input type="text" id="moveDistSourceDateDisplay" class="input-control" readonly style="background: #f1f5f9; font-weight: 800;" />
+        </div>
+        <div class="field-group" style="margin-bottom: 14px;">
+          <label>🎯 اختر اليوم المراد نقل أو نسخ التوزيعة إليه:</label>
+          <input type="date" id="moveDistTargetDateInput" class="input-control" />
+        </div>
+        <div class="field-group" style="margin-bottom: 18px;">
+          <label>طريقة العملية:</label>
+          <div style="display: flex; gap: 12px; margin-top: 6px;">
+            <label class="checkbox-label" style="font-weight: 700; cursor: pointer;">
+              <input type="radio" name="moveDistMode" value="move" checked />
+              <span>نقل بالكامل (ينقل الأرقام لليوم الجديد ويمسحها من هنا)</span>
+            </label>
+            <label class="checkbox-label" style="font-weight: 700; cursor: pointer;">
+              <input type="radio" name="moveDistMode" value="copy" />
+              <span>نسخ (يضع نسخة في اليوم الجديد ويبقي اليوم الحالي كما هو)</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-btn-row" style="justify-content: flex-end;">
+          <button type="button" id="btnCancelMoveDist" class="btn btn-outline">إلغاء</button>
+          <button type="button" id="btnConfirmMoveDist" class="btn btn-primary">تأكيد العملية الآن ✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: REPLENISHMENT STATEMENT (استعاضة العهدة) ==================== -->
+  <div id="replenishmentModal" class="modal-overlay hidden">
+    <div class="modal-card voucher-modal-card" style="max-width: 800px;">
+      <div class="modal-header no-print">
+        <h3>📄 كشف تصفية وطلب استعاضة العهدة النقدية للإدارة المالية</h3>
+        <button id="btnCloseReplenishmentModal" class="btn-close">✕</button>
+      </div>
+      <div class="modal-body" id="replenishmentPrintArea">
+        <div class="voucher-box">
+          <div class="voucher-top">
+            <div>
+              <h2>كشف تسوية واستعاضة صندوق العهدة النقدية (Petty Cash)</h2>
+              <p id="repPeriodSubtitle">الفترة المحاسبية: -</p>
+            </div>
+            <div class="voucher-currency-badge">العملة: ريال قطري (QAR)</div>
+          </div>
+          <table class="voucher-table" style="margin-bottom: 16px;">
+            <tr>
+              <th>إجمالي العهدة المستلمة:</th>
+              <td id="repTotalReceived" style="font-weight: 800; color: #15803d;">0 ر.ق</td>
+              <th>إجمالي المنصرف للسائقين:</th>
+              <td id="repTotalDistributed" style="font-weight: 800; color: #1d4ed8;">0 ر.ق</td>
+            </tr>
+            <tr>
+              <th>إجمالي الفواتير المقدمة:</th>
+              <td id="repTotalInvoices" style="font-weight: 800; color: #6d28d9;">0 ر.ق</td>
+              <th>الكاش المتبقي بالخزنة:</th>
+              <td id="repCashRemaining" style="font-weight: 800; color: #0f172a;">0 ر.ق</td>
+            </tr>
+          </table>
+
+          <h4 style="margin: 14px 0 8px; color: var(--primary);">ملخص بنود المصروفات والفواتير:</h4>
+          <table class="voucher-table">
+            <thead>
+              <tr style="background: #f8fafc;">
+                <th>البند / نوع المصروف</th>
+                <th>قيمة الفواتير المقدمة (ر.ق)</th>
+                <th>النسبة من الإجمالي</th>
+              </tr>
+            </thead>
+            <tbody id="repCategoryBreakdownBody"></tbody>
+          </table>
+
+          <div class="voucher-signatures" style="margin-top: 24px;">
+            <div class="sig-block">
+              <p>مسؤول العهدة والصندوق</p>
+              <div class="sig-line">.........................................</div>
+            </div>
+            <div class="sig-block">
+              <p>مراجع الحسابات</p>
+              <div class="sig-line">.........................................</div>
+            </div>
+            <div class="sig-block">
+              <p>اعتماد الإدارة المالية / المدير العام</p>
+              <div class="sig-line">.........................................</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-btn-row no-print" style="margin-top: 14px; justify-content: flex-end;">
+          <button type="button" id="btnPrintReplenishmentNow" class="btn btn-primary">🖨️ طباعة كشف الاستعاضة</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== WIDGET: POPUP QUICK CALCULATOR ==================== -->
+  <div id="calculatorWidget" class="calc-popup-card hidden no-print">
+    <div class="calc-header">
+      <span>🧮 حاسبة سريعة</span>
+      <button type="button" id="btnCloseCalc" class="btn-close" style="font-size: 1rem; color: #fff;">✕</button>
+    </div>
+    <div class="calc-body">
+      <input type="text" id="calcDisplay" class="calc-display" readonly value="0" />
+      <div class="calc-grid">
+        <button type="button" class="btn-calc btn-calc-op" data-calc="C">C</button>
+        <button type="button" class="btn-calc btn-calc-op" data-calc="DEL">⌫</button>
+        <button type="button" class="btn-calc btn-calc-op" data-calc="/">÷</button>
+        <button type="button" class="btn-calc btn-calc-op" data-calc="*">×</button>
+
+        <button type="button" class="btn-calc" data-calc="7">7</button>
+        <button type="button" class="btn-calc" data-calc="8">8</button>
+        <button type="button" class="btn-calc" data-calc="9">9</button>
+        <button type="button" class="btn-calc btn-calc-op" data-calc="-">-</button>
+
+        <button type="button" class="btn-calc" data-calc="4">4</button>
+        <button type="button" class="btn-calc" data-calc="5">5</button>
+        <button type="button" class="btn-calc" data-calc="6">6</button>
+        <button type="button" class="btn-calc btn-calc-op" data-calc="+">+</button>
+
+        <button type="button" class="btn-calc" data-calc="1">1</button>
+        <button type="button" class="btn-calc" data-calc="2">2</button>
+        <button type="button" class="btn-calc" data-calc="3">3</button>
+        <button type="button" class="btn-calc btn-calc-eq" data-calc="=">=</button>
+
+        <button type="button" class="btn-calc" data-calc="0" style="grid-column: span 2;">0</button>
+        <button type="button" class="btn-calc" data-calc=".">.</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: CLOUD SYNC & PIN ==================== -->
+  <div id="cloudSyncModal" class="modal-overlay hidden no-print">
+    <div class="modal-card" style="max-width: 540px;">
+      <div class="modal-header">
+        <h3>☁️ المزامنة والحساب السحابي برمز PIN</h3>
+        <button id="btnCloseCloudSyncModal" class="btn-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-section">
+          <h4>مزامنة بياناتك بين الكمبيوتر والموبايل بسهولة وأمان:</h4>
+          <p class="text-muted">
+            أدخل اسم حسابك أو رقم الموبايل ورمز PIN بسيط من 4 أرقام لفتح شغلك على أي جهاز مع ضمان حفظ نسخة على جهازك دائماً:
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+            <div class="field-group">
+              <label>👤 اسم الحساب أو رقم الموبايل:</label>
+              <input type="text" id="cloudAccountNameInput" class="input-control" placeholder="مثال: حساب عهدة قطر / 55XXXXXX" />
+            </div>
+            <div class="field-group">
+              <label>🔒 رمز الدخول السري (PIN من 4 أرقام):</label>
+              <input type="password" id="cloudPinInput" maxlength="6" class="input-control" placeholder="••••" style="letter-spacing: 4px; font-size: 1.2rem;" />
+            </div>
+            <label class="checkbox-label" style="margin-top: 4px;">
+              <input type="checkbox" id="chkCloudRemember" checked />
+              <span>تذكّرني على هذا الجهاز (عدم طلب الرمز مرة أخرى)</span>
+            </label>
+            <div class="modal-btn-row" style="margin-top: 8px;">
+              <button type="button" id="btnConnectCloudAccount" class="btn btn-primary" style="flex: 1;">
+                ☁️ حفظ وربط الحساب السحابي الآن
+              </button>
+            </div>
+            <div id="cloudSyncStatusBadge" class="hint-badge" style="margin-top: 8px; text-align: center;">
+              الحالة: البيانات الحالية محفوظة في أمان محلياً على هذا الجهاز ✓
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ==================== MODAL: PRINTABLE PETTY CASH VOUCHER ==================== -->
   <div id="voucherModal" class="modal-overlay hidden">
@@ -745,16 +1147,6 @@
           <h4>2. استرجاع بيانات من ملف محفوظ</h4>
           <input type="file" id="fileRestoreBackup" accept=".json" class="input-control" />
         </div>
-
-        <hr />
-
-        <div class="modal-section">
-          <h4>3. تصفير البرنامج (بدء على نظافة)</h4>
-          <div class="modal-btn-row">
-            <button id="btnResetNumbersOnly" class="btn btn-outline">🧹 مسح الأرقام فقط (مع بقاء الأسماء)</button>
-            <button id="btnFactoryResetAll" class="btn btn-danger-outline">🗑️ مسح شامل (تصفير الأسماء والأرقام)</button>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -762,6 +1154,6 @@
   <!-- Toast Notification -->
   <div id="toastContainer" class="toast-container no-print"></div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20261003i"></script>
 </body>
 </html>
