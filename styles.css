@@ -412,7 +412,7 @@ body {
 /* Daily Summary Grid */
 .daily-summary-grid {
   display: grid;
-  grid-template-columns: 1.45fr 1fr 1.1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-bottom: 18px;
 }
@@ -440,9 +440,19 @@ body {
   justify-content: space-between;
 }
 
+.opening-box {
+  border-right: 5px solid var(--amber);
+  background: linear-gradient(to left, #fffbeb, #ffffff);
+}
+
 .receipt-input-box {
   border-right: 5px solid var(--primary);
   background: linear-gradient(to left, #f0fdfa, #ffffff);
+}
+
+.returned-box {
+  border-right: 5px solid #10b981;
+  background: linear-gradient(to left, #ecfdf5, #ffffff);
 }
 
 .distributed-box {
@@ -456,6 +466,34 @@ body {
 .balance-box.matched {
   border-right-color: var(--green);
   background: #f0fdf4;
+}
+
+.auto-carry-pill {
+  display: inline-block;
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-align: center;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+body.dark-mode .auto-carry-pill {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+body.dark-mode .opening-box {
+  background: linear-gradient(to left, #292524, #1e293b);
+}
+
+body.dark-mode .returned-box {
+  background: linear-gradient(to left, #064e3b, #1e293b);
 }
 
 .balance-box.over {
@@ -771,6 +809,86 @@ body {
   border-color: #a855f7;
   background: #f3e8ff;
   color: #4c1d95;
+}
+
+.cell-input.ret-input:focus {
+  border-color: #10b981;
+  background: #ecfdf5;
+}
+
+.cell-input.has-val-ret {
+  border-color: #10b981;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.text-emerald {
+  color: #059669 !important;
+}
+
+body.dark-mode .text-emerald {
+  color: #34d399 !important;
+}
+
+body.dark-mode .cell-input.has-val-ret {
+  background: #064e3b;
+  color: #a7f3d0;
+  border-color: #059669;
+}
+
+.driver-debt-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.driver-debt-badge.debt-settled {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.driver-debt-badge.debt-owing {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.driver-debt-badge.debt-credit {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+body.dark-mode .driver-debt-badge.debt-settled {
+  background: #064e3b;
+  color: #a7f3d0;
+  border-color: #047857;
+}
+
+body.dark-mode .driver-debt-badge.debt-owing {
+  background: #78350f;
+  color: #fde68a;
+  border-color: #d97706;
+}
+
+body.dark-mode .driver-debt-badge.debt-credit {
+  background: #0c4a6e;
+  color: #bae6fd;
+  border-color: #0284c7;
+}
+
+.driver-debt-breakdown {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.35;
+  font-weight: 600;
 }
 
 .inline-name-input {
@@ -1203,6 +1321,11 @@ body.dark-mode .custody-balance-card {
 .p-total-card.net-card {
   background: #eff6ff;
   border-color: #93c5fd;
+}
+
+.p-total-card.returned-card {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
 }
 
 .p-total-label {
@@ -2576,6 +2699,10 @@ body.dark-mode .p-total-card.invoice-card {
 
 body.dark-mode .p-total-card.net-card {
   border-top-color: #0ea5e9;
+}
+
+body.dark-mode .p-total-card.returned-card {
+  border-top-color: #10b981;
 }
 
 /* Person Tab Sidebar & Month Strip */

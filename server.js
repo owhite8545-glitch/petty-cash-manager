@@ -3,33 +3,34 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = 8080;
-const MIME_TYPES = {
+const MIME = {
   '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
-  '.js': 'application/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
+  '.json': 'application/json',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon'
+  '.ico': 'image/x-icon',
+  '.svg': 'image/svg+xml'
 };
 
 const server = http.createServer((req, res) => {
-  const safePath = req.url === '/' ? '/index.html' : req.url.split('?')[0];
-  const filePath = path.join(__dirname, safePath);
-  const ext = path.extname(filePath).toLowerCase();
+  let reqPath = req.url.split('?')[0];
+  if (reqPath === '/' || reqPath === '') reqPath = '/index.html';
+  const filePath = path.join(__dirname, reqPath);
 
-  fs.readFile(filePath, (err, content) => {
+  fs.readFile(filePath, (err, data) => {
     if (err) {
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('Not Found');
+      res.end('404 Not Found');
       return;
     }
-    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
-    res.end(content);
+    const ext = path.extname(filePath).toLowerCase();
+    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    res.end(data);
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+server.listen(PORT, '127.0.0.1', () => {
+  console.log(`Server running at http://127.0.0.1:${PORT}/`);
 });

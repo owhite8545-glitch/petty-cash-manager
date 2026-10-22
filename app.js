@@ -18,12 +18,42 @@ const ARABIC_DAYS = [
 
 function createCleanData() {
   return {
+    schemaVersion: 3,
     people: [],        // { id, num, name, role: 'driver'|'staff', meta: 'رقم السيارة / القسم' }
     dailyReceipts: {}, // { "YYYY-MM-DD": number }
     dailyExtras: {},   // { "YYYY-MM-DD": { amount: number, note: string } }
-    entries: {},       // { "YYYY-MM-DD": { [personId]: { cash: number, invoice: number, note: string } } }
+    entries: {},       // { "YYYY-MM-DD": { [personId]: { cash: number, invoice: number, returnedCash: number, note: string } } }
     custodyReceipts: [] // [ { id, date, amount, ref, note } ] (Company custody fund receipts)
   };
+}
+
+function migrateStateIfNeeded() {
+  if (!state.data) return;
+  if (!state.data.schemaVersion || state.data.schemaVersion < 3) {
+    try {
+      const rawCurrent = localStorage.getItem(STORAGE_KEY);
+      if (rawCurrent && !localStorage.getItem('petty_cash_backup_pre_v3')) {
+        localStorage.setItem('petty_cash_backup_pre_v3', rawCurrent);
+      }
+    } catch (e) {}
+
+    if (state.data.entries) {
+      Object.values(state.data.entries).forEach(dayObj => {
+        if (dayObj && typeof dayObj === 'object') {
+          Object.values(dayObj).forEach(entry => {
+            if (entry && typeof entry === 'object') {
+              if (entry.returnedCash === undefined) {
+                entry.returnedCash = 0;
+              }
+            }
+          });
+        }
+      });
+    }
+
+    state.data.schemaVersion = 3;
+    saveState();
+  }
 }
 
 function create60BlankSlots() {
@@ -106,6 +136,8 @@ function loadState() {
   if (!state.data || !Array.isArray(state.data.people)) {
     state.data = createCleanData();
     saveState();
+  } else {
+    migrateStateIfNeeded();
   }
 
   try {
@@ -207,7 +239,7 @@ function hasPersonAnyEntryInYear(personId, year) {
   for (const [dateKey, dayObj] of Object.entries(state.data.entries)) {
     if (dateKey.startsWith(prefix) && dayObj && dayObj[personId]) {
       const e = dayObj[personId];
-      if ((Number(e.cash) || 0) > 0 || (Number(e.invoice) || 0) > 0 || (e.note && e.note.trim() !== '')) {
+      if ((Number(e.cash) || 0) > 0 || (Number(e.invoice) || 0) > 0 || (Number(e.returnedCash) || 0) > 0 || (e.note && e.note.trim() !== '')) {
         return true;
       }
     }
@@ -266,11 +298,12 @@ function setDayExtra(dateStr, updates) {
 function getPersonEntry(dateStr, personId) {
   const dayObj = state.data.entries[dateStr];
   if (!dayObj || !dayObj[personId]) {
-    return { cash: 0, invoice: 0, note: '' };
+    return { cash: 0, invoice: 0, returnedCash: 0, note: '' };
   }
   return {
     cash: Number(dayObj[personId].cash) || 0,
     invoice: Number(dayObj[personId].invoice) || 0,
+    returnedCash: Number(dayObj[personId].returnedCash) || 0,
     note: dayObj[personId].note || ''
   };
 }
@@ -283,10 +316,11 @@ function setPersonEntry(dateStr, personId, updates) {
   const next = {
     cash: updates.cash !== undefined ? (Number(updates.cash) || 0) : current.cash,
     invoice: updates.invoice !== undefined ? (Number(updates.invoice) || 0) : current.invoice,
+    returnedCash: updates.returnedCash !== undefined ? (Number(updates.returnedCash) || 0) : current.returnedCash,
     note: updates.note !== undefined ? String(updates.note) : current.note
   };
 
-  if (next.cash === 0 && next.invoice === 0 && !next.note.trim()) {
+  if (next.cash === 0 && next.invoice === 0 && next.returnedCash === 0 && !next.note.trim()) {
     delete state.data.entries[dateStr][personId];
     if (Object.keys(state.data.entries[dateStr]).length === 0) {
       delete state.data.entries[dateStr];
@@ -295,6 +329,79 @@ function setPersonEntry(dateStr, personId, updates) {
     state.data.entries[dateStr][personId] = next;
   }
   saveState();
+}
+
+function getCumulativeCalculationsUpTo(targetDateKey) {
+  const allDatesSet = new Set();
+  Object.keys(state.data.dailyReceipts || {}).forEach(d => allDatesSet.add(d));
+  Object.keys(state.data.dailyExtras || {}).forEach(d => allDatesSet.add(d));
+  Object.keys(state.data.entries || {}).forEach(d => allDatesSet.add(d));
+  if (targetDateKey) allDatesSet.add(targetDateKey);
+
+  const sortedDates = Array.from(allDatesSet).sort();
+
+  let runningBox = 0;
+  let openingBox = 0;
+  const driverDebts = {};
+  const driverOpeningDebts = {};
+
+  state.data.people.forEach(p => {
+    driverDebts[p.id] = 0;
+    driverOpeningDebts[p.id] = 0;
+  });
+
+  for (const dateKey of sortedDates) {
+    if (dateKey === targetDateKey) {
+      openingBox = runningBox;
+      state.data.people.forEach(p => {
+        driverOpeningDebts[p.id] = driverDebts[p.id] || 0;
+      });
+    }
+
+    const rec = Number(state.data.dailyReceipts[dateKey]) || 0;
+    const extra = (state.data.dailyExtras && state.data.dailyExtras[dateKey])
+      ? (Number(state.data.dailyExtras[dateKey].amount) || 0)
+      : 0;
+    const dayEntries = (state.data.entries && state.data.entries[dateKey]) || {};
+
+    let dayDist = 0;
+    let dayRet = 0;
+
+    Object.entries(dayEntries).forEach(([pid, e]) => {
+      const c = Number(e.cash) || 0;
+      const inv = Number(e.invoice) || 0;
+      const ret = Number(e.returnedCash) || 0;
+
+      dayDist += c;
+      dayRet += ret;
+
+      if (!driverDebts[pid]) driverDebts[pid] = 0;
+      driverDebts[pid] += (c - inv - ret);
+    });
+
+    const dayOut = dayDist + extra;
+    const dayNetFlow = rec + dayRet - dayOut;
+    runningBox += dayNetFlow;
+
+    if (dateKey === targetDateKey) {
+      break;
+    }
+  }
+
+  if (sortedDates.length === 0 || targetDateKey < sortedDates[0]) {
+    openingBox = 0;
+    state.data.people.forEach(p => {
+      driverOpeningDebts[p.id] = 0;
+      driverDebts[p.id] = 0;
+    });
+  }
+
+  return {
+    openingBoxBalance: Number(openingBox.toFixed(2)),
+    closingBoxBalance: Number(runningBox.toFixed(2)),
+    driverOpeningDebt: driverOpeningDebts,
+    driverClosingDebt: driverDebts
+  };
 }
 
 function getLastPreviousReceipt(personId, beforeDateStr) {
@@ -316,6 +423,7 @@ function getLastPreviousReceipt(personId, beforeDateStr) {
 }
 
 function getDayTotals(dateStr) {
+  const cum = getCumulativeCalculationsUpTo(dateStr);
   const received = getDayReceived(dateStr);
   const extra = getDayExtra(dateStr);
   const dayEntries = state.data.entries[dateStr] || {};
@@ -323,12 +431,15 @@ function getDayTotals(dateStr) {
   let driversDistributed = 0;
   let staffDistributed = 0;
   let invoices = 0;
+  let returnedCash = 0;
   let activeCashCount = 0;
   let activeInvoiceCount = 0;
+  let activeReturnedCount = 0;
 
   Object.entries(dayEntries).forEach(([pid, entry]) => {
     const c = Number(entry.cash) || 0;
     const inv = Number(entry.invoice) || 0;
+    const ret = Number(entry.returnedCash) || 0;
     const person = state.data.people.find(p => p.id === pid);
     if (c > 0) {
       distributed += c;
@@ -343,22 +454,33 @@ function getDayTotals(dateStr) {
       invoices += inv;
       activeInvoiceCount++;
     }
+    if (ret > 0) {
+      returnedCash += ret;
+      activeReturnedCount++;
+    }
   });
 
   const totalOut = distributed + extra.amount;
+  const totalIn = received + returnedCash;
 
   return {
+    openingBalance: cum.openingBoxBalance,
     received,
+    returnedCash,
     distributed,
     driversDistributed,
     staffDistributed,
     extraAmount: extra.amount,
     extraNote: extra.note,
     totalOut,
-    remaining: received - totalOut,
+    totalIn,
+    remaining: cum.closingBoxBalance,
     invoices,
     activeCashCount,
-    activeInvoiceCount
+    activeInvoiceCount,
+    activeReturnedCount,
+    driverOpeningDebt: cum.driverOpeningDebt,
+    driverClosingDebt: cum.driverClosingDebt
   };
 }
 
@@ -366,24 +488,56 @@ function getPersonMonthTotals(personId, year, month) {
   const daysCount = getDaysInMonth(year, month);
   let cash = 0;
   let invoice = 0;
+  let returnedCash = 0;
   for (let d = 1; d <= daysCount; d++) {
     const dateKey = formatDateKey(year, month, d);
     const entry = getPersonEntry(dateKey, personId);
     cash += entry.cash;
     invoice += entry.invoice;
+    returnedCash += entry.returnedCash;
   }
-  return { cash, invoice, diff: cash - invoice };
+  const startDate = formatDateKey(year, month, 1);
+  const endDate = formatDateKey(year, month, daysCount);
+  const startCum = getCumulativeCalculationsUpTo(startDate);
+  const endCum = getCumulativeCalculationsUpTo(endDate);
+  const openingDebt = (startCum.driverOpeningDebt && startCum.driverOpeningDebt[personId]) || 0;
+  const closingDebt = (endCum.driverClosingDebt && endCum.driverClosingDebt[personId]) || 0;
+
+  return {
+    cash,
+    invoice,
+    returnedCash,
+    openingDebt,
+    closingDebt,
+    diff: cash - (invoice + returnedCash)
+  };
 }
 
 function getPersonYearTotals(personId, year) {
   let cash = 0;
   let invoice = 0;
+  let returnedCash = 0;
   for (let m = 1; m <= 12; m++) {
     const mt = getPersonMonthTotals(personId, year, m);
     cash += mt.cash;
     invoice += mt.invoice;
+    returnedCash += mt.returnedCash;
   }
-  return { cash, invoice, diff: cash - invoice };
+  const startYearDate = `${year}-01-01`;
+  const endYearDate = `${year}-12-31`;
+  const startCum = getCumulativeCalculationsUpTo(startYearDate);
+  const endCum = getCumulativeCalculationsUpTo(endYearDate);
+  const openingDebt = (startCum.driverOpeningDebt && startCum.driverOpeningDebt[personId]) || 0;
+  const closingDebt = (endCum.driverClosingDebt && endCum.driverClosingDebt[personId]) || 0;
+
+  return {
+    cash,
+    invoice,
+    returnedCash,
+    openingDebt,
+    closingDebt,
+    diff: cash - (invoice + returnedCash)
+  };
 }
 
 function getCustodyReceiptsForMonth(year, month) {
@@ -396,17 +550,20 @@ function getCustodyReceiptsForYear(year) {
   return (state.data.custodyReceipts || []).filter(r => r && r.date && r.date.startsWith(prefix));
 }
 
-function getSettlementBadgeHtml(cash, invoice) {
-  if (cash === 0 && invoice === 0) {
-    return `<span class="settlement-badge idle">لا توجد حركة</span>`;
-  }
-  const diff = cash - invoice;
+function getSettlementBadgeHtml(cash, invoice, returnedCash = 0, netDiffOverride) {
+  const diff = netDiffOverride !== undefined
+    ? netDiffOverride
+    : (cash - invoice - (returnedCash || 0));
+
   if (Math.abs(diff) < 0.001) {
-    return `<span class="settlement-badge settled">خالص بالفواتير ✓</span>`;
+    if (cash === 0 && invoice === 0 && (returnedCash || 0) === 0 && netDiffOverride === undefined) {
+      return `<span class="settlement-badge idle">لا توجد حركة</span>`;
+    }
+    return `<span class="settlement-badge settled">خالص ومصفى بالكامل ✓</span>`;
   } else if (diff > 0) {
-    return `<span class="settlement-badge owes">متبقي بعهدته: ${formatNumber(diff)}</span>`;
+    return `<span class="settlement-badge owes">متبقي بعهدته: ${formatNumber(diff)} ر.ق</span>`;
   } else {
-    return `<span class="settlement-badge credit">له فرق مستحق: ${formatNumber(Math.abs(diff))}</span>`;
+    return `<span class="settlement-badge credit">له فرق مستحق: ${formatNumber(Math.abs(diff))} ر.ق</span>`;
   }
 }
 
@@ -491,7 +648,7 @@ function updateActiveDayPillHasData() {
   const activePill = document.querySelector('#monthDaysStrip .day-pill.active');
   if (activePill) {
     const totals = getDayTotals(state.selectedDate);
-    const hasData = totals.received > 0 || totals.distributed > 0 || totals.invoices > 0 || totals.extraAmount > 0;
+    const hasData = totals.received > 0 || totals.distributed > 0 || totals.invoices > 0 || totals.returnedCash > 0 || totals.extraAmount > 0;
     activePill.classList.toggle('has-data', hasData);
   }
 }
@@ -507,7 +664,7 @@ function renderDaysStrip(shouldCenter = false) {
     const dayName = getArabicDayName(state.year, state.month, d);
     const isFri = getDayOfWeekIndex(state.year, state.month, d) === 5;
     const totals = getDayTotals(dateKey);
-    const hasData = totals.received > 0 || totals.distributed > 0 || totals.invoices > 0 || totals.extraAmount > 0;
+    const hasData = totals.received > 0 || totals.distributed > 0 || totals.invoices > 0 || totals.returnedCash > 0 || totals.extraAmount > 0;
 
     const pill = document.createElement('div');
     pill.className = 'day-pill';
@@ -563,11 +720,29 @@ function renderDailySummaryCards() {
 
   const totals = getDayTotals(state.selectedDate);
 
+  // 1. Opening Safe Balance
+  const openingEl = document.getElementById('openingBalanceDisplay');
+  if (openingEl) {
+    openingEl.textContent = formatNumber(totals.openingBalance);
+  }
+
+  // 2. Daily Received Input
   const recInput = document.getElementById('dailyReceivedInput');
   if (document.activeElement !== recInput) {
     recInput.value = totals.received > 0 ? totals.received : '';
   }
 
+  // 3. Returned Cash Display & Count
+  const returnedEl = document.getElementById('totalReturnedDisplay');
+  if (returnedEl) {
+    returnedEl.textContent = formatNumber(totals.returnedCash);
+  }
+  const retCountEl = document.getElementById('dailyReturnedPeopleCount');
+  if (retCountEl) {
+    retCountEl.textContent = totals.activeReturnedCount;
+  }
+
+  // Extra expenses row
   const extraRow = document.getElementById('extraExpenseRow');
   const extraInput = document.getElementById('dailyExtraInput');
   const extraNoteInput = document.getElementById('dailyExtraNoteInput');
@@ -581,14 +756,17 @@ function renderDailySummaryCards() {
     extraNoteInput.value = totals.extraNote || '';
   }
 
+  // 4. Distributed Total
   document.getElementById('dailyDistributedTotal').textContent = formatNumber(totals.distributed);
   document.getElementById('dailyActivePeopleCount').textContent = totals.activeCashCount;
   document.getElementById('dailyDriversSplit').textContent = `سائقين: ${formatNumber(totals.driversDistributed)}`;
   document.getElementById('dailyStaffSplit').textContent = `ستاف: ${formatNumber(totals.staffDistributed)}`;
 
+  // 6. Invoices Total
   document.getElementById('dailyInvoicesTotal').textContent = formatNumber(totals.invoices);
   document.getElementById('dailyInvoicePeopleCount').textContent = totals.activeInvoiceCount;
 
+  // 5. Remaining Cash Balance in Safe
   const balanceBox = document.getElementById('dailyBalanceBox');
   const remValEl = document.getElementById('dailyRemainingValue');
   const statusEl = document.getElementById('dailyMatchStatus');
@@ -596,26 +774,25 @@ function renderDailySummaryCards() {
 
   balanceBox.classList.remove('matched', 'over');
   remValEl.className = 'summary-value';
-  carryBtn.classList.add('hidden');
+  if (carryBtn) carryBtn.classList.add('hidden'); // Automatic continuous rollover
 
-  if (totals.received === 0 && totals.totalOut === 0) {
+  if (totals.openingBalance === 0 && totals.received === 0 && totals.returnedCash === 0 && totals.totalOut === 0) {
     remValEl.textContent = '0';
-    statusEl.textContent = 'اكتب المبلغ اللي استلمته اليوم بالأول';
-  } else if (Math.abs(totals.remaining) < 0.001 && totals.received > 0) {
+    statusEl.textContent = 'القاصة متزنة (لا توجد حركة مسجلة اليوم)';
+  } else if (Math.abs(totals.remaining) < 0.001) {
     balanceBox.classList.add('matched');
     remValEl.classList.add('text-green');
-    remValEl.textContent = '0 ✓ مطابق';
-    statusEl.textContent = 'ممتاز! المبلغ المستلم اتوزع بالكامل بالظبط';
+    remValEl.textContent = '0 ✓ متزن';
+    statusEl.textContent = 'الخزينة صفر (تم التوزيع بالكامل بالظبط)';
   } else if (totals.remaining > 0) {
     remValEl.classList.add('text-amber');
     remValEl.textContent = formatNumber(totals.remaining);
-    statusEl.textContent = `باقي ${formatNumber(totals.remaining)} ر.ق لسه ما اتوزعتش`;
-    carryBtn.classList.remove('hidden');
+    statusEl.textContent = `متاح بالقاصة ${formatNumber(totals.remaining)} ر.ق (يرحل تلقائياً للأيام التالية)`;
   } else {
     balanceBox.classList.add('over');
     remValEl.classList.add('text-danger');
     remValEl.textContent = formatNumber(totals.remaining);
-    statusEl.textContent = `تنبيه: التوزيع زاد عن المستلم بـ ${formatNumber(Math.abs(totals.remaining))} ر.ق`;
+    statusEl.textContent = `تنبيه: عجز بالقاصة بـ ${formatNumber(Math.abs(totals.remaining))} ر.ق`;
   }
 
   // Update filter pill counts
@@ -623,11 +800,11 @@ function renderDailySummaryCards() {
   const staffCount = state.data.people.filter(p => p.role === 'staff').length;
   const activeTodayCount = state.data.people.filter(p => {
     const e = getPersonEntry(state.selectedDate, p.id);
-    return e.cash > 0 || e.invoice > 0;
+    return e.cash > 0 || e.invoice > 0 || e.returnedCash > 0;
   }).length;
   const unsettledMonthCount = state.data.people.filter(p => {
     const mt = getPersonMonthTotals(p.id, state.year, state.month);
-    return mt.diff > 0.001;
+    return Math.abs(mt.closingDebt || mt.diff) > 0.001;
   }).length;
 
   document.getElementById('countAll').textContent = state.data.people.length;
@@ -639,10 +816,10 @@ function renderDailySummaryCards() {
   // Footer totals
   document.getElementById('footDailyCash').textContent = formatNumber(totals.distributed);
   document.getElementById('footDailyInvoices').textContent = formatNumber(totals.invoices);
+  const footRet = document.getElementById('footDailyReturned');
+  if (footRet) footRet.textContent = formatNumber(totals.returnedCash);
   document.getElementById('footDailyNote').textContent =
-    totals.received > 0
-      ? `المستلم: ${formatNumber(totals.received)} ر.ق | الموزع: ${formatNumber(totals.distributed)} ر.ق | المتبقي: ${formatNumber(totals.remaining)} ر.ق`
-      : '';
+    `المتاح بالخزينة: ${formatNumber(totals.openingBalance + totals.received + totals.returnedCash)} | المنصرف: ${formatNumber(totals.totalOut)} | المتبقي: ${formatNumber(totals.remaining)} ر.ق`;
 
   updateFillRemainingChips();
 }
@@ -661,6 +838,38 @@ function updateFillRemainingChips() {
   });
 }
 
+function getDriverLiveDebtBadgeHtml(openingDebt, cash, invoice, returnedCash) {
+  const netDebt = (Number(openingDebt) || 0) + (Number(cash) || 0) - (Number(invoice) || 0) - (Number(returnedCash) || 0);
+  const hasMovement = Math.abs(openingDebt) > 0.001 || cash > 0 || invoice > 0 || returnedCash > 0;
+
+  if (!hasMovement) {
+    return `<span class="driver-debt-badge idle">لا توجد حركة</span>`;
+  }
+
+  let badgeClass = 'debt-settled';
+  let badgeText = 'خالص ومصفى (0 ر.ق) ✓';
+  if (netDebt > 0.001) {
+    badgeClass = 'debt-owing';
+    badgeText = `متبقي بعهدته: ${formatNumber(netDebt)} ر.ق`;
+  } else if (netDebt < -0.001) {
+    badgeClass = 'debt-credit';
+    badgeText = `له مستحق: ${formatNumber(Math.abs(netDebt))} ر.ق`;
+  }
+
+  const signCash = cash > 0 ? `+${formatNumber(cash)}` : '0';
+  const signInv = invoice > 0 ? `-${formatNumber(invoice)}` : '0';
+  const signRet = returnedCash > 0 ? `-${formatNumber(returnedCash)}` : '0';
+
+  const breakdown = `ما قبله: ${formatNumber(openingDebt)} | كاش: ${signCash} | فواتير: ${signInv} | مرتجع: ${signRet} => المتبقي: ${formatNumber(netDebt)} ر.ق`;
+
+  return `
+    <div class="driver-debt-cell-wrap">
+      <span class="driver-debt-badge ${badgeClass}">${badgeText}</span>
+      <div class="driver-debt-breakdown" title="${breakdown}">${breakdown}</div>
+    </div>
+  `;
+}
+
 function renderDailyTable() {
   const tbody = document.getElementById('dailyDistributionBody');
   tbody.innerHTML = '';
@@ -676,7 +885,7 @@ function renderDailyTable() {
   }
   const footNoteTd = document.getElementById('footDailyNote');
   if (footNoteTd) {
-    footNoteTd.setAttribute('colspan', showExt ? '4' : '2');
+    footNoteTd.setAttribute('colspan', '1');
   }
   const toggleBtn = document.getElementById('btnToggleDetailedCols');
   if (toggleBtn) {
@@ -688,7 +897,7 @@ function renderDailyTable() {
   if (state.data.people.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="${showExt ? 10 : 6}">
+        <td colspan="${showExt ? 11 : 7}">
           <div class="empty-state-box">
             <h4>✨ أهلاً بك! الجدول جاهز لإضافة الأسماء</h4>
             <p>اضغط على الزر الأخضر بالأسفل لتجهيز الـ 60 خانة مرقمة فوراً، أو اكتب الأسماء واحداً تلو الآخر من الأعلى:</p>
@@ -731,11 +940,11 @@ function renderDailyTable() {
     if (state.dailyCategoryFilter === 'staff' && person.role !== 'staff') return false;
     if (state.dailyCategoryFilter === 'active_today') {
       const e = getPersonEntry(state.selectedDate, person.id);
-      if (e.cash <= 0 && e.invoice <= 0) return false;
+      if (e.cash <= 0 && e.invoice <= 0 && e.returnedCash <= 0) return false;
     }
     if (state.dailyCategoryFilter === 'unsettled_month') {
       const mt = getPersonMonthTotals(person.id, state.year, state.month);
-      if (mt.diff <= 0.001) return false;
+      if (Math.abs(mt.closingDebt || mt.diff) <= 0.001) return false;
     }
     if (q) {
       const dispName = getPersonDisplayName(person).toLowerCase();
@@ -747,10 +956,13 @@ function renderDailyTable() {
     return true;
   });
 
+  const dayCum = getCumulativeCalculationsUpTo(state.selectedDate);
+
   filtered.forEach(person => {
     const entry = getPersonEntry(state.selectedDate, person.id);
     const monthTotals = getPersonMonthTotals(person.id, state.year, state.month);
     const lastPrev = getLastPreviousReceipt(person.id, state.selectedDate);
+    const openingDebt = (dayCum.driverOpeningDebt && dayCum.driverOpeningDebt[person.id]) || 0;
 
     let lastPrevHtml = `<span class="text-muted">-</span>`;
     let subtleSubLine = '';
@@ -765,7 +977,7 @@ function renderDailyTable() {
     }
 
     const tr = document.createElement('tr');
-    if (entry.cash > 0 || entry.invoice > 0) {
+    if (entry.cash > 0 || entry.invoice > 0 || entry.returnedCash > 0) {
       tr.classList.add('active-row');
     }
 
@@ -818,6 +1030,19 @@ function renderDailyTable() {
       </td>
       <td>
         <input
+          type="number"
+          step="any"
+          min="0"
+          class="cell-input ret-input ${entry.returnedCash > 0 ? 'has-val-ret' : ''}"
+          placeholder="0"
+          value="${entry.returnedCash > 0 ? entry.returnedCash : ''}"
+          data-pid="${person.id}"
+          data-field="returnedCash"
+          title="كاش مرتجع من السائق للخزينة"
+        />
+      </td>
+      <td>
+        <input
           type="text"
           class="cell-input"
           id="noteInp_${person.id}"
@@ -837,7 +1062,7 @@ function renderDailyTable() {
         <span class="text-green" style="font-weight:800;">${formatNumber(monthTotals.cash)}</span>
       </td>
       <td class="col-extra ${showExt ? '' : 'hidden'} no-print" id="mSettleCell_${person.id}">
-        ${getSettlementBadgeHtml(monthTotals.cash, monthTotals.invoice)}
+        ${getDriverLiveDebtBadgeHtml(openingDebt, entry.cash, entry.invoice, entry.returnedCash)}
       </td>
       <td class="no-print">
         <div style="display:flex; gap:5px;">
@@ -907,7 +1132,7 @@ function renderDailyTable() {
 
       const updated = getPersonEntry(state.selectedDate, pid);
       const row = input.closest('tr');
-      if (updated.cash > 0 || updated.invoice > 0) {
+      if (updated.cash > 0 || updated.invoice > 0 || updated.returnedCash > 0) {
         row.classList.add('active-row');
       } else {
         row.classList.remove('active-row');
@@ -923,11 +1148,15 @@ function renderDailyTable() {
         }
       } else if (field === 'invoice') {
         input.classList.toggle('has-val-inv', updated.invoice > 0);
+      } else if (field === 'returnedCash') {
+        input.classList.toggle('has-val-ret', updated.returnedCash > 0);
       }
 
+      const updatedCum = getCumulativeCalculationsUpTo(state.selectedDate);
+      const updatedOpeningDebt = (updatedCum.driverOpeningDebt && updatedCum.driverOpeningDebt[pid]) || 0;
       const sCell = document.getElementById(`mSettleCell_${pid}`);
       if (sCell) {
-        sCell.innerHTML = getSettlementBadgeHtml(mTotals.cash, mTotals.invoice);
+        sCell.innerHTML = getDriverLiveDebtBadgeHtml(updatedOpeningDebt, updated.cash, updated.invoice, updated.returnedCash);
       }
 
       renderDailySummaryCards();
@@ -1004,6 +1233,7 @@ function renderMonthlyMatrixTab() {
   let monthStaffTotal = 0;
   let monthExtraTotal = 0;
   let monthInvTotal = 0;
+  let monthReturnedTotal = 0;
 
   for (let d = 1; d <= daysCount; d++) {
     const dateKey = formatDateKey(state.year, state.month, d);
@@ -1014,19 +1244,38 @@ function renderMonthlyMatrixTab() {
     monthStaffTotal += dt.staffDistributed;
     monthExtraTotal += dt.extraAmount;
     monthInvTotal += dt.invoices;
+    monthReturnedTotal += dt.returnedCash;
+  }
+
+  // Opening and closing box calculation across continuous calendar
+  const monthStartCum = getCumulativeCalculationsUpTo(formatDateKey(state.year, state.month, 1));
+  const monthOpeningBox = monthStartCum.openingBoxBalance;
+  const monthEndCum = getCumulativeCalculationsUpTo(formatDateKey(state.year, state.month, daysCount));
+  const monthClosingBox = monthEndCum.closingBoxBalance;
+
+  const monthOpenEl = document.getElementById('monthOpeningBox');
+  if (monthOpenEl) {
+    monthOpenEl.textContent = formatNumber(monthOpeningBox);
   }
 
   document.getElementById('monthTotalReceived').textContent = formatNumber(monthRecTotal);
+
+  const monthRetEl = document.getElementById('monthTotalReturned');
+  if (monthRetEl) {
+    monthRetEl.textContent = formatNumber(monthReturnedTotal);
+  }
+
   document.getElementById('monthTotalDistributed').textContent = formatNumber(monthDistTotal);
   const splitSubEl = document.getElementById('monthSplitSub');
   if (splitSubEl) {
     splitSubEl.textContent = `سائقين: ${formatNumber(monthDriversTotal)} | ستاف: ${formatNumber(monthStaffTotal)}`;
   }
 
-  const diff = monthRecTotal - (monthDistTotal + monthExtraTotal);
   const diffEl = document.getElementById('monthTotalDiff');
-  diffEl.textContent = diff === 0 && monthRecTotal > 0 ? '0 (مطابق ✓)' : formatNumber(diff);
-  diffEl.className = 'kpi-value ' + (diff === 0 ? 'text-green' : 'text-amber');
+  if (diffEl) {
+    diffEl.textContent = formatNumber(monthClosingBox);
+    diffEl.className = 'kpi-value ' + (monthClosingBox > 0.001 ? 'text-amber' : (monthClosingBox < -0.001 ? 'text-danger' : 'text-green'));
+  }
   document.getElementById('monthTotalInvoices').textContent = formatNumber(monthInvTotal);
 
   const thead = document.getElementById('monthlyMatrixHead');
@@ -1044,8 +1293,10 @@ function renderMonthlyMatrixTab() {
     `;
   });
   headHtml += `
-      <th style="background:#dcfce7; color:#14532d;">توتال الفلوس بالشهر</th>
-      <th style="background:#ede9fe; color:#4c1d95;">توتال الفواتير بالشهر</th>
+      <th style="background:#dcfce7; color:#14532d;">منصرف كاش</th>
+      <th style="background:#ede9fe; color:#4c1d95;">فواتير</th>
+      <th style="background:#ccfbf1; color:#0f766e;">كاش مرتجع</th>
+      <th style="background:#fef3c7; color:#92400e;">ذمة آخر الشهر</th>
     </tr>
   `;
   thead.innerHTML = headHtml;
@@ -1053,6 +1304,7 @@ function renderMonthlyMatrixTab() {
   const tbody = document.getElementById('monthlyMatrixBody');
   let bodyHtml = '';
 
+  // 1. Daily Received Row
   bodyHtml += `
     <tr class="matrix-received-row">
       <td class="sticky-col" style="background:#ecfdf5;">💵 المستلم اليومي</td>
@@ -1069,9 +1321,34 @@ function renderMonthlyMatrixTab() {
   bodyHtml += `
       <td><strong>${formatNumber(monthRecTotal)}</strong></td>
       <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   `;
 
+  // 2. Daily Returned Cash Row
+  bodyHtml += `
+    <tr class="matrix-returned-row">
+      <td class="sticky-col" style="background:#f0fdfa;">📥 المرتجع اليومي</td>
+      <td>الوارد</td>
+  `;
+  activeDays.forEach(dayObj => {
+    const dt = getDayTotals(dayObj.dateKey);
+    bodyHtml += `
+      <td class="matrix-cell-editable" data-jump-date="${dayObj.dateKey}" title="اضغط لفتح يوم ${dayObj.d}">
+        ${dt.returnedCash > 0 ? formatNumber(dt.returnedCash) : '-'}
+      </td>
+    `;
+  });
+  bodyHtml += `
+      <td>-</td>
+      <td>-</td>
+      <td><strong>${formatNumber(monthReturnedTotal)}</strong></td>
+      <td>-</td>
+    </tr>
+  `;
+
+  // 3. Daily Distributed Row
   bodyHtml += `
     <tr class="matrix-distributed-row">
       <td class="sticky-col" style="background:#eff6ff;">📤 الموزع اليومي</td>
@@ -1088,6 +1365,8 @@ function renderMonthlyMatrixTab() {
   bodyHtml += `
       <td><strong>${formatNumber(monthDistTotal)}</strong></td>
       <td><strong>${formatNumber(monthInvTotal)}</strong></td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   `;
 
@@ -1100,7 +1379,7 @@ function renderMonthlyMatrixTab() {
       return;
     }
     const pMonthTotals = getPersonMonthTotals(person.id, state.year, state.month);
-    if (state.showOnlyActiveInMonthly && pMonthTotals.cash === 0 && pMonthTotals.invoice === 0) {
+    if (state.showOnlyActiveInMonthly && pMonthTotals.cash === 0 && pMonthTotals.invoice === 0 && pMonthTotals.returnedCash === 0 && Math.abs(pMonthTotals.closingDebt) < 0.001) {
       return;
     }
 
@@ -1126,10 +1405,11 @@ function renderMonthlyMatrixTab() {
       } else if (viewMode === 'invoices') {
         cellContent = entry.invoice > 0 ? `<span class="matrix-val-inv">${formatNumber(entry.invoice)}</span>` : '-';
       } else {
-        if (entry.cash > 0 || entry.invoice > 0) {
+        if (entry.cash > 0 || entry.invoice > 0 || entry.returnedCash > 0) {
           cellContent = `
             ${entry.cash > 0 ? `<span class="matrix-val-cash">${formatNumber(entry.cash)}</span>` : ''}
             ${entry.invoice > 0 ? `<span class="matrix-val-inv">ف: ${formatNumber(entry.invoice)}</span>` : ''}
+            ${entry.returnedCash > 0 ? `<span class="matrix-val-ret" style="color:var(--teal); font-weight:700;">م: ${formatNumber(entry.returnedCash)}</span>` : ''}
           `;
         }
       }
@@ -1147,12 +1427,26 @@ function renderMonthlyMatrixTab() {
       `;
     });
 
+    const cDebt = pMonthTotals.closingDebt;
+    let debtText = '<span class="text-green">0.00 (مصفى)</span>';
+    if (cDebt > 0.001) {
+      debtText = `<span class="text-amber">+${formatNumber(cDebt)}</span>`;
+    } else if (cDebt < -0.001) {
+      debtText = `<span class="text-blue">-${formatNumber(Math.abs(cDebt))}</span>`;
+    }
+
     bodyHtml += `
         <td style="background:#f0fdf4; font-weight:800; color:var(--green);">
           ${pMonthTotals.cash > 0 ? formatNumber(pMonthTotals.cash) : '0'}
         </td>
         <td style="background:#faf5ff; font-weight:800; color:var(--purple);">
           ${pMonthTotals.invoice > 0 ? formatNumber(pMonthTotals.invoice) : '0'}
+        </td>
+        <td style="background:#f0fdfa; font-weight:800; color:var(--teal);">
+          ${pMonthTotals.returnedCash > 0 ? formatNumber(pMonthTotals.returnedCash) : '0'}
+        </td>
+        <td style="background:#fffbeb; font-weight:800;">
+          ${debtText}
         </td>
       </tr>
     `;
@@ -1174,6 +1468,8 @@ function renderMonthlyMatrixTab() {
   footHtml += `
       <td style="background:#15803d; color:#fff; font-weight:800;">${formatNumber(monthDistTotal)}</td>
       <td style="background:#6d28d9; color:#fff; font-weight:800;">${formatNumber(monthInvTotal)}</td>
+      <td style="background:#0f766e; color:#fff; font-weight:800;">${formatNumber(monthReturnedTotal)}</td>
+      <td style="background:#78350f; color:#fff; font-weight:800;">-</td>
     </tr>
   `;
   tfoot.innerHTML = footHtml;
@@ -1285,7 +1581,7 @@ function renderPersonSheet() {
     document.getElementById('ledgerPersonMeta').classList.add('hidden');
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" style="text-align:center; padding: 28px; color: var(--text-muted);">
+        <td colspan="9" style="text-align:center; padding: 28px; color: var(--text-muted);">
           يرجى إضافة أسماء الأشخاص أولاً من تبويب "1. التسجيل اليومي" أو "5. الأسماء".
         </td>
       </tr>
@@ -1334,8 +1630,8 @@ function renderPersonSheet() {
   });
 
   document.getElementById('ledgerPeriodSubtitle').textContent = isYearScope
-    ? `كشف حساب السنة كاملة (${state.year}) - حركة الأيام والمبالغ المستلمة والفواتير (ر.ق)`
-    : `كشف حساب شهر ${ARABIC_MONTHS[startMonth]} ${state.year} - حركة الأيام والمبالغ المستلمة والفواتير (ر.ق)`;
+    ? `كشف حساب السنة كاملة (${state.year}) - حركة الأيام والمبالغ المستلمة والفواتير والمرتجع (ر.ق)`
+    : `كشف حساب شهر ${ARABIC_MONTHS[startMonth]} ${state.year} - حركة الأيام والمبالغ المستلمة والفواتير والمرتجع (ر.ق)`;
 
   const pEntryDate = document.getElementById('pEntryDate');
   if (!pEntryDate.value) {
@@ -1348,7 +1644,7 @@ function renderPersonSheet() {
     for (let d = 1; d <= daysCount; d++) {
       const dateKey = formatDateKey(state.year, m, d);
       const entry = getPersonEntry(dateKey, person.id);
-      if (entry.cash > 0 || entry.invoice > 0 || (entry.note && entry.note.trim() !== '')) {
+      if (entry.cash > 0 || entry.invoice > 0 || entry.returnedCash > 0 || (entry.note && entry.note.trim() !== '')) {
         rows.push({
           dateKey,
           d,
@@ -1357,6 +1653,7 @@ function renderPersonSheet() {
           dayName: getArabicDayName(state.year, m, d),
           cash: entry.cash,
           invoice: entry.invoice,
+          returnedCash: entry.returnedCash,
           note: entry.note
         });
       }
@@ -1365,14 +1662,40 @@ function renderPersonSheet() {
 
   tbody.innerHTML = '';
 
+  const periodStartCum = getCumulativeCalculationsUpTo(formatDateKey(state.year, startMonth, 1));
+  const openingPeriodDebt = (periodStartCum.driverOpeningDebt && periodStartCum.driverOpeningDebt[person.id]) || 0;
+
   let totalCash = 0;
   let totalInvoices = 0;
-  let runningBalance = 0;
+  let totalReturned = 0;
+  let runningBalance = openingPeriodDebt;
 
-  if (rows.length === 0) {
+  if (Math.abs(openingPeriodDebt) > 0.001) {
+    const initTr = document.createElement('tr');
+    initTr.className = 'opening-debt-row';
+    initTr.style.background = 'var(--bg-card-alt, #f8fafc)';
+    initTr.style.fontStyle = 'italic';
+    const initBalText = openingPeriodDebt > 0
+      ? `+${formatNumber(openingPeriodDebt)} ر.ق (متبقي بعهدته)`
+      : `-${formatNumber(Math.abs(openingPeriodDebt))} ر.ق (له مستحق)`;
+    initTr.innerHTML = `
+      <td>-</td>
+      <td><strong>رصيد أول المدة</strong></td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>رصيد ذمة سابق مرحل تراكمياً</td>
+      <td class="col-balance-cell"><span class="${openingPeriodDebt > 0 ? 'bal-owes' : 'bal-credit'}">${initBalText}</span></td>
+      <td class="no-print">-</td>
+    `;
+    tbody.appendChild(initTr);
+  }
+
+  if (rows.length === 0 && Math.abs(openingPeriodDebt) < 0.001) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" style="text-align:center; padding: 28px; color: var(--text-muted);">
+        <td colspan="9" style="text-align:center; padding: 28px; color: var(--text-muted);">
           لا توجد حركات مسجلة لـ <strong>${dispName}</strong> في هذه الفترة. يمكنك إضافتها من الأعلى أو من شاشة التسجيل اليومي.
         </td>
       </tr>
@@ -1381,7 +1704,8 @@ function renderPersonSheet() {
     rows.forEach((r, idx) => {
       totalCash += r.cash;
       totalInvoices += r.invoice;
-      runningBalance += (r.cash - r.invoice);
+      totalReturned += r.returnedCash;
+      runningBalance += (r.cash - r.invoice - r.returnedCash);
 
       let balClass = 'bal-settled';
       let balText = '0.00 ر.ق (مصفى)';
@@ -1400,7 +1724,8 @@ function renderPersonSheet() {
         <td>${r.dayName}</td>
         <td class="col-cash-cell">${r.cash > 0 ? formatNumber(r.cash) : '0'}</td>
         <td class="col-inv-cell">${r.invoice > 0 ? formatNumber(r.invoice) : '0'}</td>
-        <td>${r.note || '-'}</td>
+        <td class="col-ret-cell" style="color:var(--teal); font-weight:700;">${r.returnedCash > 0 ? formatNumber(r.returnedCash) : '0'}</td>
+        <td>${escapeHtml(r.note) || '-'}</td>
         <td class="col-balance-cell"><span class="${balClass}">${balText}</span></td>
         <td class="no-print">
           <button type="button" class="btn btn-sm btn-outline" data-edit-pdate="${r.dateKey}" title="تعديل هذا السطر">✏️</button>
@@ -1414,29 +1739,32 @@ function renderPersonSheet() {
   document.getElementById('personTotalCash').textContent = formatNumber(totalCash);
   document.getElementById('personTotalInvoices').textContent = formatNumber(totalInvoices);
 
-  const netDiff = totalCash - totalInvoices;
-  document.getElementById('ledgerSettlementBadge').innerHTML = getSettlementBadgeHtml(totalCash, totalInvoices);
+  document.getElementById('ledgerSettlementBadge').innerHTML = getSettlementBadgeHtml(totalCash, totalInvoices, totalReturned, runningBalance);
 
   document.getElementById('personNetSummaryCell').innerHTML = `
-    <span>الفرق النهائي: <strong>${formatNumber(netDiff)} ر.ق</strong> ${netDiff > 0 ? '(متبقي بعهدته)' : netDiff < 0 ? '(له فرق مستحق)' : '(خالص ومصفى)'}</span>
+    <span>الرصيد المتبقي بعهدته: <strong>${formatNumber(runningBalance)} ر.ق</strong> ${runningBalance > 0 ? '(متبقي بعهدته)' : runningBalance < 0 ? '(له فرق مستحق)' : '(خالص ومصفى بالكامل ✓)'}</span>
   `;
 
   document.getElementById('cardPersonCashTotal').textContent = `${formatNumber(totalCash)} ر.ق`;
   document.getElementById('cardPersonInvTotal').textContent = `${formatNumber(totalInvoices)} ر.ق`;
-  document.getElementById('cardPersonNetDiff').textContent = `${formatNumber(netDiff)} ر.ق`;
+  const retCardEl = document.getElementById('cardPersonReturnedTotal');
+  if (retCardEl) {
+    retCardEl.textContent = `${formatNumber(totalReturned)} ر.ق`;
+  }
+  document.getElementById('cardPersonNetDiff').textContent = `${formatNumber(runningBalance)} ر.ق`;
 
   const statusSubEl = document.getElementById('cardPersonNetStatus');
-  if (totalCash === 0 && totalInvoices === 0) {
-    statusSubEl.textContent = 'لا توجد مبالغ مسجلة';
+  if (totalCash === 0 && totalInvoices === 0 && totalReturned === 0 && Math.abs(openingPeriodDebt) < 0.001) {
+    statusSubEl.textContent = 'لا توجد حركات مسجلة';
     statusSubEl.className = 'p-total-sub text-muted';
-  } else if (Math.abs(netDiff) < 0.001) {
-    statusSubEl.textContent = '✓ خالص ومصفى بالكامل بالفواتير';
+  } else if (Math.abs(runningBalance) < 0.001) {
+    statusSubEl.textContent = '✓ خالص ومصفى بالكامل (الرصيد 0.00 ر.ق)';
     statusSubEl.className = 'p-total-sub text-green';
-  } else if (netDiff > 0) {
-    statusSubEl.textContent = `متبقي بعهدته (لم يأتِ بفواتيرها بعد): ${formatNumber(netDiff)} ر.ق`;
+  } else if (runningBalance > 0) {
+    statusSubEl.textContent = `متبقي بذمته وعهدته: ${formatNumber(runningBalance)} ر.ق`;
     statusSubEl.className = 'p-total-sub text-amber';
   } else {
-    statusSubEl.textContent = `له فرق فواتير مستحق الصرف: ${formatNumber(Math.abs(netDiff))} ر.ق`;
+    statusSubEl.textContent = `له فرق مستحق الصرف: ${formatNumber(Math.abs(runningBalance))} ر.ق`;
     statusSubEl.className = 'p-total-sub text-blue';
   }
 
@@ -1447,6 +1775,8 @@ function renderPersonSheet() {
       document.getElementById('pEntryDate').value = dateKey;
       document.getElementById('pEntryCash').value = entry.cash || '';
       document.getElementById('pEntryInvoice').value = entry.invoice || '';
+      const pRetInp = document.getElementById('pEntryReturned');
+      if (pRetInp) pRetInp.value = entry.returnedCash || '';
       document.getElementById('pEntryNote').value = entry.note || '';
       document.getElementById('pEntryCash').focus();
     });
@@ -1456,7 +1786,7 @@ function renderPersonSheet() {
     btn.addEventListener('click', () => {
       const dateKey = btn.getAttribute('data-del-pdate');
       if (confirm('هل تريد حذف هذا السطر من صفحة الشخص؟')) {
-        setPersonEntry(dateKey, person.id, { cash: 0, invoice: 0, note: '' });
+        setPersonEntry(dateKey, person.id, { cash: 0, invoice: 0, returnedCash: 0, note: '' });
         renderPersonTab();
         showToast('تم حذف السطر بنجاح');
       }
@@ -1476,6 +1806,7 @@ function openVoucherModal(personId) {
 
   let totalCash = 0;
   let totalInv = 0;
+  let totalRet = 0;
   const startM = isYearScope ? 1 : state.month;
   const endM = isYearScope ? 12 : state.month;
 
@@ -1483,9 +1814,10 @@ function openVoucherModal(personId) {
     const mt = getPersonMonthTotals(person.id, state.year, m);
     totalCash += mt.cash;
     totalInv += mt.invoice;
+    totalRet += mt.returnedCash;
   }
 
-  const diff = totalCash - totalInv;
+  const diff = totalCash - totalInv - totalRet;
 
   document.getElementById('vPeriodText').textContent = `تاريخ الإصدار: ${state.selectedDate}`;
   document.getElementById('vPersonName').textContent = dispName;
@@ -1494,9 +1826,9 @@ function openVoucherModal(personId) {
   document.getElementById('vScopeLabel').textContent = scopeLabel;
   document.getElementById('vTotalCash').textContent = `${formatNumber(totalCash)} ر.ق`;
   document.getElementById('vTotalInv').textContent = `${formatNumber(totalInv)} ر.ق`;
-  document.getElementById('vNetStatus').textContent = diff === 0
-    ? '0 ر.ق (خالص بالكامل بالفواتير ✓)'
-    : (diff > 0 ? `${formatNumber(diff)} ر.ق (متبقي بعهدته لم يأتِ بفواتيرها بعد)` : `${formatNumber(Math.abs(diff))} ر.ق (له فرق فواتير مستحق الصرف)`);
+  document.getElementById('vNetStatus').textContent = Math.abs(diff) < 0.001
+    ? '0 ر.ق (خالص ومصفى بالكامل ✓)'
+    : (diff > 0 ? `${formatNumber(diff)} ر.ق (متبقي بعهدته)` : `${formatNumber(Math.abs(diff))} ر.ق (له مستحق)`);
 
   document.getElementById('voucherModal').classList.remove('hidden');
 }
@@ -1517,24 +1849,29 @@ function sharePersonStatementWhatsApp() {
   let lines = [];
   let totalCash = 0;
   let totalInv = 0;
+  let totalRet = 0;
 
   for (let m = startMonth; m <= endMonth; m++) {
     const daysCount = getDaysInMonth(state.year, m);
     for (let d = 1; d <= daysCount; d++) {
       const dk = formatDateKey(state.year, m, d);
       const e = getPersonEntry(dk, person.id);
-      if (e.cash > 0 || e.invoice > 0 || e.note) {
+      if (e.cash > 0 || e.invoice > 0 || e.returnedCash > 0 || e.note) {
         totalCash += e.cash;
         totalInv += e.invoice;
-        lines.push(`• ${d}/${m}: استلام ${formatNumber(e.cash)} ر.ق | فواتير ${formatNumber(e.invoice)} ر.ق${e.note ? ` (${e.note})` : ''}`);
+        totalRet += e.returnedCash;
+        let line = `• ${d}/${m}: كاش ${formatNumber(e.cash)} ر.ق | فواتير ${formatNumber(e.invoice)} ر.ق`;
+        if (e.returnedCash > 0) line += ` | مرتجع ${formatNumber(e.returnedCash)} ر.ق`;
+        if (e.note) line += ` (${e.note})`;
+        lines.push(line);
       }
     }
   }
 
-  const diff = totalCash - totalInv;
-  const statusLine = diff === 0
-    ? 'خالص بالكامل بالفواتير ✓'
-    : (diff > 0 ? `متبقي بعهدته (لم يأتِ بفواتيرها بعد): ${formatNumber(diff)} ر.ق` : `له فرق فواتير مستحق الصرف: ${formatNumber(Math.abs(diff))} ر.ق`);
+  const diff = totalCash - totalInv - totalRet;
+  const statusLine = Math.abs(diff) < 0.001
+    ? 'خالص ومصفى بالكامل ✓'
+    : (diff > 0 ? `متبقي بعهدته: ${formatNumber(diff)} ر.ق` : `له فرق مستحق: ${formatNumber(Math.abs(diff))} ر.ق`);
 
   const message = [
     `📋 *كشف حساب عهدة وفواتير (بيتي كاش)*`,
@@ -1543,9 +1880,10 @@ function sharePersonStatementWhatsApp() {
     `-------------------------`,
     ...(lines.length > 0 ? lines : ['لا توجد حركات مسجلة']),
     `-------------------------`,
-    `💵 *إجمالي المبالغ المستلمة:* ${formatNumber(totalCash)} ر.ق`,
+    `💵 *إجمالي المبالغ المستلمة كاش:* ${formatNumber(totalCash)} ر.ق`,
     `🧾 *إجمالي الفواتير المقدمة:* ${formatNumber(totalInv)} ر.ق`,
-    `⚖️ *الموقف النهائي:* ${statusLine}`
+    `📥 *إجمالي الكاش المرتجع للخزينة:* ${formatNumber(totalRet)} ر.ق`,
+    `⚖️ *الموقف النهائي للعهدة:* ${statusLine}`
   ].join('\n');
 
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1928,9 +2266,10 @@ function renderCustodyTab() {
   const monthReceived = mRecList.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
   const yearReceived = yRecList.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
 
-  // Calculate monthly distributed and invoices
+  // Calculate monthly distributed, invoices, and returned cash
   let monthDistributed = 0;
   let monthInvoices = 0;
+  let monthReturned = 0;
   const daysInM = getDaysInMonth(state.year, state.month);
   for (let d = 1; d <= daysInM; d++) {
     const dk = formatDateKey(state.year, state.month, d);
@@ -1940,6 +2279,7 @@ function renderCustodyTab() {
       if (e) {
         monthDistributed += (Number(e.cash) || 0);
         monthInvoices += (Number(e.invoice) || 0);
+        monthReturned += (Number(e.returnedCash) || 0);
       }
     }
     const extra = state.data.dailyExtras[dk];
@@ -1948,33 +2288,23 @@ function renderCustodyTab() {
     }
   }
 
-  // Monthly net change (حركة هذا الشهر فقط)
-  const monthNet = monthReceived - monthDistributed;
+  // Monthly net cash change
+  const monthNet = monthReceived + monthReturned - monthDistributed;
 
-  // Cumulative calculation from month 1 up to current selected month (الرصيد التراكمي الفعلي المتبقي بالخزنة)
-  let cumulativeReceived = 0;
-  let cumulativeDistributed = 0;
-  for (let m = 1; m <= state.month; m++) {
-    const mRecs = getCustodyReceiptsForMonth(state.year, m);
-    cumulativeReceived += mRecs.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-    const daysInM_ = getDaysInMonth(state.year, m);
-    for (let d = 1; d <= daysInM_; d++) {
-      const dk = formatDateKey(state.year, m, d);
-      const dayEntries = state.data.entries[dk] || {};
-      for (const p of state.data.people) {
-        const e = dayEntries[p.id];
-        if (e) {
-          cumulativeDistributed += (Number(e.cash) || 0);
-        }
-      }
-      const extra = state.data.dailyExtras[dk];
-      if (extra && extra.amount) {
-        cumulativeDistributed += (Number(extra.amount) || 0);
-      }
+  // Continuous cumulative calculations up to end of selected month
+  const monthEndCum = getCumulativeCalculationsUpTo(formatDateKey(state.year, state.month, daysInM));
+  const cumulativeCashInHand = monthEndCum.closingBoxBalance;
+
+  let cumulativeReturned = 0;
+  Object.values(state.data.entries || {}).forEach(dayObj => {
+    if (dayObj) {
+      Object.values(dayObj).forEach(e => {
+        if (e && e.returnedCash) cumulativeReturned += Number(e.returnedCash) || 0;
+      });
     }
-  }
+  });
 
-  const cumulativeCashInHand = cumulativeReceived - cumulativeDistributed;
+  const totalDriversDebt = Object.values(monthEndCum.driverClosingDebt || {}).reduce((s, debt) => s + (debt > 0 ? debt : 0), 0);
 
   // Update KPIs
   const mRecEl = document.getElementById('custodyMonthReceived');
@@ -1988,6 +2318,12 @@ function renderCustodyTab() {
 
   const mInvEl = document.getElementById('custodyMonthInvoices');
   if (mInvEl) mInvEl.textContent = `${formatNumber(monthInvoices)} ر.ق`;
+
+  const custodyRetEl = document.getElementById('custodyTotalReturned');
+  if (custodyRetEl) custodyRetEl.textContent = `${formatNumber(cumulativeReturned)} ر.ق`;
+
+  const custodyDebtEl = document.getElementById('custodyTotalDriversDebt');
+  if (custodyDebtEl) custodyDebtEl.textContent = `${formatNumber(totalDriversDebt)} ر.ق`;
 
   // Real Cumulative Cash In Hand Card
   const cashHandEl = document.getElementById('custodyCashInHand');
@@ -2052,8 +2388,8 @@ function renderCustodyTab() {
           <td><strong>${r.date}</strong></td>
           <td>${ARABIC_MONTHS[m]}</td>
           <td style="font-weight: 800; color: var(--green);">${formatNumber(r.amount)} ر.ق</td>
-          <td>${r.ref || '-'}</td>
-          <td>${r.note || '-'}</td>
+          <td>${escapeHtml(r.ref) || '-'}</td>
+          <td>${escapeHtml(r.note) || '-'}</td>
           <td class="no-print">
             <button type="button" class="btn btn-sm btn-danger-outline" data-del-custody="${r.id}" title="حذف الدفعة">🗑️</button>
           </td>
@@ -2086,12 +2422,13 @@ function renderCustodyTab() {
 
     state.data.people.forEach(p => {
       const mTot = getPersonMonthTotals(p.id, state.year, state.month);
-      if (mTot.cash > 0 || mTot.invoice > 0) {
+      if (mTot.cash > 0 || mTot.invoice > 0 || mTot.returnedCash > 0 || Math.abs(mTot.closingDebt) > 0.001) {
         driverSummaryList.push({
           person: p,
           cash: mTot.cash,
           invoice: mTot.invoice,
-          diff: mTot.diff
+          returnedCash: mTot.returnedCash,
+          diff: mTot.closingDebt
         });
       }
     });
@@ -2099,7 +2436,7 @@ function renderCustodyTab() {
     if (driverSummaryList.length === 0) {
       tbodyDrivers.innerHTML = `
         <tr>
-          <td colspan="8" style="text-align: center; padding: 24px; color: var(--text-muted);">
+          <td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);">
             لا توجد حركات عهدة أو فواتير مسجلة للسائقين في شهر ${ARABIC_MONTHS[state.month]} ${state.year}.
           </td>
         </tr>
@@ -2110,11 +2447,11 @@ function renderCustodyTab() {
       driverSummaryList.forEach((item, idx) => {
         let badgeHtml = '';
         if (Math.abs(item.diff) < 0.001) {
-          badgeHtml = `<span class="settlement-badge settled">خالص بالفواتير ✓</span>`;
+          badgeHtml = `<span class="settlement-badge settled">خالص ومصفى بالكامل ✓</span>`;
         } else if (item.diff > 0) {
-          badgeHtml = `<span class="settlement-badge owes">متبقي بذمته: ${formatNumber(item.diff)}</span>`;
+          badgeHtml = `<span class="settlement-badge owes">متبقي بذمته: ${formatNumber(item.diff)} ر.ق</span>`;
         } else {
-          badgeHtml = `<span class="settlement-badge credit">له فرق: ${formatNumber(Math.abs(item.diff))}</span>`;
+          badgeHtml = `<span class="settlement-badge credit">له فرق: ${formatNumber(Math.abs(item.diff))} ر.ق</span>`;
         }
 
         const tr = document.createElement('tr');
@@ -2124,8 +2461,9 @@ function renderCustodyTab() {
           <td><span class="role-badge ${item.person.role}">${item.person.role === 'driver' ? 'سائق' : 'ستاف'}</span></td>
           <td class="col-cash-cell">${formatNumber(item.cash)}</td>
           <td class="col-inv-cell">${formatNumber(item.invoice)}</td>
+          <td class="col-ret-cell" style="color:var(--teal); font-weight:700;">${formatNumber(item.returnedCash)}</td>
           <td style="font-weight: 800; font-size: 1.02rem;">
-            ${item.diff > 0 ? `<span class="text-amber">+${formatNumber(item.diff)} ر.ق</span>` : (item.diff < 0 ? `<span class="text-blue">-${formatNumber(Math.abs(item.diff))} ر.ق</span>` : '0.00 ر.ق')}
+            ${item.diff > 0 ? `<span class="text-amber">+${formatNumber(item.diff)} ر.ق</span>` : (item.diff < 0 ? `<span class="text-blue">-${formatNumber(Math.abs(item.diff))} ر.ق</span>` : '<span class="text-green">0.00 ر.ق</span>')}
           </td>
           <td>${badgeHtml}</td>
           <td class="no-print">
@@ -2493,23 +2831,28 @@ function exportCurrentViewToExcel() {
     filename = `صفحة_${dispName}_${state.year}.csv`;
     csvRows.push(['رقم الشخص', person.num, 'الاسم', dispName, 'الفئة', person.role === 'driver' ? 'سائق' : 'ستاف', 'السيارة/القسم', person.meta || '']);
     csvRows.push([]);
-    csvRows.push(['التاريخ', 'اليوم', 'الفلوس اللي استلمها (ر.ق)', 'الفواتير المقدمة - بيتي كاش (ر.ق)', 'البيان / الملاحظات']);
+    csvRows.push(['التاريخ', 'اليوم', 'منصرف كاش (ر.ق)', 'فواتير مصاريف (ر.ق)', 'كاش مرتجع للخزينة (ر.ق)', 'الرصيد التراكمي (ر.ق)', 'البيان / الملاحظات']);
 
     let totalC = 0;
     let totalI = 0;
+    let totalR = 0;
+    let runningBal = 0;
+
     for (let m = 1; m <= 12; m++) {
       const days = getDaysInMonth(state.year, m);
       for (let d = 1; d <= days; d++) {
         const dk = formatDateKey(state.year, m, d);
         const e = getPersonEntry(dk, person.id);
-        if (e.cash > 0 || e.invoice > 0 || e.note) {
+        if (e.cash > 0 || e.invoice > 0 || e.returnedCash > 0 || e.note) {
           totalC += e.cash;
           totalI += e.invoice;
-          csvRows.push([dk, getArabicDayName(state.year, m, d), e.cash, e.invoice, `"${(e.note || '').replace(/"/g, '""')}"`]);
+          totalR += e.returnedCash;
+          runningBal += (e.cash - e.invoice - e.returnedCash);
+          csvRows.push([dk, getArabicDayName(state.year, m, d), e.cash, e.invoice, e.returnedCash, runningBal, `"${(e.note || '').replace(/"/g, '""')}"`]);
         }
       }
     }
-    csvRows.push(['الإجمالي الكلي (ر.ق)', '', totalC, totalI, `الصافي: ${totalC - totalI} ر.ق`]);
+    csvRows.push(['الإجمالي الكلي (ر.ق)', '', totalC, totalI, totalR, `الصافي النهائي: ${runningBal} ر.ق`, '']);
   } else {
     const daysCount = getDaysInMonth(state.year, state.month);
     const header = ['الرقم', 'الاسم', 'الفئة', 'السيارة/القسم'];
@@ -2519,7 +2862,7 @@ function exportCurrentViewToExcel() {
       workDays.push(d);
       header.push(`يوم ${d}`);
     }
-    header.push('إجمالي المبالغ بالشهر (ر.ق)', 'إجمالي الفواتير بالشهر (ر.ق)');
+    header.push('إجمالي المنصرف بالشهر (ر.ق)', 'إجمالي الفواتير بالشهر (ر.ق)', 'إجمالي المرتجع بالشهر (ر.ق)', 'صافي الذمة (ر.ق)');
     csvRows.push(header);
 
     const recRow = ['', 'إجمالي المستلم اليومي', 'الوارد', ''];
@@ -2529,8 +2872,18 @@ function exportCurrentViewToExcel() {
       mRec += r;
       recRow.push(r);
     });
-    recRow.push(mRec, '');
+    recRow.push(mRec, '', '', '');
     csvRows.push(recRow);
+
+    const retRow = ['', 'إجمالي المرتجع اليومي', 'الوارد', ''];
+    let mRet = 0;
+    workDays.forEach(d => {
+      const dt = getDayTotals(formatDateKey(state.year, state.month, d));
+      mRet += dt.returnedCash;
+      retRow.push(dt.returnedCash);
+    });
+    retRow.push('', '', mRet, '');
+    csvRows.push(retRow);
 
     const exportPeople = getReportablePeople(state.year);
     exportPeople.forEach(p => {
@@ -2540,7 +2893,7 @@ function exportCurrentViewToExcel() {
         row.push(e.cash || 0);
       });
       const mt = getPersonMonthTotals(p.id, state.year, state.month);
-      row.push(mt.cash, mt.invoice);
+      row.push(mt.cash, mt.invoice, mt.returnedCash, mt.closingDebt);
       csvRows.push(row);
     });
   }
@@ -2907,16 +3260,20 @@ function bindEvents() {
     const dateVal = document.getElementById('pEntryDate').value || state.selectedDate;
     const cashVal = Number(document.getElementById('pEntryCash').value) || 0;
     const invVal = Number(document.getElementById('pEntryInvoice').value) || 0;
+    const retVal = Number(document.getElementById('pEntryReturned')?.value) || 0;
     const noteVal = document.getElementById('pEntryNote').value || '';
 
     setPersonEntry(dateVal, state.selectedPersonId, {
       cash: cashVal,
       invoice: invVal,
+      returnedCash: retVal,
       note: noteVal
     });
 
     document.getElementById('pEntryCash').value = '';
     document.getElementById('pEntryInvoice').value = '';
+    const pRetInp = document.getElementById('pEntryReturned');
+    if (pRetInp) pRetInp.value = '';
     document.getElementById('pEntryNote').value = '';
 
     renderPersonTab();
@@ -3107,16 +3464,18 @@ function bindEvents() {
         const parsed = JSON.parse(ev.target.result);
         if (parsed && Array.isArray(parsed.people)) {
           state.data = {
+            schemaVersion: parsed.schemaVersion || 2,
             people: parsed.people || [],
             dailyReceipts: parsed.dailyReceipts || {},
             dailyExtras: parsed.dailyExtras || {},
             entries: parsed.entries || {},
             custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : []
           };
+          migrateStateIfNeeded();
           saveState();
           renderAll();
           modal.classList.add('hidden');
-          showToast('تم استعادة كافة البيانات بنجاح ✓');
+          showToast('تم استعادة كافة البيانات بنجاح وتحديثها للتوافق ✓');
         } else {
           alert('ملف غير صالح');
         }
