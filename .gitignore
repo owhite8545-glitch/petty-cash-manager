@@ -2,5 +2,3 @@ node_modules/
 *.mp4
 *.log
 .vercel/
-scratch/
-edge_profile_*

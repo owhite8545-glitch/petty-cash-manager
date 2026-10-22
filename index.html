@@ -175,29 +175,18 @@
 
       <!-- Daily Receipt & Live Balance Dashboard -->
       <div class="daily-summary-grid">
-        <!-- Box 1: Opening Balance Carried Over -->
-        <div class="summary-box opening-box" id="openingBalanceCard">
-          <div class="summary-label">
-            <span>📥 1. الرصيد المرحّل من السابق:</span>
-            <span id="selectedDateBadge" class="badge badge-primary"></span>
-          </div>
-          <div class="summary-value text-amber" id="openingBalanceDisplay">0</div>
-          <div class="summary-sub">
-            الرصيد الفعلي المتصل تلقائياً من الأيام والشهور السابقة
-          </div>
-        </div>
-
-        <!-- Box 2: Received Today -->
+        <!-- Box 1: Received Today -->
         <div class="summary-box receipt-input-box">
           <div class="summary-label">
-            <span>💵 2. النقدية المستلمة اليوم (عهدة جديدة):</span>
+            <span>💵 1. العهدة النقدية المستلمة اليوم:</span>
+            <span id="selectedDateBadge" class="badge badge-primary"></span>
           </div>
           <div class="receipt-input-wrapper">
             <input
               type="number"
               id="dailyReceivedInput"
               class="receipt-big-input"
-              placeholder="0"
+              placeholder="اكتب المبلغ هنا..."
               step="any"
               min="0"
             />
@@ -206,7 +195,7 @@
 
           <div class="extra-toggle-area no-print">
             <button type="button" id="btnToggleExtraRow" class="btn-link-simple">
-              + صرف نثريات أو مصروفات عامة خارج السائقين؟
+              + هل تم صرف نثريات أو مصروفات عامة خارج السائقين؟ (اضغط هنا)
             </button>
             <div id="extraExpenseRow" class="extra-expense-row hidden">
               <label for="dailyExtraInput">📤 نثريات / مصروف خارجي:</label>
@@ -228,18 +217,9 @@
           </div>
         </div>
 
-        <!-- Box 3: Returned Cash Today -->
-        <div class="summary-box returned-box" id="dailyReturnedCashCard">
-          <div class="summary-label">💰 3. الكاش المرتجع من السائقين اليوم (+)</div>
-          <div class="summary-value text-emerald" id="totalReturnedDisplay">0</div>
-          <div class="summary-sub">
-            <span id="dailyReturnedPeopleCount">0</span> سائقين رجعوا باقي عهدتهم للخزنة
-          </div>
-        </div>
-
-        <!-- Box 4: Distributed Today -->
+        <!-- Box 2: Distributed Today -->
         <div class="summary-box distributed-box">
-          <div class="summary-label">📤 4. مجموع الكاش المصروف اليوم (-)</div>
+          <div class="summary-label">📤 2. مجموع اللي اتوزع على الناس اليوم</div>
           <div class="summary-value text-blue" id="dailyDistributedTotal">0</div>
           <div class="summary-sub">
             استلم اليوم <strong id="dailyActivePeopleCount">0</strong> شخص
@@ -252,24 +232,21 @@
           </div>
         </div>
 
-        <!-- Box 5: Balance & Reconciliation -->
+        <!-- Box 3: Balance & Reconciliation -->
         <div class="summary-box balance-box" id="dailyBalanceBox">
-          <div class="summary-label">⚖️ 5. المتبقي الفعلي في الخزنة نهاية اليوم</div>
+          <div class="summary-label">⚖️ 3. المتبقي من فلوس اليوم (المطابقة)</div>
           <div class="summary-value" id="dailyRemainingValue">0</div>
-          <div class="summary-status" id="dailyMatchStatus">رصيد الخزنة الفعلي</div>
+          <div class="summary-status" id="dailyMatchStatus">اكتب المبلغ المستلم بالأول</div>
           <div class="summary-actions no-print">
-            <div class="auto-carry-pill" id="autoCarryNotice" title="الترحيل متصل تلقائياً ومستمر دون الحاجة للضغط اليدوي">
-              🔄 يتم ترحيل الرصيد المتبقي لليوم والشهر التالي تلقائياً ✓
-            </div>
             <button type="button" id="btnCarryOverNextDay" class="btn btn-sm btn-outline hidden">
-              🔄 ترحيل المتبقي
+              🔄 ترحيل المتبقي ليوم الغد
             </button>
           </div>
         </div>
 
-        <!-- Box 6: Invoices (Petty Cash) Today -->
+        <!-- Box 4: Invoices (Petty Cash) Today -->
         <div class="summary-box invoices-box">
-          <div class="summary-label">🧾 6. مجموع فواتير اليوم (تخصم من الذمم)</div>
+          <div class="summary-label">🧾 4. مجموع الفواتير المقدمة اليوم</div>
           <div class="summary-value text-purple" id="dailyInvoicesTotal">0</div>
           <div class="summary-sub">
             قدم الفواتير <strong id="dailyInvoicePeopleCount">0</strong> شخص
@@ -343,17 +320,16 @@
           <table class="data-table daily-entry-table" id="dailyTableEl">
             <thead>
               <tr>
-                <th style="width: 50px;">رقم</th>
-                <th style="min-width: 200px;">اسم الشخص</th>
-                <th style="width: 90px;" class="col-extra hidden">الفئة</th>
-                <th style="width: 140px;" class="col-extra hidden no-print">⏱️ آخر استلام سابق</th>
-                <th style="width: 180px;">💵 الفلوس اللي خدها اليوم (ر.ق)</th>
-                <th style="width: 180px;">🧾 الفواتير اللي قدمها (بيتي كاش)</th>
-                <th style="width: 180px;">📥 مرتجع كاش للخزينة (ر.ق)</th>
+                <th style="width: 55px;">رقم</th>
+                <th style="min-width: 210px;">اسم الشخص</th>
+                <th style="width: 100px;" class="col-extra hidden">الفئة</th>
+                <th style="width: 150px;" class="col-extra hidden no-print">⏱️ آخر استلام سابق</th>
+                <th style="width: 220px;">💵 الفلوس اللي خدها اليوم (ر.ق)</th>
+                <th style="width: 220px;">🧾 الفواتير اللي قدمها (بيتي كاش)</th>
                 <th>📝 ملاحظة (اختياري)</th>
-                <th style="width: 130px;" class="col-extra hidden no-print">إجمالي الشهر</th>
-                <th style="width: 190px;" class="no-print">⚖️ صافي ذمة السائق</th>
-                <th style="width: 110px;" class="no-print">صفحة الشخص</th>
+                <th style="width: 140px;" class="col-extra hidden no-print">إجمالي الشهر</th>
+                <th style="width: 155px;" class="col-extra hidden no-print">موقف الفواتير</th>
+                <th style="width: 135px;" class="no-print">صفحة الشخص</th>
               </tr>
             </thead>
             <tbody id="dailyDistributionBody"></tbody>
@@ -362,8 +338,7 @@
                 <td colspan="2" id="footLabelColspan"><strong>المجموع الكلي لليوم (ر.ق)</strong></td>
                 <td><strong id="footDailyCash">0</strong></td>
                 <td><strong id="footDailyInvoices">0</strong></td>
-                <td><strong id="footDailyReturned">0</strong></td>
-                <td colspan="3" id="footDailyNote"></td>
+                <td colspan="2" id="footDailyNote"></td>
               </tr>
             </tfoot>
           </table>
@@ -402,24 +377,16 @@
         <!-- Monthly KPI Summary Cards -->
         <div class="monthly-kpis">
           <div class="kpi-item">
-            <span class="kpi-label">رصيد القاصة المرحّل من الشهر السابق</span>
-            <strong class="kpi-value text-amber" id="monthOpeningBox">0</strong>
-          </div>
-          <div class="kpi-item">
-            <span class="kpi-label">توتال المستلم بالشهر (عهدة جديدة)</span>
+            <span class="kpi-label">توتال اللي استلمته في الشهر (ر.ق)</span>
             <strong class="kpi-value text-green" id="monthTotalReceived">0</strong>
           </div>
           <div class="kpi-item">
-            <span class="kpi-label">إجمالي الكاش المرتجع للقاصة بالشهر (+)</span>
-            <strong class="kpi-value text-emerald" id="monthTotalReturned">0</strong>
-          </div>
-          <div class="kpi-item">
-            <span class="kpi-label">توتال اللي اتوزع على الناس بالشهر (-)</span>
+            <span class="kpi-label">توتال اللي اتوزع على الناس (ر.ق)</span>
             <strong class="kpi-value text-blue" id="monthTotalDistributed">0</strong>
             <small class="kpi-sub-split" id="monthSplitSub">سائقين: 0 | ستاف: 0</small>
           </div>
           <div class="kpi-item">
-            <span class="kpi-label">المتبقي الفعلي بالقاصة (يرحل للشهر القادم)</span>
+            <span class="kpi-label">الفرق / المتبقي في الشهر</span>
             <strong class="kpi-value" id="monthTotalDiff">0</strong>
           </div>
           <div class="kpi-item">
@@ -543,25 +510,20 @@
                 </div>
                 <div class="field-group">
                   <label>💵 الفلوس اللي استلمها (ر.ق)</label>
-                  <input type="number" id="pEntryCash" class="input-control" placeholder="0" step="any" min="0" />
+                  <input type="number" id="pEntryCash" class="input-control" placeholder="0" step="any" />
                 </div>
                 <div class="field-group">
                   <label>🧾 الفواتير اللي قدمها (بيتي كاش)</label>
-                  <input type="number" id="pEntryInvoice" class="input-control" placeholder="0" step="any" min="0" />
-                </div>
-                <div class="field-group">
-                  <label>📥 كاش مرتجع للخزينة (ر.ق)</label>
-                  <input type="number" id="pEntryReturned" class="input-control" placeholder="0" step="any" min="0" />
+                  <input type="number" id="pEntryInvoice" class="input-control" placeholder="0" step="any" />
                 </div>
                 <div class="field-group field-grow">
                   <label>📝 البيان / الملاحظة (أو اضغط على نوع الفاتورة)</label>
-                  <input type="text" id="pEntryNote" class="input-control" placeholder="بيان الفاتورة أو التصفية..." />
+                  <input type="text" id="pEntryNote" class="input-control" placeholder="بيان الفاتورة..." />
                   <div class="quick-invoice-tags">
                     <button type="button" class="tag-chip" data-ptag="⛽ بترول/وقود">⛽ بترول/وقود</button>
                     <button type="button" class="tag-chip" data-ptag="🔧 صيانة">🔧 صيانة</button>
                     <button type="button" class="tag-chip" data-ptag="📦 مشتريات">📦 مشتريات</button>
                     <button type="button" class="tag-chip" data-ptag="☕ نثريات">☕ نثريات</button>
-                    <button type="button" class="tag-chip" data-ptag="🤝 تصفية عهدة وكاش مرتجع">🤝 تصفية عهدة</button>
                   </div>
                 </div>
                 <div class="field-group field-btn">
@@ -570,20 +532,19 @@
               </div>
             </div>
 
-            <!-- Ruled Ledger Table with Running Balance (المستلم | الفواتير | كاش مرتجع | الرصيد التراكمي) -->
+            <!-- Ruled Ledger Table with Running Balance (المستلم | الفواتير | الرصيد التراكمي) -->
             <div class="table-responsive">
               <table class="data-table ruled-ledger-table">
                 <thead>
                   <tr>
-                    <th style="width: 45px;">م</th>
-                    <th style="width: 135px;">التاريخ</th>
-                    <th style="width: 95px;">اليوم</th>
-                    <th style="width: 150px;" class="col-cash-head">💵 المستلم (ر.ق)</th>
-                    <th style="width: 150px;" class="col-inv-head">🧾 الفواتير (بيتي كاش)</th>
-                    <th style="width: 150px;" class="col-returned-head">📥 كاش مرتجع (ر.ق)</th>
+                    <th style="width: 50px;">م</th>
+                    <th style="width: 140px;">التاريخ</th>
+                    <th style="width: 105px;">اليوم</th>
+                    <th style="width: 190px;" class="col-cash-head">💵 المستلم (ر.ق)</th>
+                    <th style="width: 190px;" class="col-inv-head">🧾 الفواتير (بيتي كاش)</th>
                     <th>📝 البيان / الملاحظات</th>
-                    <th style="width: 180px;" class="col-balance-head">⚖️ الرصيد التراكمي</th>
-                    <th style="width: 100px;" class="no-print">تعديل / حذف</th>
+                    <th style="width: 185px;" class="col-balance-head">⚖️ الرصيد التراكمي</th>
+                    <th style="width: 110px;" class="no-print">تعديل / حذف</th>
                   </tr>
                 </thead>
                 <tbody id="personLedgerBody"></tbody>
@@ -592,7 +553,6 @@
                     <td colspan="3"><strong>التوتال الكلي للفترة</strong></td>
                     <td class="col-cash-total"><strong id="personTotalCash">0</strong></td>
                     <td class="col-inv-total"><strong id="personTotalInvoices">0</strong></td>
-                    <td class="col-returned-total"><strong id="personTotalReturned">0</strong></td>
                     <td colspan="3" id="personNetSummaryCell"></td>
                   </tr>
                 </tfoot>
@@ -606,12 +566,8 @@
                 <strong class="p-total-val" id="cardPersonCashTotal">0</strong>
               </div>
               <div class="p-total-card invoice-card">
-                <span class="p-total-label">🧾 إجمالي الفواتير المعتمدة منه (بيتي كاش)</span>
+                <span class="p-total-label">🧾 إجمالي الفواتير المعتمدة منه (بترول وصيانة ونثريات)</span>
                 <strong class="p-total-val" id="cardPersonInvTotal">0</strong>
-              </div>
-              <div class="p-total-card returned-card" id="cardPersonReturnedWrap">
-                <span class="p-total-label">📥 إجمالي الكاش المرتجع منه للخزنة (+)</span>
-                <strong class="p-total-val text-emerald" id="cardPersonReturnedTotal">0</strong>
               </div>
               <div class="p-total-card net-card">
                 <span class="p-total-label">⚖️ صافي موقف الحساب (المتبقي في ذمته)</span>
@@ -830,21 +786,13 @@
             <strong class="kpi-value text-blue" id="custodyMonthDistributed">0</strong>
           </div>
           <div class="kpi-item">
-            <span class="kpi-label">💰 إجمالي الكاش المرتجع من السائقين للقاصة (+)</span>
-            <strong class="kpi-value text-emerald" id="custodyTotalReturned">0</strong>
-          </div>
-          <div class="kpi-item">
             <span class="kpi-label">🧾 إجمالي الفواتير المجمعة للشهر</span>
             <strong class="kpi-value text-purple" id="custodyMonthInvoices">0</strong>
-          </div>
-          <div class="kpi-item">
-            <span class="kpi-label">⚠️ إجمالي الذمم المتبقية عند السائقين حالياً</span>
-            <strong class="kpi-value text-amber" id="custodyTotalDriversDebt">0</strong>
           </div>
           <div class="kpi-item custody-balance-card">
             <span class="kpi-label">💰 الرصيد التراكمي الفعلي المتبقي بالخزنة</span>
             <strong class="kpi-value" id="custodyCashInHand">0</strong>
-            <small class="kpi-sub-split" id="custodyBalanceStatus">المستلم + المرتجع ناقص المنصرف</small>
+            <small class="kpi-sub-split" id="custodyBalanceStatus">المستلم ناقص المنصرف حتى الآن</small>
             <div id="custodyMonthNetRow" style="margin-top: 6px; padding-top: 5px; border-top: 1px dashed var(--border-color); font-size: 0.82rem; font-weight: 700;">
               حركة شهر <span class="current-month-label">يناير</span> فقط: <span id="custodyMonthNetVal">0 ر.ق</span>
             </div>
@@ -919,15 +867,14 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th style="width: 50px;">#</th>
+                <th style="width: 55px;">#</th>
                 <th>اسم السائق / الموظف</th>
-                <th style="width: 100px;">الفئة</th>
-                <th style="width: 150px;">💵 ما استلمه (ر.ق)</th>
-                <th style="width: 150px;">🧾 فواتيره (ر.ق)</th>
-                <th style="width: 150px;">📥 كاش مرتجع (ر.ق)</th>
-                <th style="width: 180px;">⚠️ المتبقي في ذمته (معلق)</th>
+                <th style="width: 110px;">الفئة</th>
+                <th style="width: 170px;">💵 ما استلمه (ر.ق)</th>
+                <th style="width: 170px;">🧾 فواتيره (ر.ق)</th>
+                <th style="width: 190px;">⚠️ المتبقي في ذمته (معلق)</th>
                 <th style="width: 130px;">الحالة</th>
-                <th style="width: 100px;" class="no-print">صفحته</th>
+                <th style="width: 110px;" class="no-print">صفحته</th>
               </tr>
             </thead>
             <tbody id="custodyDriversSummaryBody"></tbody>
