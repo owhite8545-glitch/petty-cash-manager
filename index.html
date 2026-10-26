@@ -213,6 +213,10 @@
                 class="input-control extra-note-input"
                 placeholder="السبب..."
               />
+              <label class="checkbox-label extra-exclude-label" style="display:inline-flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:700; color:var(--text-muted); cursor:pointer; margin-right:8px;">
+                <input type="checkbox" id="dailyExtraExcludeCompany" />
+                <span>🚫 استبعاد من حسابات تصفية الشركة (مصروف جانبي / شخصي / بنكي)</span>
+              </label>
             </div>
           </div>
         </div>
@@ -321,15 +325,16 @@
             <thead>
               <tr>
                 <th style="width: 55px;">رقم</th>
-                <th style="min-width: 210px;">اسم الشخص</th>
+                <th style="min-width: 200px;">اسم الشخص</th>
                 <th style="width: 100px;" class="col-extra hidden">الفئة</th>
-                <th style="width: 150px;" class="col-extra hidden no-print">⏱️ آخر استلام سابق</th>
-                <th style="width: 220px;">💵 الفلوس اللي خدها اليوم (ر.ق)</th>
-                <th style="width: 220px;">🧾 الفواتير اللي قدمها (بيتي كاش)</th>
+                <th style="width: 145px;" class="col-extra hidden no-print">⏱️ آخر استلام سابق</th>
+                <th style="width: 175px;">💵 الفلوس اللي خدها اليوم (ر.ق)</th>
+                <th style="width: 175px;">🧾 الفواتير اللي قدمها (بيتي كاش)</th>
+                <th style="width: 175px;">↩️ كاش مرتجع في اليد (ر.ق)</th>
                 <th>📝 ملاحظة (اختياري)</th>
-                <th style="width: 140px;" class="col-extra hidden no-print">إجمالي الشهر</th>
-                <th style="width: 155px;" class="col-extra hidden no-print">موقف الفواتير</th>
-                <th style="width: 135px;" class="no-print">صفحة الشخص</th>
+                <th style="width: 135px;" class="col-extra hidden no-print">إجمالي الشهر</th>
+                <th style="width: 160px;">موقف التصفية</th>
+                <th style="width: 130px;" class="no-print">صفحة الشخص</th>
               </tr>
             </thead>
             <tbody id="dailyDistributionBody"></tbody>
@@ -338,6 +343,7 @@
                 <td colspan="2" id="footLabelColspan"><strong>المجموع الكلي لليوم (ر.ق)</strong></td>
                 <td><strong id="footDailyCash">0</strong></td>
                 <td><strong id="footDailyInvoices">0</strong></td>
+                <td><strong id="footDailyReturned">0</strong></td>
                 <td colspan="2" id="footDailyNote"></td>
               </tr>
             </tfoot>
@@ -516,6 +522,10 @@
                   <label>🧾 الفواتير اللي قدمها (بيتي كاش)</label>
                   <input type="number" id="pEntryInvoice" class="input-control" placeholder="0" step="any" />
                 </div>
+                <div class="field-group">
+                  <label>↩️ كاش مرتجع في اليد (ر.ق)</label>
+                  <input type="number" id="pEntryReturnedCash" class="input-control" placeholder="0" step="any" />
+                </div>
                 <div class="field-group field-grow">
                   <label>📝 البيان / الملاحظة (أو اضغط على نوع الفاتورة)</label>
                   <input type="text" id="pEntryNote" class="input-control" placeholder="بيان الفاتورة..." />
@@ -532,16 +542,17 @@
               </div>
             </div>
 
-            <!-- Ruled Ledger Table with Running Balance (المستلم | الفواتير | الرصيد التراكمي) -->
+            <!-- Ruled Ledger Table with Running Balance (المستلم | الفواتير | كاش مرتجع | الرصيد التراكمي) -->
             <div class="table-responsive">
               <table class="data-table ruled-ledger-table">
                 <thead>
                   <tr>
                     <th style="width: 50px;">م</th>
-                    <th style="width: 140px;">التاريخ</th>
-                    <th style="width: 105px;">اليوم</th>
-                    <th style="width: 190px;" class="col-cash-head">💵 المستلم (ر.ق)</th>
-                    <th style="width: 190px;" class="col-inv-head">🧾 الفواتير (بيتي كاش)</th>
+                    <th style="width: 135px;">التاريخ</th>
+                    <th style="width: 100px;">اليوم</th>
+                    <th style="width: 165px;" class="col-cash-head">💵 المستلم (ر.ق)</th>
+                    <th style="width: 165px;" class="col-inv-head">🧾 الفواتير (بيتي كاش)</th>
+                    <th style="width: 165px;" class="col-ret-head">↩️ كاش مرتجع (ر.ق)</th>
                     <th>📝 البيان / الملاحظات</th>
                     <th style="width: 185px;" class="col-balance-head">⚖️ الرصيد التراكمي</th>
                     <th style="width: 110px;" class="no-print">تعديل / حذف</th>
@@ -553,6 +564,7 @@
                     <td colspan="3"><strong>التوتال الكلي للفترة</strong></td>
                     <td class="col-cash-total"><strong id="personTotalCash">0</strong></td>
                     <td class="col-inv-total"><strong id="personTotalInvoices">0</strong></td>
+                    <td class="col-ret-total"><strong id="personTotalReturned">0</strong></td>
                     <td colspan="3" id="personNetSummaryCell"></td>
                   </tr>
                 </tfoot>
@@ -568,6 +580,10 @@
               <div class="p-total-card invoice-card">
                 <span class="p-total-label">🧾 إجمالي الفواتير المعتمدة منه (بترول وصيانة ونثريات)</span>
                 <strong class="p-total-val" id="cardPersonInvTotal">0</strong>
+              </div>
+              <div class="p-total-card ret-card">
+                <span class="p-total-label">↩️ إجمالي الكاش المرتجع في اليد (المستلم منه كاش)</span>
+                <strong class="p-total-val" id="cardPersonRetTotal">0</strong>
               </div>
               <div class="p-total-card net-card">
                 <span class="p-total-label">⚖️ صافي موقف الحساب (المتبقي في ذمته)</span>
@@ -764,12 +780,12 @@
       <div class="card monthly-header-card">
         <div class="monthly-title-row">
           <div>
-            <h2>💼 صندوق العهدة النقدية للشركة ومطابقة الخزنة</h2>
-            <p class="text-muted">متابعة دفعات العهدة المستلمة من الإدارة المالية، وتصفية المنصرف والفواتير والمتبقي بالدرج</p>
+            <h2>🏢 عهدة الشركة الكبيرة وتسوية كشوف الفواتير الرسمية</h2>
+            <p class="text-muted">متابعة دفعات العهدة المستلمة من الشركة وتصفيتها بكشوف الفواتير المعتمدة (حساب عهدة الشركة مستقل تماماً عن السائقين)</p>
           </div>
           <div class="monthly-controls no-print">
-            <button id="btnPrintReplenishment" class="btn btn-primary" title="طباعة كشف تصفية واستعاضة العهدة لتقديمه للإدارة المالية">
-              📄 طباعة طلب استعاضة العهدة
+            <button id="btnPrintReplenishment" class="btn btn-primary" title="طباعة كشف تصنيف الفواتير لتقديمه للشركة">
+              📄 كشف تصنيف الفواتير والطلب
             </button>
           </div>
         </div>
@@ -777,58 +793,99 @@
         <!-- Custody KPI Cards -->
         <div class="monthly-kpis">
           <div class="kpi-item">
-            <span class="kpi-label">💵 إجمالي العهدة المستلمة من الشركة في <span class="current-month-label">يناير</span></span>
-            <strong class="kpi-value text-green" id="custodyMonthReceived">0</strong>
-            <small class="kpi-sub-split" id="custodyYearReceivedSub">إجمالي السنة: 0 ر.ق</small>
+            <span class="kpi-label">💵 إجمالي المستلم من الشركة (الوارد)</span>
+            <strong class="kpi-value text-green" id="custodyYearReceived">0</strong>
+            <small class="kpi-sub-split" id="custodyMonthReceivedSub">حركة هذا الشهر: 0 ر.ق</small>
           </div>
           <div class="kpi-item">
-            <span class="kpi-label">📤 إجمالي المنصرف على السائقين والستاف</span>
-            <strong class="kpi-value text-blue" id="custodyMonthDistributed">0</strong>
-          </div>
-          <div class="kpi-item">
-            <span class="kpi-label">🧾 إجمالي الفواتير المجمعة للشهر</span>
-            <strong class="kpi-value text-purple" id="custodyMonthInvoices">0</strong>
+            <span class="kpi-label">🧾 إجمالي كشوف الفواتير المسلمة للشركة</span>
+            <strong class="kpi-value text-purple" id="custodyYearSettled">0</strong>
+            <small class="kpi-sub-split" id="custodyMonthSettledSub">حركة هذا الشهر: 0 ر.ق</small>
           </div>
           <div class="kpi-item custody-balance-card">
-            <span class="kpi-label">💰 الرصيد التراكمي الفعلي المتبقي بالخزنة</span>
-            <strong class="kpi-value" id="custodyCashInHand">0</strong>
-            <small class="kpi-sub-split" id="custodyBalanceStatus">المستلم ناقص المنصرف حتى الآن</small>
-            <div id="custodyMonthNetRow" style="margin-top: 6px; padding-top: 5px; border-top: 1px dashed var(--border-color); font-size: 0.82rem; font-weight: 700;">
-              حركة شهر <span class="current-month-label">يناير</span> فقط: <span id="custodyMonthNetVal">0 ر.ق</span>
+            <span class="kpi-label">⚖️ رصيد عهدة الشركة المعلق بذمتنا</span>
+            <strong class="kpi-value" id="custodyCompanyBalance">0</strong>
+            <small class="kpi-sub-split" id="custodyCompanyStatus">المستلم من الشركة ناقص المسلم لها</small>
+          </div>
+          <div class="kpi-item" style="border: 2px dashed #3b82f6; background: #eff6ff;">
+            <span class="kpi-label" style="color: #1e40af;">🗄️ النقدية الفعلية بدرج الكاش (الخزنة)</span>
+            <strong class="kpi-value text-blue" id="custodyDrawerCash">0</strong>
+            <small class="kpi-sub-split" style="color: #2563eb;" id="custodyDrawerCashSub">الكاش الورقي الفعلي في اليد</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions / Forms Grid -->
+      <div class="custody-forms-grid no-print" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; margin-bottom: 20px;">
+        
+        <!-- Form 1: Add Custody Receipt from Company -->
+        <div class="card" style="margin-bottom: 0;">
+          <h3 style="margin-bottom: 12px; font-size: 1.05rem; color: var(--green);">
+            📥 1. تسجيل دفعة عهدة مستلمة من الشركة:
+          </h3>
+          <div class="custody-receipt-form">
+            <div class="field-group" style="width: 100%;">
+              <label>تاريخ الاستلام:</label>
+              <input type="date" id="custodyReceiptDate" class="input-control" />
+            </div>
+            <div class="field-group" style="width: 100%;">
+              <label>المبلغ المستلم (ر.ق):</label>
+              <input type="number" id="custodyReceiptAmount" class="input-control" placeholder="مثال: 1000000" step="any" min="0" />
+            </div>
+            <div class="field-group" style="width: 100%;">
+              <label>رقم السند / الشيك / التحويل:</label>
+              <input type="text" id="custodyReceiptRef" class="input-control" placeholder="رقم الشيك أو السند..." />
+            </div>
+            <div class="field-group field-grow" style="width: 100%;">
+              <label>البيان / ملاحظات:</label>
+              <input type="text" id="custodyReceiptNote" class="input-control" placeholder="دفعة عهدة الشركة الكبيرة..." />
+            </div>
+            <div class="field-group field-btn" style="width: 100%; margin-top: 8px;">
+              <button id="btnAddCustodyReceipt" class="btn btn-success" style="width: 100%;">➕ إضافة دفعة العهدة</button>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Quick Add Company Custody Receipt -->
-      <div class="card no-print">
-        <h3 style="margin-bottom: 12px; font-size: 1.05rem; color: var(--primary);">
-          📥 تسجيل دفعة عهدة جديدة مستلمة من الشركة / الإدارة المالية:
-        </h3>
-        <div class="custody-receipt-form">
-          <div class="field-group">
-            <label>تاريخ الاستلام:</label>
-            <input type="date" id="custodyReceiptDate" class="input-control" />
+        <!-- Form 2: Submit Official Invoice Batch / Settlement to Company -->
+        <div class="card" style="margin-bottom: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 1.05rem; color: var(--purple);">
+              📑 2. تسجيل كشف فواتير مسلم لتسوية العهدة:
+            </h3>
+            <button type="button" id="btnAutoFillMonthInvoices" class="btn btn-sm btn-outline" style="border-color: var(--purple); color: var(--purple); font-weight: 700;">
+              ⚡ سحب إجمالي فواتير شهر (<span class="current-month-label">يناير</span>)
+            </button>
           </div>
-          <div class="field-group">
-            <label>المبلغ المستلم (ر.ق):</label>
-            <input type="number" id="custodyReceiptAmount" class="input-control" placeholder="مثال: 50000" step="any" min="0" />
-          </div>
-          <div class="field-group">
-            <label>رقم السند / الشيك (اختياري):</label>
-            <input type="text" id="custodyReceiptRef" class="input-control" placeholder="شيك رقم / سند قبض..." />
-          </div>
-          <div class="field-group field-grow">
-            <label>البيان / ملاحظات (اختياري):</label>
-            <input type="text" id="custodyReceiptNote" class="input-control" placeholder="دفعة عهدة حركة السائقين..." />
-          </div>
-          <div class="field-group field-btn">
-            <button id="btnAddCustodyReceipt" class="btn btn-success">➕ تسجيل الدفعة</button>
+          <div class="custody-receipt-form">
+            <div class="field-group" style="width: 100%;">
+              <label>تاريخ التسليم للشركة:</label>
+              <input type="date" id="custodySettlementDate" class="input-control" />
+            </div>
+            <div class="field-group" style="width: 100%;">
+              <label>إجمالي مبلغ الفواتير المسلمة (ر.ق):</label>
+              <input type="number" id="custodySettlementAmount" class="input-control" placeholder="مثال: 400000" step="any" min="0" />
+            </div>
+            <div class="field-group" style="width: 100%;">
+              <label>بيان الفترة / الشهر:</label>
+              <input type="text" id="custodySettlementPeriod" class="input-control" placeholder="مثال: فواتير شهر يناير 2026" />
+            </div>
+            <div class="field-group" style="width: 100%;">
+              <label>رقم كشف التصفية / الإشعار:</label>
+              <input type="text" id="custodySettlementRef" class="input-control" placeholder="رقم كشف التصفية المعتمد..." />
+            </div>
+            <div class="field-group field-grow" style="width: 100%;">
+              <label>البيان / الملاحظات:</label>
+              <input type="text" id="custodySettlementNote" class="input-control" placeholder="تسوية فواتير سيارات وسائقين..." />
+            </div>
+            <div class="field-group field-btn" style="width: 100%; margin-top: 8px;">
+              <button id="btnAddCustodySettlement" class="btn btn-primary" style="width: 100%;">📑 حفظ كشف التصفية للشركة</button>
+            </div>
           </div>
         </div>
+
       </div>
 
-      <!-- Table of Company Custody Receipts -->
+      <!-- Table 1: Company Custody Receipts -->
       <div class="card table-card">
         <div class="table-toolbar no-print">
           <h3>📋 سجل دفعات العهدة المستلمة من الشركة في سنة <span class="current-year-label">2026</span></h3>
@@ -858,10 +915,40 @@
         </div>
       </div>
 
-      <!-- Summary of Driver Pending Balances -->
+      <!-- Table 2: Company Custody Settlements (Invoices Submitted to Settle Custody) -->
       <div class="card table-card">
         <div class="table-toolbar no-print">
-          <h3>⚖️ موقف عُهد السائقين المعلقة (من لم يقدم فواتير كاملة بعد)</h3>
+          <h3>📑 سجل كشوف الفواتير والتسويات المسلمة للشركة في سنة <span class="current-year-label">2026</span></h3>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 55px;">#</th>
+                <th style="width: 140px;">تاريخ التسليم</th>
+                <th style="width: 160px;">الفترة / الشهر</th>
+                <th style="width: 200px;">🧾 المبلغ المسوى (ر.ق)</th>
+                <th style="width: 180px;">رقم كشف التصفية</th>
+                <th>البيان / الملاحظات</th>
+                <th style="width: 90px;" class="no-print">حذف</th>
+              </tr>
+            </thead>
+            <tbody id="custodySettlementsBody"></tbody>
+            <tfoot>
+              <tr class="totals-row">
+                <td colspan="3"><strong>إجمالي الفواتير المسلمة لتسوية العهدة (ر.ق)</strong></td>
+                <td><strong id="footCustodySettlementsTotal" style="color: #fff; font-size: 1.15rem;">0</strong></td>
+                <td colspan="3"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Table 3: Summary of Driver Pending Balances -->
+      <div class="card table-card">
+        <div class="table-toolbar no-print">
+          <h3>⚖️ موقف تصفية عُهد السائقين (من لم يقدم فواتير أو كاش كامل بعد)</h3>
         </div>
         <div class="table-responsive">
           <table class="data-table">
@@ -869,11 +956,12 @@
               <tr>
                 <th style="width: 55px;">#</th>
                 <th>اسم السائق / الموظف</th>
-                <th style="width: 110px;">الفئة</th>
-                <th style="width: 170px;">💵 ما استلمه (ر.ق)</th>
-                <th style="width: 170px;">🧾 فواتيره (ر.ق)</th>
-                <th style="width: 190px;">⚠️ المتبقي في ذمته (معلق)</th>
-                <th style="width: 130px;">الحالة</th>
+                <th style="width: 100px;">الفئة</th>
+                <th style="width: 160px;">💵 ما استلمه سُلف (ر.ق)</th>
+                <th style="width: 160px;">🧾 فواتيره (ر.ق)</th>
+                <th style="width: 160px;">↩️ كاش مرتجع (ر.ق)</th>
+                <th style="width: 180px;">⚠️ المتبقي بذمته (معلق)</th>
+                <th style="width: 140px;">الحالة</th>
                 <th style="width: 110px;" class="no-print">صفحته</th>
               </tr>
             </thead>

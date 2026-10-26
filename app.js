@@ -18,11 +18,13 @@ const ARABIC_DAYS = [
 
 function createCleanData() {
   return {
+    schemaVersion: 4,
     people: [],        // { id, num, name, role: 'driver'|'staff', meta: 'رقم السيارة / القسم' }
     dailyReceipts: {}, // { "YYYY-MM-DD": number }
-    dailyExtras: {},   // { "YYYY-MM-DD": { amount: number, note: string } }
-    entries: {},       // { "YYYY-MM-DD": { [personId]: { cash: number, invoice: number, note: string } } }
-    custodyReceipts: [] // [ { id, date, amount, ref, note } ] (Company custody fund receipts)
+    dailyExtras: {},   // { "YYYY-MM-DD": { amount: number, note: string, excludeFromCompany: boolean } }
+    entries: {},       // { "YYYY-MM-DD": { [personId]: { cash: number, invoice: number, returnedCash: number, note: string } } }
+    custodyReceipts: [], // [ { id, date, amount, ref, note } ] (دفعات العهدة المستلمة من الشركة)
+    custodySettlements: [] // [ { id, date, amount, period, ref, note } ] (كشوف الفواتير والتسويات المسلمة للشركة)
   };
 }
 
@@ -96,7 +98,8 @@ function loadState() {
           dailyReceipts: parsed.dailyReceipts || {},
           dailyExtras: parsed.dailyExtras || {},
           entries: parsed.entries || {},
-          custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : []
+          custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : [],
+          custodySettlements: Array.isArray(parsed.custodySettlements) ? parsed.custodySettlements : []
         };
       }
     }
@@ -241,10 +244,11 @@ function setDayReceived(dateStr, amount) {
 
 function getDayExtra(dateStr) {
   const ex = state.data.dailyExtras && state.data.dailyExtras[dateStr];
-  if (!ex) return { amount: 0, note: '' };
+  if (!ex) return { amount: 0, note: '', excludeFromCompany: false };
   return {
     amount: Number(ex.amount) || 0,
-    note: ex.note || ''
+    note: ex.note || '',
+    excludeFromCompany: !!ex.excludeFromCompany
   };
 }
 
@@ -253,7 +257,8 @@ function setDayExtra(dateStr, updates) {
   const cur = getDayExtra(dateStr);
   const next = {
     amount: updates.amount !== undefined ? (Number(updates.amount) || 0) : cur.amount,
-    note: updates.note !== undefined ? String(updates.note) : cur.note
+    note: updates.note !== undefined ? String(updates.note) : cur.note,
+    excludeFromCompany: updates.excludeFromCompany !== undefined ? !!updates.excludeFromCompany : cur.excludeFromCompany
   };
   if (next.amount <= 0 && !next.note.trim()) {
     delete state.data.dailyExtras[dateStr];
@@ -266,11 +271,12 @@ function setDayExtra(dateStr, updates) {
 function getPersonEntry(dateStr, personId) {
   const dayObj = state.data.entries[dateStr];
   if (!dayObj || !dayObj[personId]) {
-    return { cash: 0, invoice: 0, note: '' };
+    return { cash: 0, invoice: 0, returnedCash: 0, note: '' };
   }
   return {
     cash: Number(dayObj[personId].cash) || 0,
     invoice: Number(dayObj[personId].invoice) || 0,
+    returnedCash: Number(dayObj[personId].returnedCash) || 0,
     note: dayObj[personId].note || ''
   };
 }
@@ -283,10 +289,11 @@ function setPersonEntry(dateStr, personId, updates) {
   const next = {
     cash: updates.cash !== undefined ? (Number(updates.cash) || 0) : current.cash,
     invoice: updates.invoice !== undefined ? (Number(updates.invoice) || 0) : current.invoice,
+    returnedCash: updates.returnedCash !== undefined ? (Number(updates.returnedCash) || 0) : current.returnedCash,
     note: updates.note !== undefined ? String(updates.note) : current.note
   };
 
-  if (next.cash === 0 && next.invoice === 0 && !next.note.trim()) {
+  if (next.cash === 0 && next.invoice === 0 && next.returnedCash === 0 && !next.note.trim()) {
     delete state.data.entries[dateStr][personId];
     if (Object.keys(state.data.entries[dateStr]).length === 0) {
       delete state.data.entries[dateStr];
@@ -323,12 +330,14 @@ function getDayTotals(dateStr) {
   let driversDistributed = 0;
   let staffDistributed = 0;
   let invoices = 0;
+  let returnedCashTotal = 0;
   let activeCashCount = 0;
   let activeInvoiceCount = 0;
 
   Object.entries(dayEntries).forEach(([pid, entry]) => {
     const c = Number(entry.cash) || 0;
     const inv = Number(entry.invoice) || 0;
+    const ret = Number(entry.returnedCash) || 0;
     const person = state.data.people.find(p => p.id === pid);
     if (c > 0) {
       distributed += c;
@@ -343,6 +352,9 @@ function getDayTotals(dateStr) {
       invoices += inv;
       activeInvoiceCount++;
     }
+    if (ret > 0) {
+      returnedCashTotal += ret;
+    }
   });
 
   const totalOut = distributed + extra.amount;
@@ -354,8 +366,10 @@ function getDayTotals(dateStr) {
     staffDistributed,
     extraAmount: extra.amount,
     extraNote: extra.note,
+    excludeFromCompany: extra.excludeFromCompany,
     totalOut,
-    remaining: received - totalOut,
+    returnedCashTotal,
+    remaining: (received + returnedCashTotal) - totalOut,
     invoices,
     activeCashCount,
     activeInvoiceCount
@@ -366,24 +380,44 @@ function getPersonMonthTotals(personId, year, month) {
   const daysCount = getDaysInMonth(year, month);
   let cash = 0;
   let invoice = 0;
+  let returnedCash = 0;
   for (let d = 1; d <= daysCount; d++) {
     const dateKey = formatDateKey(year, month, d);
     const entry = getPersonEntry(dateKey, personId);
     cash += entry.cash;
     invoice += entry.invoice;
+    returnedCash += entry.returnedCash;
   }
-  return { cash, invoice, diff: cash - invoice };
+  return { cash, invoice, returnedCash, diff: cash - (invoice + returnedCash) };
 }
 
 function getPersonYearTotals(personId, year) {
   let cash = 0;
   let invoice = 0;
+  let returnedCash = 0;
   for (let m = 1; m <= 12; m++) {
     const mt = getPersonMonthTotals(personId, year, m);
     cash += mt.cash;
     invoice += mt.invoice;
+    returnedCash += mt.returnedCash;
   }
-  return { cash, invoice, diff: cash - invoice };
+  return { cash, invoice, returnedCash, diff: cash - (invoice + returnedCash) };
+}
+
+function getPersonBalanceBeforeDate(personId, beforeDateStr) {
+  let bal = 0;
+  const allDates = Object.keys(state.data.entries || {}).filter(d => d < beforeDateStr).sort();
+  for (const dk of allDates) {
+    const dayObj = state.data.entries[dk];
+    if (dayObj && dayObj[personId]) {
+      const e = dayObj[personId];
+      const c = Number(e.cash) || 0;
+      const inv = Number(e.invoice) || 0;
+      const ret = Number(e.returnedCash) || 0;
+      bal += (c - (inv + ret));
+    }
+  }
+  return bal;
 }
 
 function getCustodyReceiptsForMonth(year, month) {
@@ -396,15 +430,51 @@ function getCustodyReceiptsForYear(year) {
   return (state.data.custodyReceipts || []).filter(r => r && r.date && r.date.startsWith(prefix));
 }
 
-function getSettlementBadgeHtml(cash, invoice) {
-  if (cash === 0 && invoice === 0) {
+function getCustodySettlementsForMonth(year, month) {
+  const prefix = `${year}-${String(month).padStart(2, '0')}`;
+  return (state.data.custodySettlements || []).filter(r => r && r.date && r.date.startsWith(prefix));
+}
+
+function getCustodySettlementsForYear(year) {
+  const prefix = `${year}-`;
+  return (state.data.custodySettlements || []).filter(r => r && r.date && r.date.startsWith(prefix));
+}
+
+function calculateMonthDriverInvoices(year, month) {
+  const daysInM = getDaysInMonth(year, month);
+  let totalInvoices = 0;
+  for (let d = 1; d <= daysInM; d++) {
+    const dk = formatDateKey(year, month, d);
+    const dayEntries = state.data.entries[dk] || {};
+    for (const p of state.data.people) {
+      const e = dayEntries[p.id];
+      if (e && e.invoice) {
+        totalInvoices += (Number(e.invoice) || 0);
+      }
+    }
+    const extra = state.data.dailyExtras[dk];
+    if (extra && extra.amount && !extra.excludeFromCompany) {
+      totalInvoices += (Number(extra.amount) || 0);
+    }
+  }
+  return Number(totalInvoices.toFixed(2));
+}
+
+function getSettlementBadgeHtml(cash, invoice, returnedCash = 0) {
+  if (cash === 0 && invoice === 0 && returnedCash === 0) {
     return `<span class="settlement-badge idle">لا توجد حركة</span>`;
   }
-  const diff = cash - invoice;
+  const settledTotal = invoice + returnedCash;
+  const diff = cash - settledTotal;
   if (Math.abs(diff) < 0.001) {
+    if (returnedCash > 0 && invoice > 0) {
+      return `<span class="settlement-badge settled" title="فواتير: ${formatNumber(invoice)} + مرتجع: ${formatNumber(returnedCash)}">خالص ومصفى بالكامل ✓</span>`;
+    } else if (returnedCash > 0) {
+      return `<span class="settlement-badge settled" title="مرتجع كاش بالكامل: ${formatNumber(returnedCash)}">خالص ومرتجع كاش ✓</span>`;
+    }
     return `<span class="settlement-badge settled">خالص بالفواتير ✓</span>`;
   } else if (diff > 0) {
-    return `<span class="settlement-badge owes">متبقي بعهدته: ${formatNumber(diff)}</span>`;
+    return `<span class="settlement-badge owes">متبقي بذمته: ${formatNumber(diff)}</span>`;
   } else {
     return `<span class="settlement-badge credit">له فرق مستحق: ${formatNumber(Math.abs(diff))}</span>`;
   }
@@ -571,7 +641,8 @@ function renderDailySummaryCards() {
   const extraRow = document.getElementById('extraExpenseRow');
   const extraInput = document.getElementById('dailyExtraInput');
   const extraNoteInput = document.getElementById('dailyExtraNoteInput');
-  if (totals.extraAmount > 0 || totals.extraNote) {
+  const extraExcludeChk = document.getElementById('dailyExtraExcludeCompany');
+  if (totals.extraAmount > 0 || totals.extraNote || totals.excludeFromCompany) {
     extraRow.classList.remove('hidden');
   }
   if (document.activeElement !== extraInput) {
@@ -579,6 +650,9 @@ function renderDailySummaryCards() {
   }
   if (document.activeElement !== extraNoteInput) {
     extraNoteInput.value = totals.extraNote || '';
+  }
+  if (extraExcludeChk) {
+    extraExcludeChk.checked = !!totals.excludeFromCompany;
   }
 
   document.getElementById('dailyDistributedTotal').textContent = formatNumber(totals.distributed);
@@ -639,9 +713,13 @@ function renderDailySummaryCards() {
   // Footer totals
   document.getElementById('footDailyCash').textContent = formatNumber(totals.distributed);
   document.getElementById('footDailyInvoices').textContent = formatNumber(totals.invoices);
+  const footDailyRetEl = document.getElementById('footDailyReturned');
+  if (footDailyRetEl) {
+    footDailyRetEl.textContent = formatNumber(totals.returnedCashTotal);
+  }
   document.getElementById('footDailyNote').textContent =
-    totals.received > 0
-      ? `المستلم: ${formatNumber(totals.received)} ر.ق | الموزع: ${formatNumber(totals.distributed)} ر.ق | المتبقي: ${formatNumber(totals.remaining)} ر.ق`
+    totals.received > 0 || totals.returnedCashTotal > 0
+      ? `المستلم: ${formatNumber(totals.received)} ر.ق${totals.returnedCashTotal > 0 ? ` (+${formatNumber(totals.returnedCashTotal)} مرتجع)` : ''} | الموزع: ${formatNumber(totals.distributed)} ر.ق | المتبقي باليد: ${formatNumber(totals.remaining)} ر.ق`
       : '';
 
   updateFillRemainingChips();
@@ -765,9 +843,11 @@ function renderDailyTable() {
     }
 
     const tr = document.createElement('tr');
-    if (entry.cash > 0 || entry.invoice > 0) {
+    if (entry.cash > 0 || entry.invoice > 0 || entry.returnedCash > 0) {
       tr.classList.add('active-row');
     }
+
+    const netDailyDiff = entry.cash - (entry.invoice + entry.returnedCash);
 
     tr.innerHTML = `
       <td><strong>${person.num}</strong></td>
@@ -817,6 +897,22 @@ function renderDailyTable() {
         />
       </td>
       <td>
+        <div style="position: relative; display: flex; align-items: center;">
+          <input
+            type="number"
+            step="any"
+            min="0"
+            class="cell-input ret-input ${entry.returnedCash > 0 ? 'has-val-ret' : ''}"
+            placeholder="0"
+            value="${entry.returnedCash > 0 ? entry.returnedCash : ''}"
+            data-pid="${person.id}"
+            data-field="returnedCash"
+            title="كاش مرتجع في اليد"
+          />
+          ${netDailyDiff > 0.001 ? `<button type="button" class="fill-settle-chip no-print" data-settle-rem="${person.id}" title="تصفير الباقي كاش (+${formatNumber(netDailyDiff)} ر.ق)">↩️ تصفير</button>` : ''}
+        </div>
+      </td>
+      <td>
         <input
           type="text"
           class="cell-input"
@@ -836,8 +932,8 @@ function renderDailyTable() {
       <td class="col-extra ${showExt ? '' : 'hidden'} no-print" id="mTotalCell_${person.id}">
         <span class="text-green" style="font-weight:800;">${formatNumber(monthTotals.cash)}</span>
       </td>
-      <td class="col-extra ${showExt ? '' : 'hidden'} no-print" id="mSettleCell_${person.id}">
-        ${getSettlementBadgeHtml(monthTotals.cash, monthTotals.invoice)}
+      <td class="no-print" id="mSettleCell_${person.id}">
+        ${getSettlementBadgeHtml(monthTotals.cash, monthTotals.invoice, monthTotals.returnedCash)}
       </td>
       <td class="no-print">
         <div style="display:flex; gap:5px;">
@@ -895,6 +991,24 @@ function renderDailyTable() {
     });
   });
 
+  // 1-Click Settle Remaining Balance as Returned Cash in Hand
+  tbody.querySelectorAll('[data-settle-rem]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = btn.getAttribute('data-settle-rem');
+      const entry = getPersonEntry(state.selectedDate, pid);
+      const remainingDiff = entry.cash - (entry.invoice + entry.returnedCash);
+      if (remainingDiff <= 0) return;
+      const nextRet = Number((entry.returnedCash + remainingDiff).toFixed(2));
+      const retInp = tbody.querySelector(`input[data-pid="${pid}"][data-field="returnedCash"]`);
+      if (retInp) {
+        retInp.value = nextRet;
+        retInp.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      const person = state.data.people.find(p => p.id === pid);
+      showToast(`تم تصفير باقي حساب ${getPersonDisplayName(person)} كمرتجع كاش باليد (${formatNumber(nextRet)} ر.ق) ✓`);
+    });
+  });
+
   // Attach input listeners + Keyboard Enter/Down/Up navigation between rows
   const allTableInputs = Array.from(tbody.querySelectorAll('input[data-pid]'));
   allTableInputs.forEach(input => {
@@ -907,7 +1021,7 @@ function renderDailyTable() {
 
       const updated = getPersonEntry(state.selectedDate, pid);
       const row = input.closest('tr');
-      if (updated.cash > 0 || updated.invoice > 0) {
+      if (updated.cash > 0 || updated.invoice > 0 || updated.returnedCash > 0) {
         row.classList.add('active-row');
       } else {
         row.classList.remove('active-row');
@@ -923,11 +1037,13 @@ function renderDailyTable() {
         }
       } else if (field === 'invoice') {
         input.classList.toggle('has-val-inv', updated.invoice > 0);
+      } else if (field === 'returnedCash') {
+        input.classList.toggle('has-val-ret', updated.returnedCash > 0);
       }
 
       const sCell = document.getElementById(`mSettleCell_${pid}`);
       if (sCell) {
-        sCell.innerHTML = getSettlementBadgeHtml(mTotals.cash, mTotals.invoice);
+        sCell.innerHTML = getSettlementBadgeHtml(mTotals.cash, mTotals.invoice, mTotals.returnedCash);
       }
 
       renderDailySummaryCards();
@@ -1342,13 +1458,16 @@ function renderPersonSheet() {
     pEntryDate.value = state.selectedDate;
   }
 
+  const startDateKey = formatDateKey(state.year, startMonth, 1);
+  const openingBal = getPersonBalanceBeforeDate(person.id, startDateKey);
+
   const rows = [];
   for (let m = startMonth; m <= endMonth; m++) {
     const daysCount = getDaysInMonth(state.year, m);
     for (let d = 1; d <= daysCount; d++) {
       const dateKey = formatDateKey(state.year, m, d);
       const entry = getPersonEntry(dateKey, person.id);
-      if (entry.cash > 0 || entry.invoice > 0 || (entry.note && entry.note.trim() !== '')) {
+      if (entry.cash > 0 || entry.invoice > 0 || entry.returnedCash > 0 || (entry.note && entry.note.trim() !== '')) {
         rows.push({
           dateKey,
           d,
@@ -1357,6 +1476,7 @@ function renderPersonSheet() {
           dayName: getArabicDayName(state.year, m, d),
           cash: entry.cash,
           invoice: entry.invoice,
+          returnedCash: entry.returnedCash,
           note: entry.note
         });
       }
@@ -1367,12 +1487,31 @@ function renderPersonSheet() {
 
   let totalCash = 0;
   let totalInvoices = 0;
-  let runningBalance = 0;
+  let totalReturned = 0;
+  let runningBalance = openingBal;
 
-  if (rows.length === 0) {
+  if (Math.abs(openingBal) > 0.001) {
+    const trOp = document.createElement('tr');
+    trOp.style.background = '#f8fafc';
+    trOp.style.fontWeight = '700';
+    let opClass = openingBal > 0 ? 'bal-owes' : 'bal-credit';
+    let opText = openingBal > 0 ? `+${formatNumber(openingBal)} ر.ق (متبقي بذمته مرحل)` : `-${formatNumber(Math.abs(openingBal))} ر.ق (له فرق مرحل)`;
+    trOp.innerHTML = `
+      <td>📌</td>
+      <td><strong>بداية الفترة</strong></td>
+      <td>-</td>
+      <td colspan="3" style="color: var(--text-muted); text-align: right;">رصيد سابق مرحل من الشهور/الفترات السابقة</td>
+      <td>-</td>
+      <td class="col-balance-cell"><span class="${opClass}">${opText}</span></td>
+      <td class="no-print">-</td>
+    `;
+    tbody.appendChild(trOp);
+  }
+
+  if (rows.length === 0 && Math.abs(openingBal) <= 0.001) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" style="text-align:center; padding: 28px; color: var(--text-muted);">
+        <td colspan="9" style="text-align:center; padding: 28px; color: var(--text-muted);">
           لا توجد حركات مسجلة لـ <strong>${dispName}</strong> في هذه الفترة. يمكنك إضافتها من الأعلى أو من شاشة التسجيل اليومي.
         </td>
       </tr>
@@ -1381,7 +1520,8 @@ function renderPersonSheet() {
     rows.forEach((r, idx) => {
       totalCash += r.cash;
       totalInvoices += r.invoice;
-      runningBalance += (r.cash - r.invoice);
+      totalReturned += r.returnedCash;
+      runningBalance += (r.cash - (r.invoice + r.returnedCash));
 
       let balClass = 'bal-settled';
       let balText = '0.00 ر.ق (مصفى)';
@@ -1400,6 +1540,7 @@ function renderPersonSheet() {
         <td>${r.dayName}</td>
         <td class="col-cash-cell">${r.cash > 0 ? formatNumber(r.cash) : '0'}</td>
         <td class="col-inv-cell">${r.invoice > 0 ? formatNumber(r.invoice) : '0'}</td>
+        <td class="col-ret-cell">${r.returnedCash > 0 ? formatNumber(r.returnedCash) : '0'}</td>
         <td>${r.note || '-'}</td>
         <td class="col-balance-cell"><span class="${balClass}">${balText}</span></td>
         <td class="no-print">
@@ -1413,27 +1554,31 @@ function renderPersonSheet() {
 
   document.getElementById('personTotalCash').textContent = formatNumber(totalCash);
   document.getElementById('personTotalInvoices').textContent = formatNumber(totalInvoices);
+  const pTotRetEl = document.getElementById('personTotalReturned');
+  if (pTotRetEl) pTotRetEl.textContent = formatNumber(totalReturned);
 
-  const netDiff = totalCash - totalInvoices;
-  document.getElementById('ledgerSettlementBadge').innerHTML = getSettlementBadgeHtml(totalCash, totalInvoices);
+  const netDiff = runningBalance;
+  document.getElementById('ledgerSettlementBadge').innerHTML = getSettlementBadgeHtml(totalCash, totalInvoices, totalReturned);
 
   document.getElementById('personNetSummaryCell').innerHTML = `
-    <span>الفرق النهائي: <strong>${formatNumber(netDiff)} ر.ق</strong> ${netDiff > 0 ? '(متبقي بعهدته)' : netDiff < 0 ? '(له فرق مستحق)' : '(خالص ومصفى)'}</span>
+    <span>الرصيد النهائي: <strong>${formatNumber(netDiff)} ر.ق</strong> ${netDiff > 0.001 ? '(متبقي بذمته)' : netDiff < -0.001 ? '(له فرق مستحق)' : '(خالص ومصفى بالكامل ✓)'}</span>
   `;
 
   document.getElementById('cardPersonCashTotal').textContent = `${formatNumber(totalCash)} ر.ق`;
   document.getElementById('cardPersonInvTotal').textContent = `${formatNumber(totalInvoices)} ر.ق`;
+  const cardRetEl = document.getElementById('cardPersonRetTotal');
+  if (cardRetEl) cardRetEl.textContent = `${formatNumber(totalReturned)} ر.ق`;
   document.getElementById('cardPersonNetDiff').textContent = `${formatNumber(netDiff)} ر.ق`;
 
   const statusSubEl = document.getElementById('cardPersonNetStatus');
-  if (totalCash === 0 && totalInvoices === 0) {
+  if (totalCash === 0 && totalInvoices === 0 && totalReturned === 0 && Math.abs(openingBal) <= 0.001) {
     statusSubEl.textContent = 'لا توجد مبالغ مسجلة';
     statusSubEl.className = 'p-total-sub text-muted';
   } else if (Math.abs(netDiff) < 0.001) {
-    statusSubEl.textContent = '✓ خالص ومصفى بالكامل بالفواتير';
+    statusSubEl.textContent = '✓ خالص ومصفى بالكامل (فواتير + كاش مرتجع)';
     statusSubEl.className = 'p-total-sub text-green';
   } else if (netDiff > 0) {
-    statusSubEl.textContent = `متبقي بعهدته (لم يأتِ بفواتيرها بعد): ${formatNumber(netDiff)} ر.ق`;
+    statusSubEl.textContent = `متبقي بذمته (لم يصفِ بعد): ${formatNumber(netDiff)} ر.ق`;
     statusSubEl.className = 'p-total-sub text-amber';
   } else {
     statusSubEl.textContent = `له فرق فواتير مستحق الصرف: ${formatNumber(Math.abs(netDiff))} ر.ق`;
@@ -1447,6 +1592,8 @@ function renderPersonSheet() {
       document.getElementById('pEntryDate').value = dateKey;
       document.getElementById('pEntryCash').value = entry.cash || '';
       document.getElementById('pEntryInvoice').value = entry.invoice || '';
+      const pRetInp = document.getElementById('pEntryReturnedCash');
+      if (pRetInp) pRetInp.value = entry.returnedCash || '';
       document.getElementById('pEntryNote').value = entry.note || '';
       document.getElementById('pEntryCash').focus();
     });
@@ -1456,7 +1603,7 @@ function renderPersonSheet() {
     btn.addEventListener('click', () => {
       const dateKey = btn.getAttribute('data-del-pdate');
       if (confirm('هل تريد حذف هذا السطر من صفحة الشخص؟')) {
-        setPersonEntry(dateKey, person.id, { cash: 0, invoice: 0, note: '' });
+        setPersonEntry(dateKey, person.id, { cash: 0, invoice: 0, returnedCash: 0, note: '' });
         renderPersonTab();
         showToast('تم حذف السطر بنجاح');
       }
@@ -1476,6 +1623,7 @@ function openVoucherModal(personId) {
 
   let totalCash = 0;
   let totalInv = 0;
+  let totalRet = 0;
   const startM = isYearScope ? 1 : state.month;
   const endM = isYearScope ? 12 : state.month;
 
@@ -1483,9 +1631,10 @@ function openVoucherModal(personId) {
     const mt = getPersonMonthTotals(person.id, state.year, m);
     totalCash += mt.cash;
     totalInv += mt.invoice;
+    totalRet += mt.returnedCash;
   }
 
-  const diff = totalCash - totalInv;
+  const diff = totalCash - (totalInv + totalRet);
 
   document.getElementById('vPeriodText').textContent = `تاريخ الإصدار: ${state.selectedDate}`;
   document.getElementById('vPersonName').textContent = dispName;
@@ -1494,9 +1643,9 @@ function openVoucherModal(personId) {
   document.getElementById('vScopeLabel').textContent = scopeLabel;
   document.getElementById('vTotalCash').textContent = `${formatNumber(totalCash)} ر.ق`;
   document.getElementById('vTotalInv').textContent = `${formatNumber(totalInv)} ر.ق`;
-  document.getElementById('vNetStatus').textContent = diff === 0
-    ? '0 ر.ق (خالص بالكامل بالفواتير ✓)'
-    : (diff > 0 ? `${formatNumber(diff)} ر.ق (متبقي بعهدته لم يأتِ بفواتيرها بعد)` : `${formatNumber(Math.abs(diff))} ر.ق (له فرق فواتير مستحق الصرف)`);
+  document.getElementById('vNetStatus').textContent = Math.abs(diff) < 0.001
+    ? '0 ر.ق (خالص ومصفى بالكامل ✓)'
+    : (diff > 0 ? `${formatNumber(diff)} ر.ق (متبقي بذمته لم يصفِ بعد)` : `${formatNumber(Math.abs(diff))} ر.ق (له فرق فواتير مستحق الصرف)`);
 
   document.getElementById('voucherModal').classList.remove('hidden');
 }
@@ -1508,7 +1657,7 @@ function sharePersonStatementWhatsApp() {
     return;
   }
   const dispName = getPersonDisplayName(person);
-  const isYearScope = state.ledgerScope === 'year';
+  const isYearScope = state.personSelectedMonth === 'all';
   const periodTitle = isYearScope ? `سنة ${state.year}` : `شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
 
   const startMonth = isYearScope ? 1 : state.month;
@@ -1517,24 +1666,29 @@ function sharePersonStatementWhatsApp() {
   let lines = [];
   let totalCash = 0;
   let totalInv = 0;
+  let totalRet = 0;
 
   for (let m = startMonth; m <= endMonth; m++) {
     const daysCount = getDaysInMonth(state.year, m);
     for (let d = 1; d <= daysCount; d++) {
       const dk = formatDateKey(state.year, m, d);
       const e = getPersonEntry(dk, person.id);
-      if (e.cash > 0 || e.invoice > 0 || e.note) {
+      if (e.cash > 0 || e.invoice > 0 || e.returnedCash > 0 || e.note) {
         totalCash += e.cash;
         totalInv += e.invoice;
-        lines.push(`• ${d}/${m}: استلام ${formatNumber(e.cash)} ر.ق | فواتير ${formatNumber(e.invoice)} ر.ق${e.note ? ` (${e.note})` : ''}`);
+        totalRet += e.returnedCash;
+        let line = `• ${d}/${m}: استلام ${formatNumber(e.cash)} ر.ق | فواتير ${formatNumber(e.invoice)} ر.ق`;
+        if (e.returnedCash > 0) line += ` | مرتجع كاش ${formatNumber(e.returnedCash)} ر.ق`;
+        if (e.note) line += ` (${e.note})`;
+        lines.push(line);
       }
     }
   }
 
-  const diff = totalCash - totalInv;
-  const statusLine = diff === 0
-    ? 'خالص بالكامل بالفواتير ✓'
-    : (diff > 0 ? `متبقي بعهدته (لم يأتِ بفواتيرها بعد): ${formatNumber(diff)} ر.ق` : `له فرق فواتير مستحق الصرف: ${formatNumber(Math.abs(diff))} ر.ق`);
+  const diff = totalCash - (totalInv + totalRet);
+  const statusLine = Math.abs(diff) < 0.001
+    ? 'خالص ومصفى بالكامل ✓'
+    : (diff > 0 ? `متبقي بذمته (لم يأتِ بباقي التصفية بعد): ${formatNumber(diff)} ر.ق` : `له فرق فواتير مستحق الصرف: ${formatNumber(Math.abs(diff))} ر.ق`);
 
   const message = [
     `📋 *كشف حساب عهدة وفواتير (بيتي كاش)*`,
@@ -1543,8 +1697,9 @@ function sharePersonStatementWhatsApp() {
     `-------------------------`,
     ...(lines.length > 0 ? lines : ['لا توجد حركات مسجلة']),
     `-------------------------`,
-    `💵 *إجمالي المبالغ المستلمة:* ${formatNumber(totalCash)} ر.ق`,
+    `💵 *إجمالي المبالغ المستلمة (سُلف):* ${formatNumber(totalCash)} ر.ق`,
     `🧾 *إجمالي الفواتير المقدمة:* ${formatNumber(totalInv)} ر.ق`,
+    ...(totalRet > 0 ? [`↩️ *إجمالي الكاش المرتجع باليد:* ${formatNumber(totalRet)} ر.ق`] : []),
     `⚖️ *الموقف النهائي:* ${statusLine}`
   ].join('\n');
 
@@ -1924,112 +2079,121 @@ function renderPeopleManagementTab() {
 function renderCustodyTab() {
   const mRecList = getCustodyReceiptsForMonth(state.year, state.month);
   const yRecList = getCustodyReceiptsForYear(state.year);
-
   const monthReceived = mRecList.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
   const yearReceived = yRecList.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
 
-  // Calculate monthly distributed and invoices
-  let monthDistributed = 0;
-  let monthInvoices = 0;
-  const daysInM = getDaysInMonth(state.year, state.month);
-  for (let d = 1; d <= daysInM; d++) {
-    const dk = formatDateKey(state.year, state.month, d);
-    const dayEntries = state.data.entries[dk] || {};
-    for (const p of state.data.people) {
-      const e = dayEntries[p.id];
-      if (e) {
-        monthDistributed += (Number(e.cash) || 0);
-        monthInvoices += (Number(e.invoice) || 0);
-      }
-    }
-    const extra = state.data.dailyExtras[dk];
-    if (extra && extra.amount) {
-      monthDistributed += (Number(extra.amount) || 0);
-    }
-  }
+  const mSetList = getCustodySettlementsForMonth(state.year, state.month);
+  const ySetList = getCustodySettlementsForYear(state.year);
+  const monthSettled = mSetList.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+  const yearSettled = ySetList.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
 
-  // Monthly net change (حركة هذا الشهر فقط)
-  const monthNet = monthReceived - monthDistributed;
+  // Decoupled Official Company Custody Balance (ما تم استلامه من الشركة ناقص ما سُلم لها من كشوف تصفية)
+  const companyBalance = yearReceived - yearSettled;
 
-  // Cumulative calculation from month 1 up to current selected month (الرصيد التراكمي الفعلي المتبقي بالخزنة)
-  let cumulativeReceived = 0;
-  let cumulativeDistributed = 0;
-  for (let m = 1; m <= state.month; m++) {
-    const mRecs = getCustodyReceiptsForMonth(state.year, m);
-    cumulativeReceived += mRecs.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-    const daysInM_ = getDaysInMonth(state.year, m);
-    for (let d = 1; d <= daysInM_; d++) {
-      const dk = formatDateKey(state.year, m, d);
-      const dayEntries = state.data.entries[dk] || {};
-      for (const p of state.data.people) {
-        const e = dayEntries[p.id];
+  // Real Drawer Paper Cash Calculation (الخزنة الحقيقية في يد الوالد)
+  // Inflows: Total company custody receipts + all daily receipts + all driver returned cash
+  // Outflows: All cash advances distributed to drivers + all daily extra expenses
+  let totalCustodyReceiptsAll = (state.data.custodyReceipts || []).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  let totalDailyReceiptsAll = Object.values(state.data.dailyReceipts || {}).reduce((sum, v) => sum + (Number(v) || 0), 0);
+  let totalReturnedCashAll = 0;
+  let totalCashAdvancedAll = 0;
+  let totalDailyExtrasAll = Object.values(state.data.dailyExtras || {}).reduce((sum, ex) => sum + (Number(ex.amount) || 0), 0);
+
+  for (const dayEntries of Object.values(state.data.entries || {})) {
+    if (dayEntries) {
+      for (const e of Object.values(dayEntries)) {
         if (e) {
-          cumulativeDistributed += (Number(e.cash) || 0);
+          totalCashAdvancedAll += (Number(e.cash) || 0);
+          totalReturnedCashAll += (Number(e.returnedCash) || 0);
         }
       }
-      const extra = state.data.dailyExtras[dk];
-      if (extra && extra.amount) {
-        cumulativeDistributed += (Number(extra.amount) || 0);
-      }
     }
   }
 
-  const cumulativeCashInHand = cumulativeReceived - cumulativeDistributed;
+  const drawerInflows = totalCustodyReceiptsAll + totalDailyReceiptsAll + totalReturnedCashAll;
+  const drawerOutflows = totalCashAdvancedAll + totalDailyExtrasAll;
+  const drawerCash = drawerInflows - drawerOutflows;
 
-  // Update KPIs
-  const mRecEl = document.getElementById('custodyMonthReceived');
-  if (mRecEl) mRecEl.textContent = `${formatNumber(monthReceived)} ر.ق`;
+  // Update KPI Elements
+  const yRecEl = document.getElementById('custodyYearReceived');
+  if (yRecEl) yRecEl.textContent = `${formatNumber(yearReceived)} ر.ق`;
+  const mRecSubEl = document.getElementById('custodyMonthReceivedSub');
+  if (mRecSubEl) mRecSubEl.textContent = `حركة شهر ${ARABIC_MONTHS[state.month]}: ${formatNumber(monthReceived)} ر.ق`;
 
-  const yRecSubEl = document.getElementById('custodyYearReceivedSub');
-  if (yRecSubEl) yRecSubEl.textContent = `إجمالي دفعات السنة: ${formatNumber(yearReceived)} ر.ق`;
+  const ySetEl = document.getElementById('custodyYearSettled');
+  if (ySetEl) ySetEl.textContent = `${formatNumber(yearSettled)} ر.ق`;
+  const mSetSubEl = document.getElementById('custodyMonthSettledSub');
+  if (mSetSubEl) mSetSubEl.textContent = `حركة شهر ${ARABIC_MONTHS[state.month]}: ${formatNumber(monthSettled)} ر.ق`;
 
-  const mDistEl = document.getElementById('custodyMonthDistributed');
-  if (mDistEl) mDistEl.textContent = `${formatNumber(monthDistributed)} ر.ق`;
-
-  const mInvEl = document.getElementById('custodyMonthInvoices');
-  if (mInvEl) mInvEl.textContent = `${formatNumber(monthInvoices)} ر.ق`;
-
-  // Real Cumulative Cash In Hand Card
-  const cashHandEl = document.getElementById('custodyCashInHand');
-  const balStatusEl = document.getElementById('custodyBalanceStatus');
-  const monthNetValEl = document.getElementById('custodyMonthNetVal');
-
-  if (cashHandEl) {
-    cashHandEl.textContent = `${formatNumber(cumulativeCashInHand)} ر.ق`;
-    if (cumulativeCashInHand > 0) {
-      cashHandEl.className = 'kpi-value text-green';
-      if (balStatusEl) {
-        balStatusEl.textContent = `فائض نقدي متاح بالخزنة: +${formatNumber(cumulativeCashInHand)} ر.ق`;
-        balStatusEl.className = 'kpi-sub-split text-green';
+  const compBalEl = document.getElementById('custodyCompanyBalance');
+  const compStatEl = document.getElementById('custodyCompanyStatus');
+  if (compBalEl) {
+    compBalEl.textContent = `${formatNumber(companyBalance)} ر.ق`;
+    if (Math.abs(companyBalance) < 0.001) {
+      compBalEl.className = 'kpi-value text-green';
+      if (compStatEl) {
+        compStatEl.textContent = 'خالصة ومسواة بالكامل مع الشركة ✓';
+        compStatEl.className = 'kpi-sub-split text-green';
       }
-    } else if (cumulativeCashInHand < 0) {
-      cashHandEl.className = 'kpi-value text-danger';
-      if (balStatusEl) {
-        balStatusEl.textContent = `عجز نقدي بالخزنة: -${formatNumber(Math.abs(cumulativeCashInHand))} ر.ق (مطلوب استعاضة)`;
-        balStatusEl.className = 'kpi-sub-split text-danger';
+    } else if (companyBalance > 0) {
+      compBalEl.className = 'kpi-value text-amber';
+      if (compStatEl) {
+        compStatEl.textContent = `متبقي بذمتنا لصالح الشركة: ${formatNumber(companyBalance)} ر.ق`;
+        compStatEl.className = 'kpi-sub-split text-amber';
       }
     } else {
-      cashHandEl.className = 'kpi-value';
-      if (balStatusEl) {
-        balStatusEl.textContent = 'الرصيد التراكمي متزن تماماً 0.00 ر.ق';
-        balStatusEl.className = 'kpi-sub-split';
+      compBalEl.className = 'kpi-value text-blue';
+      if (compStatEl) {
+        compStatEl.textContent = `فواتيرنا تتجاوز المستلم: مطلوب استعاضة ${formatNumber(Math.abs(companyBalance))} ر.ق`;
+        compStatEl.className = 'kpi-sub-split text-blue';
       }
     }
   }
 
-  if (monthNetValEl) {
-    const sign = monthNet > 0 ? '+' : '';
-    monthNetValEl.textContent = `${sign}${formatNumber(monthNet)} ر.ق`;
-    monthNetValEl.style.color = monthNet > 0 ? 'var(--green)' : monthNet < 0 ? 'var(--danger)' : 'var(--text-muted)';
+  const drawerEl = document.getElementById('custodyDrawerCash');
+  const drawerSubEl = document.getElementById('custodyDrawerCashSub');
+  if (drawerEl) {
+    drawerEl.textContent = `${formatNumber(drawerCash)} ر.ق`;
+    if (drawerCash >= 0) {
+      drawerEl.className = 'kpi-value text-blue';
+      if (drawerSubEl) drawerSubEl.textContent = `فائض نقدي متاح بالخزنة: +${formatNumber(drawerCash)} ر.ق`;
+    } else {
+      drawerEl.className = 'kpi-value text-danger';
+      if (drawerSubEl) drawerSubEl.textContent = `عجز نقدي بالخزنة: -${formatNumber(Math.abs(drawerCash))} ر.ق`;
+    }
   }
 
-  // Set default receipt date if empty
+  // Set default dates if empty
   const receiptDateInput = document.getElementById('custodyReceiptDate');
   if (receiptDateInput && !receiptDateInput.value) {
     receiptDateInput.value = state.selectedDate;
   }
+  const settDateInput = document.getElementById('custodySettlementDate');
+  if (settDateInput && !settDateInput.value) {
+    settDateInput.value = state.selectedDate;
+  }
+  const settPeriodInput = document.getElementById('custodySettlementPeriod');
+  if (settPeriodInput && !settPeriodInput.value) {
+    settPeriodInput.value = `فواتير شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
+  }
 
-  // Render receipts table
+  // 1-Click Helper: Auto-fill monthly driver invoices into settlement form
+  const btnAutoFill = document.getElementById('btnAutoFillMonthInvoices');
+  if (btnAutoFill && !btnAutoFill._bound) {
+    btnAutoFill._bound = true;
+    btnAutoFill.addEventListener('click', () => {
+      const sumInv = calculateMonthDriverInvoices(state.year, state.month);
+      const amtInput = document.getElementById('custodySettlementAmount');
+      const perInput = document.getElementById('custodySettlementPeriod');
+      const noteInput = document.getElementById('custodySettlementNote');
+      if (amtInput) amtInput.value = sumInv;
+      if (perInput) perInput.value = `فواتير شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
+      if (noteInput && !noteInput.value) noteInput.value = `تسوية فواتير سيارات وسائقي شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
+      showToast(`تم سحب إجمالي فواتير شهر ${ARABIC_MONTHS[state.month]} (${formatNumber(sumInv)} ر.ق) بنجاح ⚡`);
+    });
+  }
+
+  // Render Table 1: Company Custody Receipts
   const tbodyReceipts = document.getElementById('custodyReceiptsBody');
   if (tbodyReceipts) {
     tbodyReceipts.innerHTML = '';
@@ -2078,7 +2242,55 @@ function renderCustodyTab() {
     if (footTotalEl) footTotalEl.textContent = `${formatNumber(yearReceived)} ر.ق`;
   }
 
-  // Render drivers pending balance summary
+  // Render Table 2: Company Custody Settlements (Invoices Submitted)
+  const tbodySettlements = document.getElementById('custodySettlementsBody');
+  if (tbodySettlements) {
+    tbodySettlements.innerHTML = '';
+    const sortedYearSettlements = [...ySetList].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    if (sortedYearSettlements.length === 0) {
+      tbodySettlements.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);">
+            لم يتم تسجيل كشوف فواتير مسلمة للشركة لتسوية العهدة في سنة ${state.year} حتى الآن. سجل كشف التصفية من النموذج أعلاه.
+          </td>
+        </tr>
+      `;
+    } else {
+      sortedYearSettlements.forEach((s, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${idx + 1}</strong></td>
+          <td><strong>${s.date}</strong></td>
+          <td><strong>${s.period || '-'}</strong></td>
+          <td style="font-weight: 800; color: var(--purple);">${formatNumber(s.amount)} ر.ق</td>
+          <td>${s.ref || '-'}</td>
+          <td>${s.note || '-'}</td>
+          <td class="no-print">
+            <button type="button" class="btn btn-sm btn-danger-outline" data-del-settlement="${s.id}" title="حذف كشف التصفية">🗑️</button>
+          </td>
+        `;
+        tbodySettlements.appendChild(tr);
+      });
+
+      tbodySettlements.querySelectorAll('[data-del-settlement]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sid = btn.getAttribute('data-del-settlement');
+          if (confirm('هل أنت متأكد من حذف كشف التصفية هذا المسلم للشركة؟')) {
+            state.data.custodySettlements = (state.data.custodySettlements || []).filter(item => item.id !== sid);
+            saveState();
+            renderCustodyTab();
+            showToast('تم حذف كشف التصفية بنجاح');
+          }
+        });
+      });
+    }
+
+    const footSetTotEl = document.getElementById('footCustodySettlementsTotal');
+    if (footSetTotEl) footSetTotEl.textContent = `${formatNumber(yearSettled)} ر.ق`;
+  }
+
+  // Render Table 3: Drivers Pending Balances
   const tbodyDrivers = document.getElementById('custodyDriversSummaryBody');
   if (tbodyDrivers) {
     tbodyDrivers.innerHTML = '';
@@ -2086,11 +2298,12 @@ function renderCustodyTab() {
 
     state.data.people.forEach(p => {
       const mTot = getPersonMonthTotals(p.id, state.year, state.month);
-      if (mTot.cash > 0 || mTot.invoice > 0) {
+      if (mTot.cash > 0 || mTot.invoice > 0 || mTot.returnedCash > 0) {
         driverSummaryList.push({
           person: p,
           cash: mTot.cash,
           invoice: mTot.invoice,
+          returnedCash: mTot.returnedCash,
           diff: mTot.diff
         });
       }
@@ -2099,7 +2312,7 @@ function renderCustodyTab() {
     if (driverSummaryList.length === 0) {
       tbodyDrivers.innerHTML = `
         <tr>
-          <td colspan="8" style="text-align: center; padding: 24px; color: var(--text-muted);">
+          <td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);">
             لا توجد حركات عهدة أو فواتير مسجلة للسائقين في شهر ${ARABIC_MONTHS[state.month]} ${state.year}.
           </td>
         </tr>
@@ -2108,14 +2321,7 @@ function renderCustodyTab() {
       driverSummaryList.sort((a, b) => b.diff - a.diff);
 
       driverSummaryList.forEach((item, idx) => {
-        let badgeHtml = '';
-        if (Math.abs(item.diff) < 0.001) {
-          badgeHtml = `<span class="settlement-badge settled">خالص بالفواتير ✓</span>`;
-        } else if (item.diff > 0) {
-          badgeHtml = `<span class="settlement-badge owes">متبقي بذمته: ${formatNumber(item.diff)}</span>`;
-        } else {
-          badgeHtml = `<span class="settlement-badge credit">له فرق: ${formatNumber(Math.abs(item.diff))}</span>`;
-        }
+        const badgeHtml = getSettlementBadgeHtml(item.cash, item.invoice, item.returnedCash);
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -2124,8 +2330,9 @@ function renderCustodyTab() {
           <td><span class="role-badge ${item.person.role}">${item.person.role === 'driver' ? 'سائق' : 'ستاف'}</span></td>
           <td class="col-cash-cell">${formatNumber(item.cash)}</td>
           <td class="col-inv-cell">${formatNumber(item.invoice)}</td>
+          <td class="col-ret-cell">${formatNumber(item.returnedCash)}</td>
           <td style="font-weight: 800; font-size: 1.02rem;">
-            ${item.diff > 0 ? `<span class="text-amber">+${formatNumber(item.diff)} ر.ق</span>` : (item.diff < 0 ? `<span class="text-blue">-${formatNumber(Math.abs(item.diff))} ر.ق</span>` : '0.00 ر.ق')}
+            ${item.diff > 0.001 ? `<span class="text-amber">+${formatNumber(item.diff)} ر.ق</span>` : (item.diff < -0.001 ? `<span class="text-blue">-${formatNumber(Math.abs(item.diff))} ر.ق</span>` : '<span class="text-green">0.00 ر.ق</span>')}
           </td>
           <td>${badgeHtml}</td>
           <td class="no-print">
@@ -2907,16 +3114,19 @@ function bindEvents() {
     const dateVal = document.getElementById('pEntryDate').value || state.selectedDate;
     const cashVal = Number(document.getElementById('pEntryCash').value) || 0;
     const invVal = Number(document.getElementById('pEntryInvoice').value) || 0;
+    const retVal = Number(document.getElementById('pEntryReturnedCash')?.value) || 0;
     const noteVal = document.getElementById('pEntryNote').value || '';
 
     setPersonEntry(dateVal, state.selectedPersonId, {
       cash: cashVal,
       invoice: invVal,
+      returnedCash: retVal,
       note: noteVal
     });
 
     document.getElementById('pEntryCash').value = '';
     document.getElementById('pEntryInvoice').value = '';
+    if (document.getElementById('pEntryReturnedCash')) document.getElementById('pEntryReturnedCash').value = '';
     document.getElementById('pEntryNote').value = '';
 
     renderPersonTab();
@@ -3068,6 +3278,44 @@ function bindEvents() {
     showToast(`تم تسجيل دفعة استلام عهدة بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
   });
 
+  document.getElementById('btnAddCustodySettlement')?.addEventListener('click', () => {
+    const dateVal = document.getElementById('custodySettlementDate').value || state.selectedDate;
+    const amountVal = Number(document.getElementById('custodySettlementAmount').value) || 0;
+    const periodVal = document.getElementById('custodySettlementPeriod').value.trim() || `فواتير شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
+    const refVal = document.getElementById('custodySettlementRef').value.trim();
+    const noteVal = document.getElementById('custodySettlementNote').value.trim();
+
+    if (amountVal <= 0) {
+      alert('يرجى كتابة مبلغ كشف الفواتير المسلم للشركة بشكل صحيح');
+      return;
+    }
+
+    state.data.custodySettlements = state.data.custodySettlements || [];
+    state.data.custodySettlements.push({
+      id: 'cs_' + Date.now(),
+      date: dateVal,
+      amount: amountVal,
+      period: periodVal,
+      ref: refVal,
+      note: noteVal
+    });
+
+    document.getElementById('custodySettlementAmount').value = '';
+    document.getElementById('custodySettlementRef').value = '';
+    document.getElementById('custodySettlementNote').value = '';
+
+    saveState();
+    renderCustodyTab();
+    showToast(`تم تسجيل كشف التصفية المسلم للشركة بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
+  });
+
+  document.getElementById('dailyExtraExcludeCompany')?.addEventListener('change', (e) => {
+    const isExcluded = e.target.checked;
+    setDayExtra(state.selectedDate, { excludeFromCompany: isExcluded });
+    renderDailySummaryCards();
+    showToast(isExcluded ? 'تم استبعاد هذا المصروف من حسابات الشركة (مصروف جانبي/شخصي) 🚫' : 'تم شمول المصروف في حسابات الشركة');
+  });
+
   document.getElementById('btnPrintReplenishment')?.addEventListener('click', openReplenishmentModal);
   document.getElementById('btnCloseReplenishmentModal')?.addEventListener('click', () => {
     document.getElementById('replenishmentModal').classList.add('hidden');
@@ -3111,7 +3359,8 @@ function bindEvents() {
             dailyReceipts: parsed.dailyReceipts || {},
             dailyExtras: parsed.dailyExtras || {},
             entries: parsed.entries || {},
-            custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : []
+            custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : [],
+            custodySettlements: Array.isArray(parsed.custodySettlements) ? parsed.custodySettlements : []
           };
           saveState();
           renderAll();

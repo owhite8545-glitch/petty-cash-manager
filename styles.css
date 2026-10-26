@@ -761,6 +761,11 @@ body {
   background: #f5f3ff;
 }
 
+.cell-input.ret-input:focus {
+  border-color: #0284c7;
+  background: #f0f9ff;
+}
+
 .cell-input.has-val-cash {
   border-color: #22c55e;
   background: #dcfce7;
@@ -771,6 +776,12 @@ body {
   border-color: #a855f7;
   background: #f3e8ff;
   color: #4c1d95;
+}
+
+.cell-input.has-val-ret {
+  border-color: #0ea5e9;
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 .inline-name-input {
@@ -1144,6 +1155,11 @@ body.dark-mode .custody-balance-card {
   color: #4c1d95 !important;
 }
 
+.col-ret-head {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+}
+
 .col-cash-cell {
   background: #f0fdf4;
   font-weight: 800;
@@ -1155,6 +1171,13 @@ body.dark-mode .custody-balance-card {
   background: #faf5ff;
   font-weight: 800;
   color: var(--purple);
+  font-size: 1.02rem;
+}
+
+.col-ret-cell {
+  background: #f0f9ff;
+  font-weight: 800;
+  color: #0284c7;
   font-size: 1.02rem;
 }
 
@@ -1173,6 +1196,12 @@ body.dark-mode .custody-balance-card {
 
 .col-inv-total {
   background: #6d28d9 !important;
+  color: #fff !important;
+  font-size: 1.2rem !important;
+}
+
+.col-ret-total {
+  background: #0284c7 !important;
   color: #fff !important;
   font-size: 1.2rem !important;
 }
@@ -1198,6 +1227,11 @@ body.dark-mode .custody-balance-card {
 .p-total-card.invoice-card {
   background: #faf5ff;
   border-color: #d8b4fe;
+}
+
+.p-total-card.ret-card {
+  background: #f0f9ff;
+  border-color: #7dd3fc;
 }
 
 .p-total-card.net-card {
@@ -2498,6 +2532,22 @@ body.dark-mode .cell-input-cash {
 body.dark-mode .cell-input-invoice {
   color: #c084fc;
   font-weight: 800;
+}
+
+body.dark-mode .cell-input-returned {
+  color: #38bdf8;
+  font-weight: 800;
+}
+
+body.dark-mode .cell-input.has-val-ret {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: #0ea5e9;
+  color: #7dd3fc;
+}
+
+body.dark-mode .p-total-card.ret-card {
+  background: rgba(14, 165, 233, 0.12);
+  border-color: rgba(56, 189, 248, 0.4);
 }
 
 /* Totals rows & sticky columns */
