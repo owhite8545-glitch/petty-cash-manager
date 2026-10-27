@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#1e3a8a" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=20261027b" />
+  <link rel="stylesheet" href="styles.css?v=20261027c" />
 </head>
 <body class="senior-friendly">
   <!-- Official Print-Only Header (Appears on Paper/PDF when printing any report) -->
@@ -171,7 +171,7 @@
           </div>
           <div class="day-nav-buttons">
             <button id="btnPrevWorkday" class="btn btn-outline">▶ اليوم السابق</button>
-            <input type="date" id="dailyDatePicker" class="input-control date-input" />
+            <input type="date" id="dailyDatePicker" class="input-control date-input" aria-label="تاريخ اليوم المحدد" />
             <button id="btnNextWorkday" class="btn btn-outline">اليوم التالي ◀</button>
             <button type="button" id="btnOpenMoveDayDistModal" class="btn btn-outline" title="نقل أو نسخ أرقام هذا اليوم لتاريخ آخر إذا سُجلت بالخطأ">
               🔄 نقل / نسخ التوزيعة
@@ -289,7 +289,7 @@
             class="input-control"
             placeholder="اكتب اسم الشخص هنا واضغط إضافة..."
           />
-          <select id="quickAddPersonRole" class="select-control">
+          <select id="quickAddPersonRole" class="select-control" aria-label="فئة الشخص المضاف">
             <option value="driver">🚛 سائق</option>
             <option value="staff">👔 ستاف</option>
           </select>
@@ -390,7 +390,7 @@
               <span>إظهار اللي خدوا في الشهر بس</span>
             </label>
 
-            <select id="monthlyViewMode" class="select-control">
+            <select id="monthlyViewMode" class="select-control" aria-label="طريقة عرض كشف الشهر">
               <option value="cash">الجدول يعرض: 💵 الفلوس المستلمة</option>
               <option value="invoices">الجدول يعرض: 🧾 الفواتير المقدمة</option>
               <option value="both">الجدول يعرض: الفلوس + الفواتير معاً</option>
@@ -487,7 +487,7 @@
               </div>
 
               <div class="ledger-controls no-print">
-                <select id="ledgerScopeSelect" class="select-control hidden">
+                <select id="ledgerScopeSelect" class="select-control hidden" aria-label="نطاق الكشف">
                   <option value="month">عرض الشهر الحالي فقط</option>
                   <option value="year">عرض السنة كلها</option>
                 </select>
@@ -530,7 +530,7 @@
               <div class="quick-entry-fields">
                 <div class="field-group">
                   <label>التاريخ</label>
-                  <input type="date" id="pEntryDate" class="input-control" />
+                  <input type="date" id="pEntryDate" class="input-control" aria-label="تاريخ حركة الشخص" />
                 </div>
                 <div class="field-group">
                   <label>💵 الفلوس اللي استلمها (ر.ق)</label>
@@ -625,7 +625,7 @@
 
           <div class="monthly-controls no-print">
             <label>من شهر:</label>
-            <select id="annualFromMonth" class="select-control">
+            <select id="annualFromMonth" class="select-control" aria-label="بداية فترة الشهور">
               <option value="1">1 - يناير</option>
               <option value="2">2 - فبراير</option>
               <option value="3">3 - مارس</option>
@@ -641,7 +641,7 @@
             </select>
 
             <label>إلى شهر:</label>
-            <select id="annualToMonth" class="select-control">
+            <select id="annualToMonth" class="select-control" aria-label="نهاية فترة الشهور">
               <option value="1">1 - يناير</option>
               <option value="2">2 - فبراير</option>
               <option value="3">3 - مارس</option>
@@ -656,7 +656,7 @@
               <option value="12" selected>12 - ديسمبر</option>
             </select>
 
-            <select id="annualDataType" class="select-control">
+            <select id="annualDataType" class="select-control" aria-label="نوع البيانات بالتقرير السنوي">
               <option value="cash">عرض: 💵 الفلوس المستلمة</option>
               <option value="invoices">عرض: 🧾 الفواتير المقدمة</option>
             </select>
@@ -706,7 +706,7 @@
               class="input-control"
               placeholder="اسم الشخص الجديد..."
             />
-            <select id="newPersonRoleSelect" class="select-control">
+            <select id="newPersonRoleSelect" class="select-control" aria-label="فئة الشخص الجديد">
               <option value="driver">🚛 سائق</option>
               <option value="staff">👔 ستاف</option>
             </select>
@@ -739,7 +739,7 @@
             ></textarea>
             <div class="bulk-side-actions">
               <label>نوع هذه المجموعة:</label>
-              <select id="bulkRoleSelect" class="select-control">
+              <select id="bulkRoleSelect" class="select-control" aria-label="الفئة الافتراضية للأسماء المضافة">
                 <option value="driver">🚛 سائقين</option>
                 <option value="staff">👔 ستاف</option>
               </select>
@@ -834,7 +834,7 @@
       </div>
 
       <!-- Quick Actions / Forms Grid -->
-      <div class="custody-forms-grid no-print" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; margin-bottom: 20px;">
+      <div class="custody-forms-grid no-print" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px; margin-bottom: 20px;">
         
         <!-- Form 1: Add Custody Receipt from Company -->
         <div class="card" style="margin-bottom: 0;">
@@ -844,7 +844,7 @@
           <div class="custody-receipt-form">
             <div class="field-group" style="width: 100%;">
               <label>تاريخ الاستلام:</label>
-              <input type="date" id="custodyReceiptDate" class="input-control" />
+              <input type="date" id="custodyReceiptDate" class="input-control" aria-label="تاريخ استلام دفعة العهدة" />
             </div>
             <div class="field-group" style="width: 100%;">
               <label>المبلغ المستلم (ر.ق):</label>
@@ -878,7 +878,7 @@
           <div class="custody-receipt-form">
             <div class="field-group" style="width: 100%;">
               <label>تاريخ التسليم للشركة:</label>
-              <input type="date" id="custodySettlementDate" class="input-control" />
+              <input type="date" id="custodySettlementDate" class="input-control" aria-label="تاريخ كشف التصفية المسلم للشركة" />
             </div>
             <div class="field-group" style="width: 100%;">
               <label>إجمالي مبلغ الفواتير المسلمة (ر.ق):</label>
@@ -994,7 +994,7 @@
   </main>
 
   <!-- ==================== MODAL: MOVE OR COPY DAY'S DISTRIBUTION ==================== -->
-  <div id="moveDistModal" class="modal-overlay hidden no-print">
+  <div id="moveDistModal" class="modal-overlay hidden no-print" role="dialog" aria-modal="true" aria-label="نافذة نقل ونسخ التوزيعة">
     <div class="modal-card" style="max-width: 520px;">
       <div class="modal-header">
         <h3>🔄 نقل أو نسخ توزيعة هذا اليوم لتاريخ آخر</h3>
@@ -1006,21 +1006,21 @@
         </p>
         <div class="field-group" style="margin-bottom: 14px;">
           <label>اليوم الحالي المسجل فيه بالخطأ:</label>
-          <input type="text" id="moveDistSourceDateDisplay" class="input-control" readonly style="background: #f1f5f9; font-weight: 800;" />
+          <input type="text" id="moveDistSourceDateDisplay" class="input-control" readonly aria-label="تاريخ اليوم المصدر" style="background: #f1f5f9; font-weight: 800;" />
         </div>
         <div class="field-group" style="margin-bottom: 14px;">
           <label>🎯 اختر اليوم المراد نقل أو نسخ التوزيعة إليه:</label>
-          <input type="date" id="moveDistTargetDateInput" class="input-control" />
+          <input type="date" id="moveDistTargetDateInput" class="input-control" aria-label="تاريخ اليوم المستهدف" />
         </div>
         <div class="field-group" style="margin-bottom: 18px;">
           <label>طريقة العملية:</label>
           <div style="display: flex; gap: 12px; margin-top: 6px;">
             <label class="checkbox-label" style="font-weight: 700; cursor: pointer;">
-              <input type="radio" name="moveDistMode" value="move" checked />
+              <input type="radio" name="moveDistMode" value="move" checked aria-label="نقل بالكامل لليوم الجديد" />
               <span>نقل بالكامل (ينقل الأرقام لليوم الجديد ويمسحها من هنا)</span>
             </label>
             <label class="checkbox-label" style="font-weight: 700; cursor: pointer;">
-              <input type="radio" name="moveDistMode" value="copy" />
+              <input type="radio" name="moveDistMode" value="copy" aria-label="نسخ إلى اليوم الجديد" />
               <span>نسخ (يضع نسخة في اليوم الجديد ويبقي اليوم الحالي كما هو)</span>
             </label>
           </div>
@@ -1034,7 +1034,7 @@
   </div>
 
   <!-- ==================== MODAL: REPLENISHMENT STATEMENT (استعاضة العهدة) ==================== -->
-  <div id="replenishmentModal" class="modal-overlay hidden">
+  <div id="replenishmentModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="كشف استعاضة العهدة">
     <div class="modal-card voucher-modal-card" style="max-width: 800px;">
       <div class="modal-header no-print">
         <h3>📄 كشف تصفية وطلب استعاضة العهدة النقدية للإدارة المالية</h3>
@@ -1105,7 +1105,7 @@
       <button type="button" id="btnCloseCalc" class="btn-close" style="font-size: 1rem; color: #fff;">✕</button>
     </div>
     <div class="calc-body">
-      <input type="text" id="calcDisplay" class="calc-display" readonly value="0" />
+      <input type="text" id="calcDisplay" class="calc-display" readonly value="0" aria-label="شاشة الآلة الحاسبة" />
       <div class="calc-grid">
         <button type="button" class="btn-calc btn-calc-op" data-calc="C">C</button>
         <button type="button" class="btn-calc btn-calc-op" data-calc="DEL">⌫</button>
@@ -1134,7 +1134,7 @@
   </div>
 
   <!-- ==================== MODAL: CLOUD SYNC & PIN ==================== -->
-  <div id="cloudSyncModal" class="modal-overlay hidden no-print">
+  <div id="cloudSyncModal" class="modal-overlay hidden no-print" role="dialog" aria-modal="true" aria-label="نافذة المزامنة السحابية">
     <div class="modal-card" style="max-width: 540px;">
       <div class="modal-header">
         <h3>☁️ المزامنة والحساب السحابي برمز PIN</h3>
@@ -1174,7 +1174,7 @@
   </div>
 
   <!-- ==================== MODAL: PRINTABLE PETTY CASH VOUCHER ==================== -->
-  <div id="voucherModal" class="modal-overlay hidden">
+  <div id="voucherModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="سند توقيع واستلام العهدة">
     <div class="modal-card voucher-modal-card">
       <div class="modal-header no-print">
         <h3>🧾 سند استلام نقدية وتصفية فواتير (Petty Cash)</h3>
@@ -1238,7 +1238,7 @@
   </div>
 
   <!-- ==================== MODAL: BACKUP / RESTORE / RESET ==================== -->
-  <div id="backupModal" class="modal-overlay hidden no-print">
+  <div id="backupModal" class="modal-overlay hidden no-print" role="dialog" aria-modal="true" aria-label="نافذة الحفظ والنسخ الاحتياطي">
     <div class="modal-card">
       <div class="modal-header">
         <h3>💾 حفظ البيانات والنسخ الاحتياطي</h3>
@@ -1255,7 +1255,7 @@
 
         <div class="modal-section">
           <h4>2. استرجاع بيانات من ملف محفوظ</h4>
-          <input type="file" id="fileRestoreBackup" accept=".json" class="input-control" />
+          <input type="file" id="fileRestoreBackup" accept=".json" class="input-control" aria-label="اختيار ملف النسخة الاحتياطية" />
         </div>
       </div>
     </div>
@@ -1264,6 +1264,6 @@
   <!-- Toast Notification -->
   <div id="toastContainer" class="toast-container no-print"></div>
 
-  <script src="app.js?v=20261027b"></script>
+  <script src="app.js?v=20261027c"></script>
 </body>
 </html>

@@ -227,6 +227,35 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+function normalizeArabic(str) {
+  if (!str) return '';
+  return String(str)
+    .trim()
+    .toLowerCase()
+    .replace(/[\u064B-\u065F\u0670]/g, '') // remove Arabic tashkeel
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي');
+}
+
+function matchArabicSearch(text, query) {
+  if (!query) return true;
+  const nText = normalizeArabic(text);
+  const nQuery = normalizeArabic(query);
+  return nText.includes(nQuery) || nText.replace(/\s+/g, '').includes(nQuery.replace(/\s+/g, ''));
+}
+
+function formatCsvCell(cell) {
+  if (cell === null || cell === undefined) return '""';
+  if (typeof cell === 'number') return String(cell);
+  let str = String(cell);
+  // CSV Formula Injection mitigation (CWE-1236): Prepend single quote if string starts with formula triggers
+  if (/^[\=\+\-\@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
 function parseDateParts(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   return { y, m, d };
@@ -887,9 +916,9 @@ function renderDailyTable() {
       if (mt.diff <= 0.001) return false;
     }
     if (q) {
-      const dispName = getPersonDisplayName(person).toLowerCase();
-      const metaStr = (person.meta || '').toLowerCase();
-      const matchName = dispName.includes(q) || metaStr.includes(q);
+      const dispName = getPersonDisplayName(person);
+      const metaStr = person.meta || '';
+      const matchName = matchArabicSearch(dispName, q) || matchArabicSearch(metaStr, q);
       const matchNum = String(person.num).includes(q);
       if (!matchName && !matchNum) return false;
     }
@@ -1282,8 +1311,8 @@ function renderMonthlyMatrixTab() {
 
   peopleToShowInMonth.forEach(person => {
     const dispName = getPersonDisplayName(person);
-    const metaStr = (person.meta || '').toLowerCase();
-    if (q && !dispName.toLowerCase().includes(q) && !metaStr.includes(q) && !String(person.num).includes(q)) {
+    const metaStr = person.meta || '';
+    if (q && !matchArabicSearch(dispName, q) && !matchArabicSearch(metaStr, q) && !String(person.num).includes(q)) {
       return;
     }
     const pMonthTotals = getPersonMonthTotals(person.id, state.year, state.month);
@@ -1434,8 +1463,8 @@ function renderPersonSidebar() {
     if (state.personSidebarFilter === 'driver' && person.role !== 'driver') return;
     if (state.personSidebarFilter === 'staff' && person.role !== 'staff') return;
     const dispName = getPersonDisplayName(person);
-    const metaStr = (person.meta || '').toLowerCase();
-    if (q && !dispName.toLowerCase().includes(q) && !metaStr.includes(q) && !String(person.num).includes(q)) return;
+    const metaStr = person.meta || '';
+    if (q && !matchArabicSearch(dispName, q) && !matchArabicSearch(metaStr, q) && !String(person.num).includes(q)) return;
 
     const mTotals = getPersonMonthTotals(person.id, state.year, state.month);
 
@@ -1444,7 +1473,7 @@ function renderPersonSidebar() {
     item.innerHTML = `
       <div class="p-item-name">
         <span class="p-item-num">#${person.num}</span>
-        <span>${dispName}</span>
+        <span>${escapeHtml(dispName)}</span>
       </div>
       <div class="p-item-totals">
         ${mTotals.cash > 0 ? formatNumber(mTotals.cash) : ''}
@@ -2007,11 +2036,12 @@ function renderPeopleManagementTab() {
   }
 
   if (state.peopleManageSearch) {
-    const q = state.peopleManageSearch.trim().toLowerCase();
+    const q = state.peopleManageSearch.trim();
     list = list.filter(p =>
-      (p.name && p.name.toLowerCase().includes(q)) ||
-      (p.meta && p.meta.toLowerCase().includes(q)) ||
-      String(p.num) === q
+      matchArabicSearch(p.name, q) ||
+      matchArabicSearch(p.meta, q) ||
+      String(p.num) === q ||
+      String(p.num).includes(q)
     );
   }
 
@@ -2732,7 +2762,11 @@ function initQuickCalculator() {
           const safeExpr = calcDisplayVal.replace(/×/g, '*').replace(/÷/g, '/');
           if (/^[0-9+\-*/. ()]+$/.test(safeExpr)) {
             const res = Function(`'use strict'; return (${safeExpr})`)();
-            calcDisplayVal = String(Number(res.toFixed(4)));
+            if (typeof res === 'number' && isFinite(res) && !isNaN(res)) {
+              calcDisplayVal = String(Number(res.toFixed(4)));
+            } else {
+              calcDisplayVal = 'خطأ';
+            }
           }
         } catch (e) {
           calcDisplayVal = 'خطأ';
@@ -2907,11 +2941,52 @@ function exportCurrentViewToExcel() {
           totalC += e.cash;
           totalI += e.invoice;
           totalRet += (e.returnedCash || 0);
-          csvRows.push([dk, getArabicDayName(state.year, m, d), e.cash, e.invoice, e.returnedCash || 0, `"${(e.note || '').replace(/"/g, '""')}"`]);
+          csvRows.push([dk, getArabicDayName(state.year, m, d), e.cash, e.invoice, e.returnedCash || 0, e.note || '']);
         }
       }
     }
     csvRows.push(['الإجمالي الكلي (ر.ق)', '', totalC, totalI, totalRet, `الصافي: ${totalC - (totalI + totalRet)} ر.ق`]);
+  } else if (state.activeTab === 'annual') {
+    let mFrom = Number(state.annualFromMonth) || 1;
+    let mTo = Number(state.annualToMonth) || 12;
+    if (mFrom > mTo) { const tmp = mFrom; mFrom = mTo; mTo = tmp; }
+    filename = `التقرير_السنوي_${state.year}.csv`;
+    const monthsRange = [];
+    for (let m = mFrom; m <= mTo; m++) monthsRange.push(m);
+
+    const header = ['الرقم', 'الاسم', 'الفئة'];
+    monthsRange.forEach(m => header.push(ARABIC_MONTHS[m]));
+    header.push('توتال الفلوس بالفترة (ر.ق)', 'توتال الفواتير بالفترة (ر.ق)');
+    csvRows.push(header);
+
+    const isInv = state.annualDataType === 'invoices';
+    const annualPeople = getReportablePeople(state.year);
+    annualPeople.forEach(p => {
+      const row = [p.num, getPersonDisplayName(p), p.role === 'driver' ? 'سائق' : 'ستاف'];
+      let pCash = 0;
+      let pInv = 0;
+      monthsRange.forEach(m => {
+        const mt = getPersonMonthTotals(p.id, state.year, m);
+        pCash += mt.cash;
+        pInv += mt.invoice;
+        row.push(isInv ? mt.invoice : mt.cash);
+      });
+      row.push(pCash, pInv);
+      csvRows.push(row);
+    });
+  } else if (state.activeTab === 'custody') {
+    filename = `سجل_عهدة_الشركة_${state.year}.csv`;
+    csvRows.push(['=== دفعات العهدة المستلمة من الشركة ===']);
+    csvRows.push(['م', 'التاريخ', 'المبلغ (ر.ق)', 'رقم السند/الشيك', 'البيان']);
+    (state.data.custodyReceipts || []).forEach((r, idx) => {
+      csvRows.push([idx + 1, r.date, r.amount, r.ref || '', r.note || '']);
+    });
+    csvRows.push([]);
+    csvRows.push(['=== كشوف الفواتير والتسويات المسلمة للشركة ===']);
+    csvRows.push(['م', 'التاريخ', 'الفترة', 'المبلغ (ر.ق)', 'رقم الكشف', 'البيان']);
+    (state.data.custodySettlements || []).forEach((s, idx) => {
+      csvRows.push([idx + 1, s.date, s.period || '', s.amount, s.ref || '', s.note || '']);
+    });
   } else {
     const daysCount = getDaysInMonth(state.year, state.month);
     const header = ['الرقم', 'الاسم', 'الفئة', 'السيارة/القسم'];
@@ -2936,7 +3011,7 @@ function exportCurrentViewToExcel() {
 
     const exportPeople = getReportablePeople(state.year);
     exportPeople.forEach(p => {
-      const row = [p.num, `"${getPersonDisplayName(p)}"`, p.role === 'driver' ? 'سائق' : 'ستاف', `"${p.meta || ''}"`];
+      const row = [p.num, getPersonDisplayName(p), p.role === 'driver' ? 'سائق' : 'ستاف', p.meta || ''];
       workDays.forEach(d => {
         const e = getPersonEntry(formatDateKey(state.year, state.month, d), p.id);
         row.push(e.cash || 0);
@@ -2947,7 +3022,7 @@ function exportCurrentViewToExcel() {
     });
   }
 
-  const csvString = '\uFEFF' + csvRows.map(r => r.join(',')).join('\n');
+  const csvString = '\uFEFF' + csvRows.map(r => r.map(formatCsvCell).join(',')).join('\n');
   const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -3001,6 +3076,19 @@ window.addEventListener('afterprint', () => {
 });
 
 function bindEvents() {
+  // Accessibility: Close modals with Escape key (WCAG 2.2 AA)
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => {
+        m.classList.add('hidden');
+      });
+      const calc = document.getElementById('calculatorWidget');
+      if (calc && !calc.classList.contains('hidden')) {
+        calc.classList.add('hidden');
+      }
+    }
+  });
+
   // Prevent accidental mouse-wheel value changes on focused number inputs
   document.addEventListener('wheel', (e) => {
     if (document.activeElement && document.activeElement.type === 'number' && document.activeElement === e.target) {
@@ -3640,10 +3728,17 @@ function bindEvents() {
         const parsed = JSON.parse(ev.target.result);
         if (parsed && Array.isArray(parsed.people)) {
           state.data = {
-            people: parsed.people || [],
-            dailyReceipts: parsed.dailyReceipts || {},
-            dailyExtras: parsed.dailyExtras || {},
-            entries: parsed.entries || {},
+            schemaVersion: parsed.schemaVersion || 4,
+            people: parsed.people.map((p, idx) => ({
+              id: p.id || ('p_' + Date.now() + '_' + idx),
+              num: Number(p.num) || (idx + 1),
+              name: p.name || '',
+              role: p.role === 'staff' ? 'staff' : 'driver',
+              meta: p.meta || ''
+            })),
+            dailyReceipts: typeof parsed.dailyReceipts === 'object' && parsed.dailyReceipts !== null ? parsed.dailyReceipts : {},
+            dailyExtras: typeof parsed.dailyExtras === 'object' && parsed.dailyExtras !== null ? parsed.dailyExtras : {},
+            entries: typeof parsed.entries === 'object' && parsed.entries !== null ? parsed.entries : {},
             custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : [],
             custodySettlements: Array.isArray(parsed.custodySettlements) ? parsed.custodySettlements : []
           };
@@ -3652,10 +3747,12 @@ function bindEvents() {
           modal.classList.add('hidden');
           showToast('تم استعادة كافة البيانات بنجاح ✓');
         } else {
-          alert('ملف غير صالح');
+          alert('ملف النسخة الاحتياطية غير صالح أو تالف');
         }
       } catch (err) {
-        alert('تعذر قراءة الملف');
+        alert('تعذر قراءة ملف النسخة الاحتياطية');
+      } finally {
+        e.target.value = '';
       }
     };
     reader.readAsText(file);
