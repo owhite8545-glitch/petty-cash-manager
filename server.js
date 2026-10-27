@@ -16,7 +16,15 @@ const MIME_TYPES = {
 
 const server = http.createServer((req, res) => {
   const safePath = req.url === '/' ? '/index.html' : req.url.split('?')[0];
-  const filePath = path.join(__dirname, safePath);
+  const filePath = path.normalize(path.join(__dirname, safePath));
+
+  // Prevent Path Traversal attacks
+  if (!filePath.startsWith(__dirname)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Forbidden');
+    return;
+  }
+
   const ext = path.extname(filePath).toLowerCase();
 
   fs.readFile(filePath, (err, content) => {

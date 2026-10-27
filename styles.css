@@ -2849,3 +2849,113 @@ body,
               color 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
+/* ==========================================================================
+   Backup Reminder Banner & Undo Button Styles
+   ========================================================================== */
+.backup-reminder-banner {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  border: 2px solid #f97316;
+  color: #9a3412;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  margin: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.16);
+  font-family: 'Cairo', sans-serif;
+  animation: fadeInDown 0.3s ease;
+}
+
+.backup-reminder-banner .br-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.backup-reminder-banner .br-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.backup-reminder-banner strong {
+  font-size: 1.05rem;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.backup-reminder-banner p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #7c2d12;
+}
+
+.backup-reminder-banner .br-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.backup-reminder-banner .btn-close-sm {
+  background: transparent;
+  border: 1px solid rgba(154, 52, 18, 0.3);
+  font-size: 1.1rem;
+  color: #9a3412;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.backup-reminder-banner .btn-close-sm:hover {
+  background: rgba(154, 52, 18, 0.12);
+}
+
+.btn.has-backup-reminder {
+  position: relative;
+  box-shadow: 0 0 0 2px #f97316 !important;
+}
+
+.btn.has-backup-reminder::after {
+  content: '⚠️';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  font-size: 0.85rem;
+}
+
+#btnUndo:disabled,
+#btnUndo.disabled-btn {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+body.dark-mode .backup-reminder-banner {
+  background: #311b0b;
+  border-color: #ea580c;
+  color: #fed7aa;
+}
+
+body.dark-mode .backup-reminder-banner p {
+  color: #fdba74;
+}
+
+body.dark-mode .backup-reminder-banner .btn-close-sm {
+  border-color: rgba(254, 215, 170, 0.3);
+  color: #fed7aa;
+}
+
+body.eye-comfort .backup-reminder-banner {
+  background: #fef3c7;
+  border-color: #d97706;
+  color: #78350f;
+}
+
+body.eye-comfort .backup-reminder-banner p {
+  color: #92400e;
+}
+
+

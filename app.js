@@ -73,8 +73,15 @@ const state = {
   annualDataType: 'cash',
   peopleManageFilter: 'all',
   peopleManageSearch: '',
+  editingCustodyReceiptId: null,
+  editingCustodySettlementId: null,
   data: createCleanData()
 };
+
+// In-Memory Undo Stack (Last 10 Actions) & Backup Tracking
+const undoStack = [];
+const MAX_UNDO = 10;
+let lastSavedDataJson = null;
 
 // ============================================================================
 // Initialization & Persistence
@@ -108,8 +115,10 @@ function loadState() {
   }
   if (!state.data || !Array.isArray(state.data.people)) {
     state.data = createCleanData();
-    saveState();
+    saveState(true);
   }
+
+  lastSavedDataJson = JSON.stringify(state.data);
 
   try {
     // Theme loading
@@ -125,16 +134,78 @@ function loadState() {
       document.body.classList.add('eye-comfort');
     }
   } catch (e) {}
+
+  checkBackupReminder();
 }
 
-function saveState() {
+function saveState(skipUndo = false) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+    const currentJson = JSON.stringify(state.data);
+    if (!skipUndo && lastSavedDataJson && lastSavedDataJson !== currentJson) {
+      undoStack.push(lastSavedDataJson);
+      if (undoStack.length > MAX_UNDO) {
+        undoStack.shift();
+      }
+      updateUndoButtonState();
+    }
+    lastSavedDataJson = currentJson;
+    localStorage.setItem(STORAGE_KEY, currentJson);
+    localStorage.setItem('petty_cash_last_modified', Date.now().toString());
+    checkBackupReminder();
   } catch (err) {
     console.error('Failed to save state:', err);
     if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
       alert('⚠️ تحذير: ذاكرة المتصفح ممتلئة ولا يمكن حفظ التعديل الأخير! يرجى الضغط على زر "نسخة احتياطية" من أعلى الصفحة وتنزيل ملف الحفظ فوراً.');
     }
+  }
+}
+
+function performUndo() {
+  if (undoStack.length === 0) {
+    showToast('لا توجد خطوات سابقة للتراجع عنها');
+    return;
+  }
+  const prevJson = undoStack.pop();
+  try {
+    state.data = JSON.parse(prevJson);
+    saveState(true);
+    renderAll();
+    showToast('تم التراجع عن آخر تعديل بنجاح ↩️');
+  } catch (err) {
+    console.error('Failed to undo:', err);
+  }
+  updateUndoButtonState();
+}
+
+function updateUndoButtonState() {
+  const btn = document.getElementById('btnUndo');
+  if (btn) {
+    const canUndo = undoStack.length > 0;
+    btn.disabled = !canUndo;
+    btn.classList.toggle('disabled-btn', !canUndo);
+  }
+}
+
+function checkBackupReminder() {
+  const lastBackupStr = localStorage.getItem('petty_cash_last_backup_download');
+  const reminderBanner = document.getElementById('backupReminderBanner');
+  const backupBtn = document.getElementById('btnBackupModal');
+  if (!reminderBanner) return;
+
+  const now = Date.now();
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const lastTime = lastBackupStr ? parseInt(lastBackupStr, 10) : 0;
+
+  const hasAnyData = (state.data.people && state.data.people.some(p => p.name)) ||
+                     Object.keys(state.data.entries || {}).length > 0 ||
+                     (state.data.custodyReceipts && state.data.custodyReceipts.length > 0);
+
+  if (hasAnyData && (now - lastTime > SEVEN_DAYS_MS)) {
+    reminderBanner.classList.remove('hidden');
+    if (backupBtn) backupBtn.classList.add('has-backup-reminder');
+  } else {
+    reminderBanner.classList.add('hidden');
+    if (backupBtn) backupBtn.classList.remove('has-backup-reminder');
   }
 }
 
@@ -210,7 +281,7 @@ function hasPersonAnyEntryInYear(personId, year) {
   for (const [dateKey, dayObj] of Object.entries(state.data.entries)) {
     if (dateKey.startsWith(prefix) && dayObj && dayObj[personId]) {
       const e = dayObj[personId];
-      if ((Number(e.cash) || 0) > 0 || (Number(e.invoice) || 0) > 0 || (e.note && e.note.trim() !== '')) {
+      if ((Number(e.cash) || 0) > 0 || (Number(e.invoice) || 0) > 0 || (Number(e.returnedCash) || 0) > 0 || (e.note && e.note.trim() !== '')) {
         return true;
       }
     }
@@ -561,7 +632,7 @@ function updateActiveDayPillHasData() {
   const activePill = document.querySelector('#monthDaysStrip .day-pill.active');
   if (activePill) {
     const totals = getDayTotals(state.selectedDate);
-    const hasData = totals.received > 0 || totals.distributed > 0 || totals.invoices > 0 || totals.extraAmount > 0;
+    const hasData = totals.received > 0 || totals.distributed > 0 || totals.invoices > 0 || totals.extraAmount > 0 || (totals.returnedCashTotal || 0) > 0;
     activePill.classList.toggle('has-data', hasData);
   }
 }
@@ -577,7 +648,7 @@ function renderDaysStrip(shouldCenter = false) {
     const dayName = getArabicDayName(state.year, state.month, d);
     const isFri = getDayOfWeekIndex(state.year, state.month, d) === 5;
     const totals = getDayTotals(dateKey);
-    const hasData = totals.received > 0 || totals.distributed > 0 || totals.invoices > 0 || totals.extraAmount > 0;
+    const hasData = totals.received > 0 || totals.distributed > 0 || totals.invoices > 0 || totals.extraAmount > 0 || (totals.returnedCashTotal || 0) > 0;
 
     const pill = document.createElement('div');
     pill.className = 'day-pill';
@@ -697,7 +768,7 @@ function renderDailySummaryCards() {
   const staffCount = state.data.people.filter(p => p.role === 'staff').length;
   const activeTodayCount = state.data.people.filter(p => {
     const e = getPersonEntry(state.selectedDate, p.id);
-    return e.cash > 0 || e.invoice > 0;
+    return e.cash > 0 || e.invoice > 0 || (Number(e.returnedCash) || 0) > 0;
   }).length;
   const unsettledMonthCount = state.data.people.filter(p => {
     const mt = getPersonMonthTotals(p.id, state.year, state.month);
@@ -809,7 +880,7 @@ function renderDailyTable() {
     if (state.dailyCategoryFilter === 'staff' && person.role !== 'staff') return false;
     if (state.dailyCategoryFilter === 'active_today') {
       const e = getPersonEntry(state.selectedDate, person.id);
-      if (e.cash <= 0 && e.invoice <= 0) return false;
+      if (e.cash <= 0 && e.invoice <= 0 && (Number(e.returnedCash) || 0) <= 0) return false;
     }
     if (state.dailyCategoryFilter === 'unsettled_month') {
       const mt = getPersonMonthTotals(person.id, state.year, state.month);
@@ -857,12 +928,12 @@ function renderDailyTable() {
             type="text"
             class="inline-name-input"
             placeholder="اكتب اسم رقم ${person.num}..."
-            value="${(person.name || '').replace(/"/g, '&quot;')}"
+            value="${escapeHtml(person.name || '')}"
             data-inline-name="${person.id}"
             title="اضغط هنا لكتابة أو تعديل الاسم"
           />
           ${!showExt && subtleSubLine ? subtleSubLine : ''}
-          ${person.meta ? `<span class="meta-badge" style="width:max-content; margin-top:2px;">${person.meta}</span>` : ''}
+          ${person.meta ? `<span class="meta-badge" style="width:max-content; margin-top:2px;">${escapeHtml(person.meta)}</span>` : ''}
         </div>
       </td>
       <td class="col-extra ${showExt ? '' : 'hidden'}">
@@ -918,7 +989,7 @@ function renderDailyTable() {
           class="cell-input"
           id="noteInp_${person.id}"
           placeholder="ملاحظة (اختياري)..."
-          value="${entry.note.replace(/"/g, '&quot;')}"
+          value="${escapeHtml(entry.note || '')}"
           data-pid="${person.id}"
           data-field="note"
         />
@@ -1224,7 +1295,7 @@ function renderMonthlyMatrixTab() {
       <tr>
         <td class="sticky-col">
           <a href="javascript:void(0)" data-open-person="${person.id}" style="font-weight:700; color:var(--text-main); text-decoration:none;">
-            ${person.num}. ${dispName}
+            ${person.num}. ${escapeHtml(dispName)}
           </a>
         </td>
         <td>
@@ -1512,7 +1583,7 @@ function renderPersonSheet() {
     tbody.innerHTML = `
       <tr>
         <td colspan="9" style="text-align:center; padding: 28px; color: var(--text-muted);">
-          لا توجد حركات مسجلة لـ <strong>${dispName}</strong> في هذه الفترة. يمكنك إضافتها من الأعلى أو من شاشة التسجيل اليومي.
+          لا توجد حركات مسجلة لـ <strong>${escapeHtml(dispName)}</strong> في هذه الفترة. يمكنك إضافتها من الأعلى أو من شاشة التسجيل اليومي.
         </td>
       </tr>
     `;
@@ -1541,7 +1612,7 @@ function renderPersonSheet() {
         <td class="col-cash-cell">${r.cash > 0 ? formatNumber(r.cash) : '0'}</td>
         <td class="col-inv-cell">${r.invoice > 0 ? formatNumber(r.invoice) : '0'}</td>
         <td class="col-ret-cell">${r.returnedCash > 0 ? formatNumber(r.returnedCash) : '0'}</td>
-        <td>${r.note || '-'}</td>
+        <td>${escapeHtml(r.note) || '-'}</td>
         <td class="col-balance-cell"><span class="${balClass}">${balText}</span></td>
         <td class="no-print">
           <button type="button" class="btn btn-sm btn-outline" data-edit-pdate="${r.dateKey}" title="تعديل هذا السطر">✏️</button>
@@ -1558,7 +1629,7 @@ function renderPersonSheet() {
   if (pTotRetEl) pTotRetEl.textContent = formatNumber(totalReturned);
 
   const netDiff = runningBalance;
-  document.getElementById('ledgerSettlementBadge').innerHTML = getSettlementBadgeHtml(totalCash, totalInvoices, totalReturned);
+  document.getElementById('ledgerSettlementBadge').innerHTML = getSettlementBadgeHtml(totalCash + openingBal, totalInvoices, totalReturned);
 
   document.getElementById('personNetSummaryCell').innerHTML = `
     <span>الرصيد النهائي: <strong>${formatNumber(netDiff)} ر.ق</strong> ${netDiff > 0.001 ? '(متبقي بذمته)' : netDiff < -0.001 ? '(له فرق مستحق)' : '(خالص ومصفى بالكامل ✓)'}</span>
@@ -1618,14 +1689,34 @@ function openVoucherModal(personId) {
     return;
   }
   const dispName = getPersonDisplayName(person);
-  const isYearScope = state.ledgerScope === 'year' && state.activeTab === 'person';
-  const scopeLabel = isYearScope ? `سنة ${state.year}` : `شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
+
+  // Compute period based on state.personSelectedMonth
+  let startM = state.month;
+  let endM = state.month;
+  let scopeLabel = `شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
+
+  if (state.activeTab === 'person' || state.personSelectedMonth) {
+    if (state.personSelectedMonth === 'all') {
+      startM = 1;
+      endM = 12;
+      scopeLabel = `سنة ${state.year} كاملة`;
+    } else if (state.personSelectedMonth === 'current' || !state.personSelectedMonth) {
+      startM = state.month;
+      endM = state.month;
+      scopeLabel = `شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
+    } else {
+      const pm = parseInt(state.personSelectedMonth, 10);
+      if (!isNaN(pm) && pm >= 1 && pm <= 12) {
+        startM = pm;
+        endM = pm;
+        scopeLabel = `شهر ${ARABIC_MONTHS[pm]} ${state.year}`;
+      }
+    }
+  }
 
   let totalCash = 0;
   let totalInv = 0;
   let totalRet = 0;
-  const startM = isYearScope ? 1 : state.month;
-  const endM = isYearScope ? 12 : state.month;
 
   for (let m = startM; m <= endM; m++) {
     const mt = getPersonMonthTotals(person.id, state.year, m);
@@ -1643,6 +1734,10 @@ function openVoucherModal(personId) {
   document.getElementById('vScopeLabel').textContent = scopeLabel;
   document.getElementById('vTotalCash').textContent = `${formatNumber(totalCash)} ر.ق`;
   document.getElementById('vTotalInv').textContent = `${formatNumber(totalInv)} ر.ق`;
+  const vTotalRetEl = document.getElementById('vTotalRet');
+  if (vTotalRetEl) {
+    vTotalRetEl.textContent = `${formatNumber(totalRet)} ر.ق`;
+  }
   document.getElementById('vNetStatus').textContent = Math.abs(diff) < 0.001
     ? '0 ر.ق (خالص ومصفى بالكامل ✓)'
     : (diff > 0 ? `${formatNumber(diff)} ر.ق (متبقي بذمته لم يصفِ بعد)` : `${formatNumber(Math.abs(diff))} ر.ق (له فرق فواتير مستحق الصرف)`);
@@ -1827,7 +1922,7 @@ function renderAnnualTab() {
       <tr>
         <td class="sticky-col">
           <a href="javascript:void(0)" data-open-person="${person.id}" style="font-weight:700; color:var(--text-main); text-decoration:none;">
-            ${person.num}. ${dispName}
+            ${person.num}. ${escapeHtml(dispName)}
           </a>
         </td>
         <td>
@@ -1953,7 +2048,7 @@ function renderPeopleManagementTab() {
           class="input-control"
           style="width: 100%; font-weight: 700;"
           placeholder="اسم رقم ${p.num}..."
-          value="${(p.name || '').replace(/"/g, '&quot;')}"
+          value="${escapeHtml(p.name || '')}"
           data-edit-pname="${p.id}"
         />
       </td>
@@ -1969,7 +2064,7 @@ function renderPeopleManagementTab() {
           class="input-control"
           style="width: 100%; font-size: 0.88rem;"
           placeholder="${p.role === 'driver' ? '🚗 رقم السيارة أو الشاحنة...' : '🏢 القسم أو الإدارة...'}"
-          value="${(p.meta || '').replace(/"/g, '&quot;')}"
+          value="${escapeHtml(p.meta || '')}"
           data-edit-pmeta="${p.id}"
         />
       </td>
@@ -2216,13 +2311,40 @@ function renderCustodyTab() {
           <td><strong>${r.date}</strong></td>
           <td>${ARABIC_MONTHS[m]}</td>
           <td style="font-weight: 800; color: var(--green);">${formatNumber(r.amount)} ر.ق</td>
-          <td>${r.ref || '-'}</td>
-          <td>${r.note || '-'}</td>
+          <td>${escapeHtml(r.ref) || '-'}</td>
+          <td>${escapeHtml(r.note) || '-'}</td>
           <td class="no-print">
-            <button type="button" class="btn btn-sm btn-danger-outline" data-del-custody="${r.id}" title="حذف الدفعة">🗑️</button>
+            <div style="display:flex; gap:6px; justify-content:center;">
+              <button type="button" class="btn btn-sm btn-outline" data-edit-custody="${r.id}" title="تعديل هذه الدفعة">✏️</button>
+              <button type="button" class="btn btn-sm btn-danger-outline" data-del-custody="${r.id}" title="حذف الدفعة">🗑️</button>
+            </div>
           </td>
         `;
         tbodyReceipts.appendChild(tr);
+      });
+
+      tbodyReceipts.querySelectorAll('[data-edit-custody]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const cid = btn.getAttribute('data-edit-custody');
+          const r = (state.data.custodyReceipts || []).find(item => item.id === cid);
+          if (!r) return;
+          state.editingCustodyReceiptId = cid;
+          document.getElementById('custodyReceiptDate').value = r.date || state.selectedDate;
+          document.getElementById('custodyReceiptAmount').value = r.amount;
+          document.getElementById('custodyReceiptRef').value = r.ref || '';
+          document.getElementById('custodyReceiptNote').value = r.note || '';
+
+          const btnAdd = document.getElementById('btnAddCustodyReceipt');
+          if (btnAdd) {
+            btnAdd.textContent = '💾 حفظ تعديل دفعة العهدة';
+            btnAdd.className = 'btn btn-primary';
+          }
+          const btnCancel = document.getElementById('btnCancelEditCustodyReceipt');
+          if (btnCancel) btnCancel.classList.remove('hidden');
+
+          document.getElementById('custodyReceiptAmount').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          document.getElementById('custodyReceiptAmount').focus();
+        });
       });
 
       tbodyReceipts.querySelectorAll('[data-del-custody]').forEach(btn => {
@@ -2230,6 +2352,16 @@ function renderCustodyTab() {
           const cid = btn.getAttribute('data-del-custody');
           if (confirm('هل أنت متأكد من حذف هذه الدفعة من سجل العهدة المستلمة؟')) {
             state.data.custodyReceipts = (state.data.custodyReceipts || []).filter(item => item.id !== cid);
+            if (state.editingCustodyReceiptId === cid) {
+              state.editingCustodyReceiptId = null;
+              const btnAdd = document.getElementById('btnAddCustodyReceipt');
+              if (btnAdd) {
+                btnAdd.textContent = '➕ إضافة دفعة العهدة';
+                btnAdd.className = 'btn btn-success';
+              }
+              const btnCancel = document.getElementById('btnCancelEditCustodyReceipt');
+              if (btnCancel) btnCancel.classList.add('hidden');
+            }
             saveState();
             renderCustodyTab();
             showToast('تم حذف الدفعة بنجاح');
@@ -2262,15 +2394,43 @@ function renderCustodyTab() {
         tr.innerHTML = `
           <td><strong>${idx + 1}</strong></td>
           <td><strong>${s.date}</strong></td>
-          <td><strong>${s.period || '-'}</strong></td>
+          <td><strong>${escapeHtml(s.period) || '-'}</strong></td>
           <td style="font-weight: 800; color: var(--purple);">${formatNumber(s.amount)} ر.ق</td>
-          <td>${s.ref || '-'}</td>
-          <td>${s.note || '-'}</td>
+          <td>${escapeHtml(s.ref) || '-'}</td>
+          <td>${escapeHtml(s.note) || '-'}</td>
           <td class="no-print">
-            <button type="button" class="btn btn-sm btn-danger-outline" data-del-settlement="${s.id}" title="حذف كشف التصفية">🗑️</button>
+            <div style="display:flex; gap:6px; justify-content:center;">
+              <button type="button" class="btn btn-sm btn-outline" data-edit-settlement="${s.id}" title="تعديل كشف التصفية">✏️</button>
+              <button type="button" class="btn btn-sm btn-danger-outline" data-del-settlement="${s.id}" title="حذف كشف التصفية">🗑️</button>
+            </div>
           </td>
         `;
         tbodySettlements.appendChild(tr);
+      });
+
+      tbodySettlements.querySelectorAll('[data-edit-settlement]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sid = btn.getAttribute('data-edit-settlement');
+          const s = (state.data.custodySettlements || []).find(item => item.id === sid);
+          if (!s) return;
+          state.editingCustodySettlementId = sid;
+          document.getElementById('custodySettlementDate').value = s.date || state.selectedDate;
+          document.getElementById('custodySettlementAmount').value = s.amount;
+          document.getElementById('custodySettlementPeriod').value = s.period || '';
+          document.getElementById('custodySettlementRef').value = s.ref || '';
+          document.getElementById('custodySettlementNote').value = s.note || '';
+
+          const btnAdd = document.getElementById('btnAddCustodySettlement');
+          if (btnAdd) {
+            btnAdd.textContent = '💾 حفظ تعديل كشف التصفية';
+            btnAdd.className = 'btn btn-primary';
+          }
+          const btnCancel = document.getElementById('btnCancelEditCustodySettlement');
+          if (btnCancel) btnCancel.classList.remove('hidden');
+
+          document.getElementById('custodySettlementAmount').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          document.getElementById('custodySettlementAmount').focus();
+        });
       });
 
       tbodySettlements.querySelectorAll('[data-del-settlement]').forEach(btn => {
@@ -2278,6 +2438,16 @@ function renderCustodyTab() {
           const sid = btn.getAttribute('data-del-settlement');
           if (confirm('هل أنت متأكد من حذف كشف التصفية هذا المسلم للشركة؟')) {
             state.data.custodySettlements = (state.data.custodySettlements || []).filter(item => item.id !== sid);
+            if (state.editingCustodySettlementId === sid) {
+              state.editingCustodySettlementId = null;
+              const btnAdd = document.getElementById('btnAddCustodySettlement');
+              if (btnAdd) {
+                btnAdd.textContent = '📑 حفظ كشف التصفية للشركة';
+                btnAdd.className = 'btn btn-primary';
+              }
+              const btnCancel = document.getElementById('btnCancelEditCustodySettlement');
+              if (btnCancel) btnCancel.classList.add('hidden');
+            }
             saveState();
             renderCustodyTab();
             showToast('تم حذف كشف التصفية بنجاح');
@@ -2326,7 +2496,7 @@ function renderCustodyTab() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td><strong>${idx + 1}</strong></td>
-          <td><strong>${getPersonDisplayName(item.person)}</strong> ${item.person.meta ? `<small class="text-muted">(${item.person.meta})</small>` : ''}</td>
+          <td><strong>${escapeHtml(getPersonDisplayName(item.person))}</strong> ${item.person.meta ? `<small class="text-muted">(${escapeHtml(item.person.meta)})</small>` : ''}</td>
           <td><span class="role-badge ${item.person.role}">${item.person.role === 'driver' ? 'سائق' : 'ستاف'}</span></td>
           <td class="col-cash-cell">${formatNumber(item.cash)}</td>
           <td class="col-inv-cell">${formatNumber(item.invoice)}</td>
@@ -2358,6 +2528,10 @@ function openReplenishmentModal() {
 
   let monthDistributed = 0;
   let monthInvoices = 0;
+  let monthReturned = 0;
+  let monthExtras = 0;
+  let monthEligibleExtras = 0;
+
   const categoryTotals = {
     '⛽ بترول / وقود': 0,
     '🔧 صيانة وإصلاحات': 0,
@@ -2375,8 +2549,10 @@ function openReplenishmentModal() {
       if (e) {
         const cash = Number(e.cash) || 0;
         const inv = Number(e.invoice) || 0;
+        const ret = Number(e.returnedCash) || 0;
         monthDistributed += cash;
         monthInvoices += inv;
+        monthReturned += ret;
 
         if (inv > 0) {
           const note = (e.note || '').toLowerCase();
@@ -2394,9 +2570,20 @@ function openReplenishmentModal() {
         }
       }
     }
+
+    const extra = state.data.dailyExtras[dk];
+    if (extra && extra.amount) {
+      const exAmt = Number(extra.amount) || 0;
+      monthExtras += exAmt;
+      if (!extra.excludeFromCompany) {
+        monthInvoices += exAmt;
+        monthEligibleExtras += exAmt;
+        categoryTotals['📋 مصروفات أخرى'] += exAmt;
+      }
+    }
   }
 
-  const cashInHand = monthReceived - monthDistributed;
+  const cashInHand = (monthReceived + monthReturned) - (monthDistributed + monthExtras);
 
   document.getElementById('repPeriodSubtitle').textContent = `الفترة المحاسبية: شهر ${ARABIC_MONTHS[state.month]} ${state.year} — تاريخ الإصدار: ${state.selectedDate}`;
   document.getElementById('repTotalReceived').textContent = `${formatNumber(monthReceived)} ر.ق`;
@@ -2612,7 +2799,8 @@ function carryOverRemainingToNextWorkday() {
   const curExtra = getDayExtra(state.selectedDate);
   setDayExtra(state.selectedDate, {
     amount: curExtra.amount + remAmount,
-    note: curExtra.note ? `${curExtra.note} + مرحل ليوم ${nextDateKey}` : `مرحل ليوم ${nextDateKey}`
+    note: curExtra.note ? `${curExtra.note} + مرحل ليوم ${nextDateKey}` : `مرحل ليوم ${nextDateKey}`,
+    excludeFromCompany: true
   });
 
   const nextRec = getDayReceived(nextDateKey);
@@ -2700,23 +2888,25 @@ function exportCurrentViewToExcel() {
     filename = `صفحة_${dispName}_${state.year}.csv`;
     csvRows.push(['رقم الشخص', person.num, 'الاسم', dispName, 'الفئة', person.role === 'driver' ? 'سائق' : 'ستاف', 'السيارة/القسم', person.meta || '']);
     csvRows.push([]);
-    csvRows.push(['التاريخ', 'اليوم', 'الفلوس اللي استلمها (ر.ق)', 'الفواتير المقدمة - بيتي كاش (ر.ق)', 'البيان / الملاحظات']);
+    csvRows.push(['التاريخ', 'اليوم', 'الفلوس اللي استلمها (ر.ق)', 'الفواتير المقدمة - بيتي كاش (ر.ق)', 'الكاش المرتجع في اليد (ر.ق)', 'البيان / الملاحظات']);
 
     let totalC = 0;
     let totalI = 0;
+    let totalRet = 0;
     for (let m = 1; m <= 12; m++) {
       const days = getDaysInMonth(state.year, m);
       for (let d = 1; d <= days; d++) {
         const dk = formatDateKey(state.year, m, d);
         const e = getPersonEntry(dk, person.id);
-        if (e.cash > 0 || e.invoice > 0 || e.note) {
+        if (e.cash > 0 || e.invoice > 0 || e.returnedCash > 0 || e.note) {
           totalC += e.cash;
           totalI += e.invoice;
-          csvRows.push([dk, getArabicDayName(state.year, m, d), e.cash, e.invoice, `"${(e.note || '').replace(/"/g, '""')}"`]);
+          totalRet += (e.returnedCash || 0);
+          csvRows.push([dk, getArabicDayName(state.year, m, d), e.cash, e.invoice, e.returnedCash || 0, `"${(e.note || '').replace(/"/g, '""')}"`]);
         }
       }
     }
-    csvRows.push(['الإجمالي الكلي (ر.ق)', '', totalC, totalI, `الصافي: ${totalC - totalI} ر.ق`]);
+    csvRows.push(['الإجمالي الكلي (ر.ق)', '', totalC, totalI, totalRet, `الصافي: ${totalC - (totalI + totalRet)} ر.ق`]);
   } else {
     const daysCount = getDaysInMonth(state.year, state.month);
     const header = ['الرقم', 'الاسم', 'الفئة', 'السيارة/القسم'];
@@ -2726,7 +2916,7 @@ function exportCurrentViewToExcel() {
       workDays.push(d);
       header.push(`يوم ${d}`);
     }
-    header.push('إجمالي المبالغ بالشهر (ر.ق)', 'إجمالي الفواتير بالشهر (ر.ق)');
+    header.push('إجمالي المبالغ بالشهر (ر.ق)', 'إجمالي الفواتير بالشهر (ر.ق)', 'إجمالي الكاش المرتجع بالشهر (ر.ق)');
     csvRows.push(header);
 
     const recRow = ['', 'إجمالي المستلم اليومي', 'الوارد', ''];
@@ -2736,7 +2926,7 @@ function exportCurrentViewToExcel() {
       mRec += r;
       recRow.push(r);
     });
-    recRow.push(mRec, '');
+    recRow.push(mRec, '', '');
     csvRows.push(recRow);
 
     const exportPeople = getReportablePeople(state.year);
@@ -2747,7 +2937,7 @@ function exportCurrentViewToExcel() {
         row.push(e.cash || 0);
       });
       const mt = getPersonMonthTotals(p.id, state.year, state.month);
-      row.push(mt.cash, mt.invoice);
+      row.push(mt.cash, mt.invoice, mt.returnedCash);
       csvRows.push(row);
     });
   }
@@ -3261,13 +3451,37 @@ function bindEvents() {
     }
 
     state.data.custodyReceipts = state.data.custodyReceipts || [];
-    state.data.custodyReceipts.push({
-      id: 'cr_' + Date.now(),
-      date: dateVal,
-      amount: amountVal,
-      ref: refVal,
-      note: noteVal
-    });
+
+    if (state.editingCustodyReceiptId) {
+      const idx = state.data.custodyReceipts.findIndex(r => r.id === state.editingCustodyReceiptId);
+      if (idx !== -1) {
+        state.data.custodyReceipts[idx] = {
+          ...state.data.custodyReceipts[idx],
+          date: dateVal,
+          amount: amountVal,
+          ref: refVal,
+          note: noteVal
+        };
+      }
+      state.editingCustodyReceiptId = null;
+      const btnAdd = document.getElementById('btnAddCustodyReceipt');
+      if (btnAdd) {
+        btnAdd.textContent = '➕ إضافة دفعة العهدة';
+        btnAdd.className = 'btn btn-success';
+      }
+      const btnCancel = document.getElementById('btnCancelEditCustodyReceipt');
+      if (btnCancel) btnCancel.classList.add('hidden');
+      showToast(`تم حفظ تعديل الدفعة بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
+    } else {
+      state.data.custodyReceipts.push({
+        id: 'cr_' + Date.now(),
+        date: dateVal,
+        amount: amountVal,
+        ref: refVal,
+        note: noteVal
+      });
+      showToast(`تم تسجيل دفعة استلام عهدة بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
+    }
 
     document.getElementById('custodyReceiptAmount').value = '';
     document.getElementById('custodyReceiptRef').value = '';
@@ -3275,7 +3489,21 @@ function bindEvents() {
 
     saveState();
     renderCustodyTab();
-    showToast(`تم تسجيل دفعة استلام عهدة بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
+  });
+
+  document.getElementById('btnCancelEditCustodyReceipt')?.addEventListener('click', () => {
+    state.editingCustodyReceiptId = null;
+    document.getElementById('custodyReceiptAmount').value = '';
+    document.getElementById('custodyReceiptRef').value = '';
+    document.getElementById('custodyReceiptNote').value = '';
+    const btnAdd = document.getElementById('btnAddCustodyReceipt');
+    if (btnAdd) {
+      btnAdd.textContent = '➕ إضافة دفعة العهدة';
+      btnAdd.className = 'btn btn-success';
+    }
+    const btnCancel = document.getElementById('btnCancelEditCustodyReceipt');
+    if (btnCancel) btnCancel.classList.add('hidden');
+    showToast('تم إلغاء تعديل الدفعة');
   });
 
   document.getElementById('btnAddCustodySettlement')?.addEventListener('click', () => {
@@ -3291,14 +3519,39 @@ function bindEvents() {
     }
 
     state.data.custodySettlements = state.data.custodySettlements || [];
-    state.data.custodySettlements.push({
-      id: 'cs_' + Date.now(),
-      date: dateVal,
-      amount: amountVal,
-      period: periodVal,
-      ref: refVal,
-      note: noteVal
-    });
+
+    if (state.editingCustodySettlementId) {
+      const idx = state.data.custodySettlements.findIndex(s => s.id === state.editingCustodySettlementId);
+      if (idx !== -1) {
+        state.data.custodySettlements[idx] = {
+          ...state.data.custodySettlements[idx],
+          date: dateVal,
+          amount: amountVal,
+          period: periodVal,
+          ref: refVal,
+          note: noteVal
+        };
+      }
+      state.editingCustodySettlementId = null;
+      const btnAdd = document.getElementById('btnAddCustodySettlement');
+      if (btnAdd) {
+        btnAdd.textContent = '📑 حفظ كشف التصفية للشركة';
+        btnAdd.className = 'btn btn-primary';
+      }
+      const btnCancel = document.getElementById('btnCancelEditCustodySettlement');
+      if (btnCancel) btnCancel.classList.add('hidden');
+      showToast(`تم حفظ تعديل كشف التصفية بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
+    } else {
+      state.data.custodySettlements.push({
+        id: 'cs_' + Date.now(),
+        date: dateVal,
+        amount: amountVal,
+        period: periodVal,
+        ref: refVal,
+        note: noteVal
+      });
+      showToast(`تم تسجيل كشف التصفية المسلم للشركة بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
+    }
 
     document.getElementById('custodySettlementAmount').value = '';
     document.getElementById('custodySettlementRef').value = '';
@@ -3306,7 +3559,21 @@ function bindEvents() {
 
     saveState();
     renderCustodyTab();
-    showToast(`تم تسجيل كشف التصفية المسلم للشركة بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
+  });
+
+  document.getElementById('btnCancelEditCustodySettlement')?.addEventListener('click', () => {
+    state.editingCustodySettlementId = null;
+    document.getElementById('custodySettlementAmount').value = '';
+    document.getElementById('custodySettlementRef').value = '';
+    document.getElementById('custodySettlementNote').value = '';
+    const btnAdd = document.getElementById('btnAddCustodySettlement');
+    if (btnAdd) {
+      btnAdd.textContent = '📑 حفظ كشف التصفية للشركة';
+      btnAdd.className = 'btn btn-primary';
+    }
+    const btnCancel = document.getElementById('btnCancelEditCustodySettlement');
+    if (btnCancel) btnCancel.classList.add('hidden');
+    showToast('تم إلغاء تعديل كشف التصفية');
   });
 
   document.getElementById('dailyExtraExcludeCompany')?.addEventListener('change', (e) => {
@@ -3322,6 +3589,9 @@ function bindEvents() {
   });
   document.getElementById('btnPrintReplenishmentNow')?.addEventListener('click', printReplenishmentSheet);
 
+  // Undo Action
+  document.getElementById('btnUndo')?.addEventListener('click', performUndo);
+
   // Header Actions (Excel, Print, Backup Modal)
   document.getElementById('btnExportExcel').addEventListener('click', exportCurrentViewToExcel);
   document.getElementById('btnPrint').addEventListener('click', printReportWithHeader);
@@ -3334,6 +3604,14 @@ function bindEvents() {
     modal.classList.add('hidden');
   });
 
+  // Backup Reminder Banner actions
+  document.getElementById('btnQuickBackupFromBanner')?.addEventListener('click', () => {
+    document.getElementById('btnDownloadBackup')?.click();
+  });
+  document.getElementById('btnDismissBackupReminder')?.addEventListener('click', () => {
+    document.getElementById('backupReminderBanner')?.classList.add('hidden');
+  });
+
   document.getElementById('btnDownloadBackup').addEventListener('click', () => {
     const json = JSON.stringify(state.data, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
@@ -3343,7 +3621,9 @@ function bindEvents() {
     a.download = `petty_cash_backup_${state.year}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('تم تحميل ملف النسخة الاحتياطية');
+    localStorage.setItem('petty_cash_last_backup_download', Date.now().toString());
+    checkBackupReminder();
+    showToast('تم تحميل ملف النسخة الاحتياطية بنجاح 💾');
   });
 
   document.getElementById('fileRestoreBackup').addEventListener('change', (e) => {
@@ -3408,12 +3688,6 @@ function bindEvents() {
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Purge any stale service worker caches immediately
-  if ('caches' in window) {
-    caches.keys().then(keys => {
-      keys.forEach(k => caches.delete(k));
-    }).catch(() => {});
-  }
   loadState();
   updateMonthLabels();
 

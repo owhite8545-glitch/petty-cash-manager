@@ -87,12 +87,30 @@
         <button id="btnPrint" class="btn btn-outline" title="طباعة الصفحة الحالية">
           <span>🖨️</span> طباعة
         </button>
+        <button id="btnUndo" class="btn btn-outline" type="button" title="التراجع عن آخر تعديل">
+          <span>↩️</span> تراجع
+        </button>
         <button id="btnBackupModal" class="btn btn-secondary" title="حفظ نسخة احتياطية أو تصفير البيانات">
           <span>💾</span> الحفظ والبيانات
         </button>
       </div>
     </div>
   </header>
+
+  <!-- Backup Reminder Banner (Appears if > 7 days without downloading backup) -->
+  <div id="backupReminderBanner" class="backup-reminder-banner hidden no-print">
+    <div class="br-content">
+      <span class="br-icon">💾</span>
+      <div>
+        <strong>تنبيه النسخ الاحتياطي: مر أكثر من 7 أيام دون حفظ نسخة احتياطية!</strong>
+        <p>لحماية أرقامك وسجلات السائقين، يرجى حفظ نسخة احتياطية من بياناتك على جهازك.</p>
+      </div>
+    </div>
+    <div class="br-actions">
+      <button type="button" id="btnQuickBackupFromBanner" class="btn btn-sm btn-primary">تحميل النسخة الاحتياطية الآن 💾</button>
+      <button type="button" id="btnDismissBackupReminder" class="btn-close-sm" title="إغلاق التنبيه مؤقتاً">✕</button>
+    </div>
+  </div>
 
   <!-- Navigation Tabs (Big & Clear for 64yo user) -->
   <nav class="app-nav no-print">
@@ -842,6 +860,7 @@
             </div>
             <div class="field-group field-btn" style="width: 100%; margin-top: 8px;">
               <button id="btnAddCustodyReceipt" class="btn btn-success" style="width: 100%;">➕ إضافة دفعة العهدة</button>
+              <button type="button" id="btnCancelEditCustodyReceipt" class="btn btn-sm btn-outline hidden" style="width: 100%; margin-top: 6px;">إلغاء التعديل ✕</button>
             </div>
           </div>
         </div>
@@ -879,6 +898,7 @@
             </div>
             <div class="field-group field-btn" style="width: 100%; margin-top: 8px;">
               <button id="btnAddCustodySettlement" class="btn btn-primary" style="width: 100%;">📑 حفظ كشف التصفية للشركة</button>
+              <button type="button" id="btnCancelEditCustodySettlement" class="btn btn-sm btn-outline hidden" style="width: 100%; margin-top: 6px;">إلغاء التعديل ✕</button>
             </div>
           </div>
         </div>
@@ -900,7 +920,7 @@
                 <th style="width: 200px;">💵 المبلغ المستلم (ر.ق)</th>
                 <th style="width: 180px;">رقم السند / الشيك</th>
                 <th>البيان / الملاحظات</th>
-                <th style="width: 90px;" class="no-print">حذف</th>
+                <th style="width: 125px;" class="no-print">إجراءات</th>
               </tr>
             </thead>
             <tbody id="custodyReceiptsBody"></tbody>
@@ -930,7 +950,7 @@
                 <th style="width: 200px;">🧾 المبلغ المسوى (ر.ق)</th>
                 <th style="width: 180px;">رقم كشف التصفية</th>
                 <th>البيان / الملاحظات</th>
-                <th style="width: 90px;" class="no-print">حذف</th>
+                <th style="width: 125px;" class="no-print">إجراءات</th>
               </tr>
             </thead>
             <tbody id="custodySettlementsBody"></tbody>
@@ -1189,8 +1209,10 @@
               <td id="vTotalInv" style="font-weight:800; color:#6d28d9;">0 ر.ق</td>
             </tr>
             <tr>
+              <th>↩️ إجمالي الكاش المرتجع باليد:</th>
+              <td id="vTotalRet" style="font-weight:800; color:#0284c7;">0 ر.ق</td>
               <th>⚖️ الصافي / المتبقي في العهدة:</th>
-              <td colspan="3" id="vNetStatus" style="font-weight:800;">0 ر.ق</td>
+              <td id="vNetStatus" style="font-weight:800;">0 ر.ق</td>
             </tr>
           </table>
           <div class="voucher-signatures">
