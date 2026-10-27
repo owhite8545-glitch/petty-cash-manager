@@ -2205,7 +2205,12 @@ function renderCustodyTab() {
     }
   }
 
-  const drawerInflows = totalCustodyReceiptsAll + totalDailyReceiptsAll + totalReturnedCashAll;
+  // Prevent double-counting if company custody receipts are logged:
+  // If custodyReceipts are present, the large fund is the source of drawer inflows.
+  // Otherwise, fall back to daily recorded receipts.
+  const drawerInflows = totalCustodyReceiptsAll > 0
+    ? (totalCustodyReceiptsAll + totalReturnedCashAll)
+    : (totalDailyReceiptsAll + totalReturnedCashAll);
   const drawerOutflows = totalCashAdvancedAll + totalDailyExtrasAll;
   const drawerCash = drawerInflows - drawerOutflows;
 
