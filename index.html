@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#1e3a8a" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=20261031a" />
+  <link rel="stylesheet" href="styles.css?v=20261101a" />
 </head>
 <body class="senior-friendly">
   <!-- Official Print-Only Header (Appears on Paper/PDF when printing any report) -->
@@ -770,6 +770,8 @@
               </div>
               <div class="filter-pills" id="peopleManageFilterPills">
                 <button class="pill active" data-pmfilter="all">الكل (<span id="pmCountAll">0</span>)</button>
+                <button class="pill" data-pmfilter="active_only">النشطون (<span id="pmCountActivePeople">0</span>)</button>
+                <button class="pill" data-pmfilter="archived">📦 المؤرشفون (<span id="pmCountArchived">0</span>)</button>
                 <button class="pill" data-pmfilter="driver">🚛 السائقين (<span id="pmCountDrivers">0</span>)</button>
                 <button class="pill" data-pmfilter="staff">👔 الستاف (<span id="pmCountStaff">0</span>)</button>
                 <button class="pill" data-pmfilter="active">💵 عليهم أو لهم رصيد (<span id="pmCountActive">0</span>)</button>
@@ -1013,22 +1015,51 @@
           </div>
         </div>
 
-        <!-- Safe KPI Cards -->
-        <div class="monthly-kpis">
-          <div class="kpi-item">
-            <span class="kpi-label">💵 إجمالي السحوبات من الخزنة</span>
-            <strong class="kpi-value text-green" id="safeWithdrawnTotal">0</strong>
-            <small class="kpi-sub-split" id="safeWithdrawnSub">ما سحبته من الخزينة في هذا الشهر</small>
+        <!-- Safe KPI Cards: Dual Financial View (Selected Period Movement vs Cumulative Running Balance) -->
+        <div style="margin-bottom: 10px;">
+          <h4 style="font-size: 0.95rem; color: var(--primary); margin: 0 0 8px 0;">📊 1. حركة الفترة المحددة (سنة / شهر مستقل):</h4>
+          <div class="monthly-kpis">
+            <div class="kpi-item">
+              <span class="kpi-label">💵 سحوبات هذه الفترة</span>
+              <strong class="kpi-value text-green" id="safeWithdrawnTotal">0</strong>
+              <small class="kpi-sub-split" id="safeWithdrawnSub">ما سحبته من الخزينة في هذه الفترة</small>
+            </div>
+            <div class="kpi-item">
+              <span class="kpi-label">🧾 فواتير مسلّمة في هذه الفترة</span>
+              <strong class="kpi-value text-purple" id="safeInvoicesTotal">0</strong>
+              <small class="kpi-sub-split" id="safeInvoicesSub">فواتير قدمتها للخزنة لتغطية سحوبات الفترة</small>
+            </div>
+            <div class="kpi-item" style="border: 2px dashed #f59e0b; background: #fffbeb;">
+              <span class="kpi-label" style="color: #92400e;">⚖️ صافي حركة هذه الفترة</span>
+              <strong class="kpi-value" id="safeNetBalance">0</strong>
+              <small class="kpi-sub-split" id="safeNetStatus">سحوبات الفترة ناقص فواتيرها</small>
+            </div>
           </div>
-          <div class="kpi-item">
-            <span class="kpi-label">🧾 إجمالي الفواتير المسلّمة للخزنة</span>
-            <strong class="kpi-value text-purple" id="safeInvoicesTotal">0</strong>
-            <small class="kpi-sub-split" id="safeInvoicesSub">فواتير قدمتها للخزنة لتغطية السحوبات</small>
-          </div>
-          <div class="kpi-item" style="border: 2px dashed #f59e0b; background: #fffbeb;">
-            <span class="kpi-label" style="color: #92400e;">⚖️ الصافي المعلق (سحوبات - فواتير)</span>
-            <strong class="kpi-value" id="safeNetBalance">0</strong>
-            <small class="kpi-sub-split" id="safeNetStatus">الفرق بين ما سحبته وما سلّمته</small>
+        </div>
+
+        <div>
+          <h4 style="font-size: 0.95rem; color: #1e40af; margin: 12px 0 8px 0;">🏛️ 2. الرصيد التراكمي الشامل (حتى نهاية هذه الفترة):</h4>
+          <div class="monthly-kpis">
+            <div class="kpi-item" style="background: #f8fafc;">
+              <span class="kpi-label">⏳ رصيد افتتاحي مرحّل من قبل</span>
+              <strong class="kpi-value text-muted" id="safePriorOpeningBalance">0</strong>
+              <small class="kpi-sub-split">معلق من شهور وسنوات سابقة</small>
+            </div>
+            <div class="kpi-item">
+              <span class="kpi-label">📥 إجمالي السحوبات التراكمية</span>
+              <strong class="kpi-value text-green" id="safeCumulativeWithdrawnTotal">0</strong>
+              <small class="kpi-sub-split">كل ما سُحب تاريخياً حتى الآن</small>
+            </div>
+            <div class="kpi-item">
+              <span class="kpi-label">📤 إجمالي الفواتير التراكمية</span>
+              <strong class="kpi-value text-purple" id="safeCumulativeInvoicesTotal">0</strong>
+              <small class="kpi-sub-split">كل الفواتير المسلّمة تاريخياً</small>
+            </div>
+            <div class="kpi-item" style="border: 2px solid #3b82f6; background: #eff6ff;">
+              <span class="kpi-label" style="color: #1e40af;">⚖️ الصافي التراكمي المعلق بذمتنا</span>
+              <strong class="kpi-value text-blue" id="safeCumulativeNetBalance">0</strong>
+              <small class="kpi-sub-split" id="safeCumulativeNetStatus">الموقف الشامل الحقيقي مع الخزنة</small>
+            </div>
           </div>
         </div>
       </div>
@@ -1421,7 +1452,12 @@
 
         <div class="modal-section">
           <h4>2. استرجاع بيانات من ملف محفوظ</h4>
+          <p class="text-muted">يقوم النظام بالتحقق التام من سلامة الملف وصحة الأرقام، ويأخذ نسخة أمان تلقائية قبل أي استرجاع.</p>
           <input type="file" id="fileRestoreBackup" accept=".json" class="input-control" aria-label="اختيار ملف النسخة الاحتياطية" />
+          <div id="restoreStatusMsg" style="margin-top: 8px; font-size: 0.9rem; font-weight: 700;"></div>
+          <button type="button" id="btnRollbackRestore" class="btn btn-outline hidden" style="margin-top: 10px; width: 100%; border-color: #f59e0b; color: #b45309;">
+            ↩️ التراجع عن آخر استرجاع واستعادة بيانات ما قبل الاسترجاع
+          </button>
         </div>
       </div>
     </div>
@@ -1430,6 +1466,6 @@
   <!-- Toast Notification -->
   <div id="toastContainer" class="toast-container no-print"></div>
 
-  <script src="app.js?v=20261031a"></script>
+  <script src="app.js?v=20261101a"></script>
 </body>
 </html>

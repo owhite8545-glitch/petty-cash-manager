@@ -1,6 +1,6 @@
 // Service Worker for Daily Petty Cash Manager
 // Network-First with Cache Fallback and Automatic Cache Update for True Offline Support
-const CACHE_NAME = 'petty-cash-v8-safe';
+const CACHE_NAME = 'petty-cash-v9-hardening';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -20,8 +20,9 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
+      // Only delete older caches belonging strictly to this application
       return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys.filter((key) => key.startsWith('petty-cash-') && key !== CACHE_NAME).map((key) => caches.delete(key))
       );
     }).then(() => self.clients.claim())
   );

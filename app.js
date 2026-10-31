@@ -18,14 +18,14 @@ const ARABIC_DAYS = [
 
 function createCleanData() {
   return {
-    schemaVersion: 4,
-    people: [],        // { id, num, name, role: 'driver'|'staff', meta: 'رقم السيارة / القسم' }
+    schemaVersion: 5,
+    people: [],        // { id, num, name, role: 'driver'|'staff', meta: 'رقم السيارة / القسم', archived: boolean, archivedAt: string|null }
     dailyReceipts: {}, // { "YYYY-MM-DD": number }
     dailyExtras: {},   // { "YYYY-MM-DD": { amount: number, note: string, excludeFromCompany: boolean } }
     entries: {},       // { "YYYY-MM-DD": { [personId]: { cash: number, invoice: number, returnedCash: number, note: string } } }
     custodyReceipts: [], // [ { id, date, amount, ref, note } ] (دفعات العهدة المستلمة من الشركة)
-    custodySettlements: [], // [ { id, date, amount, period, ref, note } ] (كشوف الفواتير والتسويات المسلمة للشركة)
-    safeInvoices: [] // [ { id, date, amount, ref, note } ] (فواتير مسلمة للخزنة لتسوية السحوبات)
+    custodySettlements: [], // [ { id, date, amount, period, periodKey, ref, note, settlementType, status } ] (كشوف الفواتير والتسويات المسلمة للشركة)
+    safeInvoices: [] // [ { id, date, amount, periodKey, ref, note, settlementType, status } ] (فواتير مسلمة للخزنة لتسوية السحوبات)
   };
 }
 
@@ -37,7 +37,9 @@ function create60BlankSlots() {
       num: i,
       name: '',
       role: i <= 25 ? 'driver' : 'staff',
-      meta: ''
+      meta: '',
+      archived: false,
+      archivedAt: null
     });
   }
   return people;
@@ -82,6 +84,13 @@ const state = {
   data: createCleanData()
 };
 
+if (typeof window !== 'undefined') {
+  window.state = state;
+}
+if (typeof globalThis !== 'undefined') {
+  globalThis.state = state;
+}
+
 // In-Memory Undo Stack (Last 10 Actions) & Backup Tracking
 const undoStack = [];
 const MAX_UNDO = 10;
@@ -100,11 +109,13 @@ function loadState() {
       if (parsed && Array.isArray(parsed.people)) {
         state.data = {
           people: parsed.people.map((p, idx) => ({
-            id: p.id || ('p_' + idx),
-            num: p.num || (idx + 1),
+            id: String(p.id || ('p_' + idx)),
+            num: Number(p.num) || (idx + 1),
             name: p.name || '',
-            role: p.role || 'driver',
-            meta: p.meta || ''
+            role: (p.role === 'staff') ? 'staff' : 'driver',
+            meta: p.meta || '',
+            archived: !!p.archived,
+            archivedAt: p.archivedAt || null
           })),
           dailyReceipts: parsed.dailyReceipts || {},
           dailyExtras: parsed.dailyExtras || {},
@@ -214,12 +225,66 @@ function checkBackupReminder() {
   }
 }
 
-function formatNumber(val) {
-  const num = Number(val) || 0;
-  if (num < 0) {
-    return '\u200E-' + Math.abs(num).toLocaleString('en-US', { maximumFractionDigits: 2 });
+// ============================================================================
+// Financial Arithmetic Engine (Integer Minor Units - Qatari Dirhams / Cents)
+// Prevents floating-point accumulation errors (e.g. 1,000 x 0.01 = 10.00 exactly)
+// ============================================================================
+
+function toCents(val) {
+  if (val === null || val === undefined || val === '') return 0;
+  const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/,/g, '').trim());
+  if (isNaN(num) || !isFinite(num)) return 0;
+  return Math.round(num * 100);
+}
+
+function fromCents(cents) {
+  if (isNaN(cents) || !isFinite(cents)) return 0;
+  return Number((cents / 100).toFixed(2));
+}
+
+function addMoney(a, b) {
+  return fromCents(toCents(a) + toCents(b));
+}
+
+function subMoney(a, b) {
+  return fromCents(toCents(a) - toCents(b));
+}
+
+function mulMoney(val, factor) {
+  return fromCents(Math.round(toCents(val) * factor));
+}
+
+function sumMoney(items, extractor) {
+  let centsSum = 0;
+  if (Array.isArray(items)) {
+    for (let i = 0; i < items.length; i++) {
+      const val = extractor ? extractor(items[i]) : items[i];
+      centsSum += toCents(val);
+    }
   }
-  return num.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  return fromCents(centsSum);
+}
+
+function validateMonetaryInput(val, allowNegative = false) {
+  if (val === null || val === undefined || val === '') return { valid: false, value: 0 };
+  const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/,/g, '').trim());
+  if (isNaN(num) || !isFinite(num)) return { valid: false, value: 0 };
+  if (!allowNegative && num < 0) return { valid: false, value: 0 };
+  if (num > 1000000000) return { valid: false, value: 0 }; // 1 billion limit
+  return { valid: true, value: fromCents(Math.round(num * 100)) };
+}
+
+function formatNumber(val, forceTwoDecimals = false) {
+  const cents = toCents(val);
+  const num = fromCents(cents);
+  const isNeg = num < 0;
+  const absNum = Math.abs(num);
+  const hasCents = (Math.abs(cents) % 100) !== 0;
+  const opts = (forceTwoDecimals || hasCents)
+    ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    : { minimumFractionDigits: 0, maximumFractionDigits: 2 };
+  const formatted = absNum.toLocaleString('en-US', opts);
+  return isNeg ? ('\u200E-' + formatted) : formatted;
 }
 
 function escapeHtml(str) {
@@ -312,10 +377,22 @@ function showToast(msg) {
 
 function hasPersonAnyEntryInYear(personId, year) {
   const prefix = `${year}-`;
-  for (const [dateKey, dayObj] of Object.entries(state.data.entries)) {
+  for (const [dateKey, dayObj] of Object.entries(state.data.entries || {})) {
     if (dateKey.startsWith(prefix) && dayObj && dayObj[personId]) {
       const e = dayObj[personId];
-      if ((Number(e.cash) || 0) > 0 || (Number(e.invoice) || 0) > 0 || (Number(e.returnedCash) || 0) > 0 || (e.note && e.note.trim() !== '')) {
+      if ((toCents(e.cash) > 0) || (toCents(e.invoice) > 0) || (toCents(e.returnedCash) > 0) || (e.note && e.note.trim() !== '')) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function hasPersonAnyEntryInHistory(personId) {
+  for (const dayObj of Object.values(state.data.entries || {})) {
+    if (dayObj && dayObj[personId]) {
+      const e = dayObj[personId];
+      if ((toCents(e.cash) > 0) || (toCents(e.invoice) > 0) || (toCents(e.returnedCash) > 0) || (e.note && e.note.trim() !== '')) {
         return true;
       }
     }
@@ -324,9 +401,16 @@ function hasPersonAnyEntryInYear(personId, year) {
 }
 
 function getReportablePeople(year) {
-  const all = state.data.people;
-  const namedOrActive = all.filter(p => (p.name && p.name.trim() !== '') || hasPersonAnyEntryInYear(p.id, year));
-  return namedOrActive.length > 0 ? namedOrActive : all;
+  const all = state.data.people || [];
+  // Active people who have names, OR archived people who had transactions in this year
+  const list = all.filter(p => {
+    const hasDataThisYear = hasPersonAnyEntryInYear(p.id, year);
+    if (p.archived) {
+      return hasDataThisYear;
+    }
+    return (p.name && p.name.trim() !== '') || hasDataThisYear;
+  });
+  return list.length > 0 ? list : all.filter(p => !p.archived);
 }
 
 // ============================================================================
@@ -334,15 +418,15 @@ function getReportablePeople(year) {
 // ============================================================================
 
 function getDayReceived(dateStr) {
-  return Number(state.data.dailyReceipts[dateStr]) || 0;
+  return fromCents(toCents(state.data.dailyReceipts[dateStr]));
 }
 
 function setDayReceived(dateStr, amount) {
-  const num = Number(amount);
-  if (!num || num <= 0) {
+  const v = validateMonetaryInput(amount);
+  if (!v.valid || v.value <= 0) {
     delete state.data.dailyReceipts[dateStr];
   } else {
-    state.data.dailyReceipts[dateStr] = num;
+    state.data.dailyReceipts[dateStr] = v.value;
   }
   saveState();
 }
@@ -351,7 +435,7 @@ function getDayExtra(dateStr) {
   const ex = state.data.dailyExtras && state.data.dailyExtras[dateStr];
   if (!ex) return { amount: 0, note: '', excludeFromCompany: false };
   return {
-    amount: Number(ex.amount) || 0,
+    amount: fromCents(toCents(ex.amount)),
     note: ex.note || '',
     excludeFromCompany: !!ex.excludeFromCompany
   };
@@ -360,8 +444,9 @@ function getDayExtra(dateStr) {
 function setDayExtra(dateStr, updates) {
   if (!state.data.dailyExtras) state.data.dailyExtras = {};
   const cur = getDayExtra(dateStr);
+  const vAmt = updates.amount !== undefined ? validateMonetaryInput(updates.amount) : { valid: true, value: cur.amount };
   const next = {
-    amount: updates.amount !== undefined ? (Number(updates.amount) || 0) : cur.amount,
+    amount: vAmt.valid ? vAmt.value : cur.amount,
     note: updates.note !== undefined ? String(updates.note) : cur.note,
     excludeFromCompany: updates.excludeFromCompany !== undefined ? !!updates.excludeFromCompany : cur.excludeFromCompany
   };
@@ -379,9 +464,9 @@ function getPersonEntry(dateStr, personId) {
     return { cash: 0, invoice: 0, returnedCash: 0, note: '' };
   }
   return {
-    cash: Number(dayObj[personId].cash) || 0,
-    invoice: Number(dayObj[personId].invoice) || 0,
-    returnedCash: Number(dayObj[personId].returnedCash) || 0,
+    cash: fromCents(toCents(dayObj[personId].cash)),
+    invoice: fromCents(toCents(dayObj[personId].invoice)),
+    returnedCash: fromCents(toCents(dayObj[personId].returnedCash)),
     note: dayObj[personId].note || ''
   };
 }
@@ -392,9 +477,9 @@ function setPersonEntry(dateStr, personId, updates) {
   }
   const current = getPersonEntry(dateStr, personId);
   const next = {
-    cash: updates.cash !== undefined ? (Number(updates.cash) || 0) : current.cash,
-    invoice: updates.invoice !== undefined ? (Number(updates.invoice) || 0) : current.invoice,
-    returnedCash: updates.returnedCash !== undefined ? (Number(updates.returnedCash) || 0) : current.returnedCash,
+    cash: updates.cash !== undefined ? (validateMonetaryInput(updates.cash).value) : current.cash,
+    invoice: updates.invoice !== undefined ? (validateMonetaryInput(updates.invoice).value) : current.invoice,
+    returnedCash: updates.returnedCash !== undefined ? (validateMonetaryInput(updates.returnedCash).value) : current.returnedCash,
     note: updates.note !== undefined ? String(updates.note) : current.note
   };
 
@@ -414,13 +499,13 @@ function getLastPreviousReceipt(personId, beforeDateStr) {
   for (let i = allDates.length - 1; i >= 0; i--) {
     const dKey = allDates[i];
     const entry = state.data.entries[dKey] && state.data.entries[dKey][personId];
-    if (entry && Number(entry.cash) > 0) {
+    if (entry && toCents(entry.cash) > 0) {
       const { m, d } = parseDateParts(dKey);
       return {
         dateKey: dKey,
         d,
         m,
-        cash: Number(entry.cash)
+        cash: fromCents(toCents(entry.cash))
       };
     }
   }
@@ -431,51 +516,54 @@ function getDayTotals(dateStr) {
   const received = getDayReceived(dateStr);
   const extra = getDayExtra(dateStr);
   const dayEntries = state.data.entries[dateStr] || {};
-  let distributed = 0;
-  let driversDistributed = 0;
-  let staffDistributed = 0;
-  let invoices = 0;
-  let returnedCashTotal = 0;
+  let distCents = 0;
+  let drvCents = 0;
+  let stfCents = 0;
+  let invCents = 0;
+  let retCents = 0;
   let activeCashCount = 0;
   let activeInvoiceCount = 0;
 
   Object.entries(dayEntries).forEach(([pid, entry]) => {
-    const c = Number(entry.cash) || 0;
-    const inv = Number(entry.invoice) || 0;
-    const ret = Number(entry.returnedCash) || 0;
+    const c = toCents(entry.cash);
+    const inv = toCents(entry.invoice);
+    const ret = toCents(entry.returnedCash);
     const person = state.data.people.find(p => p.id === pid);
     if (c > 0) {
-      distributed += c;
+      distCents += c;
       activeCashCount++;
       if (person && person.role === 'staff') {
-        staffDistributed += c;
+        stfCents += c;
       } else {
-        driversDistributed += c;
+        drvCents += c;
       }
     }
     if (inv > 0) {
-      invoices += inv;
+      invCents += inv;
       activeInvoiceCount++;
     }
     if (ret > 0) {
-      returnedCashTotal += ret;
+      retCents += ret;
     }
   });
 
-  const totalOut = distributed + extra.amount;
+  const distributed = fromCents(distCents);
+  const totalOut = addMoney(distributed, extra.amount);
+  const returnedCashTotal = fromCents(retCents);
+  const remaining = subMoney(addMoney(received, returnedCashTotal), totalOut);
 
   return {
     received,
     distributed,
-    driversDistributed,
-    staffDistributed,
+    driversDistributed: fromCents(drvCents),
+    staffDistributed: fromCents(stfCents),
     extraAmount: extra.amount,
     extraNote: extra.note,
     excludeFromCompany: extra.excludeFromCompany,
     totalOut,
     returnedCashTotal,
-    remaining: (received + returnedCashTotal) - totalOut,
-    invoices,
+    remaining,
+    invoices: fromCents(invCents),
     activeCashCount,
     activeInvoiceCount
   };
@@ -483,46 +571,54 @@ function getDayTotals(dateStr) {
 
 function getPersonMonthTotals(personId, year, month) {
   const daysCount = getDaysInMonth(year, month);
-  let cash = 0;
-  let invoice = 0;
-  let returnedCash = 0;
+  let cashCents = 0;
+  let invoiceCents = 0;
+  let returnedCashCents = 0;
   for (let d = 1; d <= daysCount; d++) {
     const dateKey = formatDateKey(year, month, d);
     const entry = getPersonEntry(dateKey, personId);
-    cash += entry.cash;
-    invoice += entry.invoice;
-    returnedCash += entry.returnedCash;
+    cashCents += toCents(entry.cash);
+    invoiceCents += toCents(entry.invoice);
+    returnedCashCents += toCents(entry.returnedCash);
   }
-  return { cash, invoice, returnedCash, diff: cash - (invoice + returnedCash) };
+  const cash = fromCents(cashCents);
+  const invoice = fromCents(invoiceCents);
+  const returnedCash = fromCents(returnedCashCents);
+  const diff = fromCents(cashCents - (invoiceCents + returnedCashCents));
+  return { cash, invoice, returnedCash, diff };
 }
 
 function getPersonYearTotals(personId, year) {
-  let cash = 0;
-  let invoice = 0;
-  let returnedCash = 0;
+  let cashCents = 0;
+  let invoiceCents = 0;
+  let returnedCashCents = 0;
   for (let m = 1; m <= 12; m++) {
     const mt = getPersonMonthTotals(personId, year, m);
-    cash += mt.cash;
-    invoice += mt.invoice;
-    returnedCash += mt.returnedCash;
+    cashCents += toCents(mt.cash);
+    invoiceCents += toCents(mt.invoice);
+    returnedCashCents += toCents(mt.returnedCash);
   }
-  return { cash, invoice, returnedCash, diff: cash - (invoice + returnedCash) };
+  const cash = fromCents(cashCents);
+  const invoice = fromCents(invoiceCents);
+  const returnedCash = fromCents(returnedCashCents);
+  const diff = fromCents(cashCents - (invoiceCents + returnedCashCents));
+  return { cash, invoice, returnedCash, diff };
 }
 
 function getPersonBalanceBeforeDate(personId, beforeDateStr) {
-  let bal = 0;
+  let balCents = 0;
   const allDates = Object.keys(state.data.entries || {}).filter(d => d < beforeDateStr).sort();
   for (const dk of allDates) {
     const dayObj = state.data.entries[dk];
     if (dayObj && dayObj[personId]) {
       const e = dayObj[personId];
-      const c = Number(e.cash) || 0;
-      const inv = Number(e.invoice) || 0;
-      const ret = Number(e.returnedCash) || 0;
-      bal += (c - (inv + ret));
+      const c = toCents(e.cash);
+      const inv = toCents(e.invoice);
+      const ret = toCents(e.returnedCash);
+      balCents += (c - (inv + ret));
     }
   }
-  return bal;
+  return fromCents(balCents);
 }
 
 function getCustodyReceiptsForMonth(year, month) {
@@ -555,43 +651,76 @@ function getSafeInvoicesForYear(year) {
   return (state.data.safeInvoices || []).filter(r => r && r.date && r.date.startsWith(prefix));
 }
 
-function calculateMonthDriverInvoices(year, month) {
+function calculateMonthDriverInvoices(year, month, filterRole = 'all') {
   const daysInM = getDaysInMonth(year, month);
-  let totalInvoices = 0;
+  let totalCents = 0;
   for (let d = 1; d <= daysInM; d++) {
     const dk = formatDateKey(year, month, d);
     const dayEntries = state.data.entries[dk] || {};
     for (const p of state.data.people) {
+      if (filterRole === 'driver' && p.role !== 'driver') continue;
+      if (filterRole === 'staff' && p.role !== 'staff') continue;
       const e = dayEntries[p.id];
       if (e && e.invoice) {
-        totalInvoices += (Number(e.invoice) || 0);
+        totalCents += toCents(e.invoice);
       }
     }
-    const extra = state.data.dailyExtras[dk];
-    if (extra && extra.amount && !extra.excludeFromCompany) {
-      totalInvoices += (Number(extra.amount) || 0);
+    if (filterRole !== 'driver') {
+      const extra = state.data.dailyExtras[dk];
+      if (extra && extra.amount && !extra.excludeFromCompany) {
+        totalCents += toCents(extra.amount);
+      }
     }
   }
-  return Number(totalInvoices.toFixed(2));
+  return fromCents(totalCents);
+}
+
+function getPeriodSettlementSummary(year, month, type = 'safe', filterRole = 'driver') {
+  const periodKey = `${year}-${String(month).padStart(2, '0')}`;
+  const settlements = type === 'safe'
+    ? (state.data.safeInvoices || []).filter(inv => inv && (inv.periodKey === periodKey || (inv.ref && inv.ref.includes(periodKey)) || (inv.note && inv.note.includes(periodKey))))
+    : (state.data.custodySettlements || []).filter(s => s && (s.periodKey === periodKey || (s.period && s.period.includes(periodKey))));
+
+  let settledCents = 0;
+  settlements.forEach(s => {
+    settledCents += toCents(s.amount);
+  });
+  const totalSettled = fromCents(settledCents);
+  const currentDriverInvoices = calculateMonthDriverInvoices(year, month, filterRole);
+  const unSettledDiff = subMoney(currentDriverInvoices, totalSettled);
+
+  return {
+    periodKey,
+    periodName: `شهر ${ARABIC_MONTHS[month]} ${year}`,
+    settlements,
+    totalSettled,
+    currentDriverInvoices,
+    unSettledDiff,
+    isFullySettled: unSettledDiff <= 0 && totalSettled > 0,
+    hasPartialSettlement: totalSettled > 0 && unSettledDiff > 0
+  };
 }
 
 function getSettlementBadgeHtml(cash, invoice, returnedCash = 0) {
-  if (cash === 0 && invoice === 0 && returnedCash === 0) {
+  const c = toCents(cash);
+  const inv = toCents(invoice);
+  const ret = toCents(returnedCash);
+  if (c === 0 && inv === 0 && ret === 0) {
     return `<span class="settlement-badge idle">لا توجد حركة</span>`;
   }
-  const settledTotal = invoice + returnedCash;
-  const diff = cash - settledTotal;
-  if (Math.abs(diff) < 0.001) {
-    if (returnedCash > 0 && invoice > 0) {
-      return `<span class="settlement-badge settled" title="فواتير: ${formatNumber(invoice)} + مرتجع: ${formatNumber(returnedCash)}">خالص ومصفى بالكامل ✓</span>`;
-    } else if (returnedCash > 0) {
-      return `<span class="settlement-badge settled" title="مرتجع كاش بالكامل: ${formatNumber(returnedCash)}">خالص ومرتجع كاش ✓</span>`;
+  const settledTotalCents = inv + ret;
+  const diffCents = c - settledTotalCents;
+  if (diffCents === 0) {
+    if (ret > 0 && inv > 0) {
+      return `<span class="settlement-badge settled" title="فواتير: ${formatNumber(fromCents(inv))} + مرتجع: ${formatNumber(fromCents(ret))}">خالص ومصفى بالكامل ✓</span>`;
+    } else if (ret > 0) {
+      return `<span class="settlement-badge settled" title="مرتجع كاش بالكامل: ${formatNumber(fromCents(ret))}">خالص ومرتجع كاش ✓</span>`;
     }
     return `<span class="settlement-badge settled">خالص بالفواتير ✓</span>`;
-  } else if (diff > 0) {
-    return `<span class="settlement-badge owes">متبقي بذمته: ${formatNumber(diff)}</span>`;
+  } else if (diffCents > 0) {
+    return `<span class="settlement-badge owes">متبقي بذمته: ${formatNumber(fromCents(diffCents))}</span>`;
   } else {
-    return `<span class="settlement-badge credit">له فرق مستحق: ${formatNumber(Math.abs(diff))}</span>`;
+    return `<span class="settlement-badge credit">له فرق مستحق: ${formatNumber(fromCents(Math.abs(diffCents)))}</span>`;
   }
 }
 
@@ -920,6 +1049,13 @@ function renderDailyTable() {
   const q = state.dailySearch.trim().toLowerCase();
 
   const filtered = state.data.people.filter(person => {
+    // Archived people are hidden from new daily registrations unless they have an existing record on this day
+    if (person.archived) {
+      const eToday = getPersonEntry(state.selectedDate, person.id);
+      if (eToday.cash <= 0 && eToday.invoice <= 0 && eToday.returnedCash <= 0 && !eToday.note) {
+        return false;
+      }
+    }
     if (state.dailyCategoryFilter === 'driver' && person.role !== 'driver') return false;
     if (state.dailyCategoryFilter === 'staff' && person.role !== 'staff') return false;
     if (state.dailyCategoryFilter === 'active_today') {
@@ -2022,18 +2158,24 @@ function renderPeopleManagementTab() {
 
   // Update counter badges
   const countAll = allPeople.length;
-  const countDrivers = allPeople.filter(p => p.role === 'driver').length;
-  const countStaff = allPeople.filter(p => p.role === 'staff').length;
-  const countActive = allPeople.filter(p => hasPersonAnyEntryInYear(p.id, state.year)).length;
+  const countActivePeople = allPeople.filter(p => !p.archived).length;
+  const countArchived = allPeople.filter(p => !!p.archived).length;
+  const countDrivers = allPeople.filter(p => !p.archived && p.role === 'driver').length;
+  const countStaff = allPeople.filter(p => !p.archived && p.role === 'staff').length;
+  const countActiveBalance = allPeople.filter(p => hasPersonAnyEntryInYear(p.id, state.year)).length;
 
   const countAllEl = document.getElementById('pmCountAll');
   if (countAllEl) countAllEl.textContent = countAll;
+  const countActPeopleEl = document.getElementById('pmCountActivePeople');
+  if (countActPeopleEl) countActPeopleEl.textContent = countActivePeople;
+  const countArchEl = document.getElementById('pmCountArchived');
+  if (countArchEl) countArchEl.textContent = countArchived;
   const countDrvEl = document.getElementById('pmCountDrivers');
   if (countDrvEl) countDrvEl.textContent = countDrivers;
   const countStfEl = document.getElementById('pmCountStaff');
   if (countStfEl) countStfEl.textContent = countStaff;
   const countActEl = document.getElementById('pmCountActive');
-  if (countActEl) countActEl.textContent = countActive;
+  if (countActEl) countActEl.textContent = countActiveBalance;
 
   // Filter pills UI state
   document.querySelectorAll('#peopleManageFilterPills .pill').forEach(pill => {
@@ -2042,10 +2184,14 @@ function renderPeopleManagementTab() {
 
   // Filter list
   let list = allPeople;
-  if (state.peopleManageFilter === 'driver') {
-    list = list.filter(p => p.role === 'driver');
+  if (state.peopleManageFilter === 'active_only') {
+    list = list.filter(p => !p.archived);
+  } else if (state.peopleManageFilter === 'archived') {
+    list = list.filter(p => !!p.archived);
+  } else if (state.peopleManageFilter === 'driver') {
+    list = list.filter(p => !p.archived && p.role === 'driver');
   } else if (state.peopleManageFilter === 'staff') {
-    list = list.filter(p => p.role === 'staff');
+    list = list.filter(p => !p.archived && p.role === 'staff');
   } else if (state.peopleManageFilter === 'active') {
     list = list.filter(p => hasPersonAnyEntryInYear(p.id, state.year));
   }
@@ -2073,8 +2219,9 @@ function renderPeopleManagementTab() {
 
   list.forEach(p => {
     const yTot = getPersonYearTotals(p.id, state.year);
+    const hasHistory = hasPersonAnyEntryInHistory(p.id);
     let finBadge = '';
-    if (yTot.cash === 0 && yTot.invoice === 0) {
+    if (yTot.cash === 0 && yTot.invoice === 0 && yTot.returnedCash === 0) {
       finBadge = `<span class="settlement-badge idle">لا توجد حركة</span>`;
     } else if (Math.abs(yTot.diff) < 0.001) {
       finBadge = `<span class="settlement-badge settled">خالص بالفواتير ✓</span>`;
@@ -2085,17 +2232,47 @@ function renderPeopleManagementTab() {
     }
 
     const tr = document.createElement('tr');
+    if (p.archived) {
+      tr.style.opacity = '0.82';
+      tr.style.backgroundColor = 'rgba(241, 245, 249, 0.7)';
+    }
+
+    const archiveBadgeHtml = p.archived
+      ? `<span class="role-badge" style="background:#fee2e2; color:#991b1b; font-weight:800; font-size:0.75rem; margin-right:4px;">📦 مؤرشف</span>`
+      : '';
+
+    let actionButtonsHtml = '';
+    if (p.archived) {
+      actionButtonsHtml = `
+        <button type="button" class="btn btn-sm btn-outline" data-open-person="${p.id}" title="فتح كشف حساب هذا الشخص">📄 صفحته</button>
+        <button type="button" class="btn btn-sm btn-primary" data-unarchive-person="${p.id}" title="إلغاء الأرشفة واستعادة نشاطه في التسجيل اليومي">🔄 استعادة</button>
+      `;
+    } else if (hasHistory) {
+      actionButtonsHtml = `
+        <button type="button" class="btn btn-sm btn-outline" data-open-person="${p.id}" title="فتح صفحة هذا الشخص">📄 صفحته</button>
+        <button type="button" class="btn btn-sm btn-outline text-amber" data-archive-person="${p.id}" title="أرشفة هذا الشخص مع الحفاظ التام على سجلاته ومعاملاته المالية">📦 أرشفة</button>
+      `;
+    } else {
+      actionButtonsHtml = `
+        <button type="button" class="btn btn-sm btn-outline" data-open-person="${p.id}" title="فتح صفحة هذا الشخص">📄 صفحته</button>
+        <button type="button" class="btn btn-sm btn-danger-outline" data-del-person="${p.id}" title="حذف الخانة الفارغة نهائياً">🗑️</button>
+      `;
+    }
+
     tr.innerHTML = `
       <td><strong>#${p.num}</strong></td>
       <td>
-        <input
-          type="text"
-          class="input-control"
-          style="width: 100%; font-weight: 700;"
-          placeholder="اسم رقم ${p.num}..."
-          value="${escapeHtml(p.name || '')}"
-          data-edit-pname="${p.id}"
-        />
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <input
+            type="text"
+            class="input-control"
+            style="width: 100%; font-weight: 700; ${p.archived ? 'text-decoration: line-through; color: var(--text-muted);' : ''}"
+            placeholder="اسم رقم ${p.num}..."
+            value="${escapeHtml(p.name || '')}"
+            data-edit-pname="${p.id}"
+          />
+          ${archiveBadgeHtml}
+        </div>
       </td>
       <td>
         <select class="select-control" data-edit-prole="${p.id}" style="width: 100%;">
@@ -2116,13 +2293,12 @@ function renderPeopleManagementTab() {
       <td>
         <div style="display: flex; flex-direction: column; gap: 3px;">
           ${finBadge}
-          ${(yTot.cash > 0 || yTot.invoice > 0) ? `<small style="color:var(--text-muted); font-size:0.75rem;">(استلم: ${formatNumber(yTot.cash)} | فواتير: ${formatNumber(yTot.invoice)})</small>` : ''}
+          ${(yTot.cash > 0 || yTot.invoice > 0 || yTot.returnedCash > 0) ? `<small style="color:var(--text-muted); font-size:0.75rem;">(استلم: ${formatNumber(yTot.cash)} | فواتير: ${formatNumber(yTot.invoice)} | مرتجع: ${formatNumber(yTot.returnedCash)})</small>` : ''}
         </div>
       </td>
       <td class="no-print">
-        <div style="display: flex; gap: 6px;">
-          <button type="button" class="btn btn-sm btn-outline" data-open-person="${p.id}" title="فتح صفحة هذا الشخص">📄 صفحته</button>
-          <button type="button" class="btn btn-sm btn-danger-outline" data-del-person="${p.id}" title="حذف الشخص">🗑️</button>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          ${actionButtonsHtml}
         </div>
       </td>
     `;
@@ -2173,40 +2349,66 @@ function renderPeopleManagementTab() {
     });
   });
 
+  // Archive Handler (Mandatory protection of historical data)
+  tbody.querySelectorAll('[data-archive-person]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = btn.getAttribute('data-archive-person');
+      const p = state.data.people.find(item => item.id === pid);
+      if (!p) return;
+
+      if (confirm(`هل تريد أرشفة "${getPersonDisplayName(p)}"\n\nالأرشفة تخفيه من شاشات التسجيل اليومي الجديدة مع الاحتفاظ التام بكافة معاملاته وفواتيره في التقارير التاريخية.`)) {
+        p.archived = true;
+        p.archivedAt = new Date().toISOString();
+        saveState();
+        renderAll();
+        showToast(`تمت أرشفة ${getPersonDisplayName(p)} بنجاح مع الاحتفاظ بكافة سجلاته المالية 📦`);
+      }
+    });
+  });
+
+  // Unarchive / Reactivate Handler
+  tbody.querySelectorAll('[data-unarchive-person]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = btn.getAttribute('data-unarchive-person');
+      const p = state.data.people.find(item => item.id === pid);
+      if (!p) return;
+
+      p.archived = false;
+      p.archivedAt = null;
+      saveState();
+      renderAll();
+      showToast(`تمت استعادة وتنشيط ${getPersonDisplayName(p)} في جداول التسجيل اليومي بنجاح 🔄`);
+    });
+  });
+
+  // Permanent Delete (Allowed ONLY if person has ZERO historical transactions)
   tbody.querySelectorAll('[data-del-person]').forEach(btn => {
     btn.addEventListener('click', () => {
       const pid = btn.getAttribute('data-del-person');
       const p = state.data.people.find(item => item.id === pid);
       if (!p) return;
 
-      // Check if person has financial records
-      let hasMoney = false;
-      for (const dayObj of Object.values(state.data.entries)) {
-        if (dayObj && dayObj[pid] && (Number(dayObj[pid].cash) > 0 || Number(dayObj[pid].invoice) > 0)) {
-          hasMoney = true;
-          break;
-        }
+      if (hasPersonAnyEntryInHistory(pid)) {
+        alert(
+          `⚠️ لا يمكن حذف "${getPersonDisplayName(p)}" نهائياً لوجود سجلات مالية مسجلة باسمه.\n\n` +
+          `تم توجيهك لخيار الأرشفة (📦) للاحتفاظ بسلامة السجلات والمطابقة المالية التاريخية.`
+        );
+        p.archived = true;
+        p.archivedAt = new Date().toISOString();
+        saveState();
+        renderAll();
+        return;
       }
 
-      const msg = hasMoney
-        ? `⚠️ تنبيه هام: "${getPersonDisplayName(p)}" مسجل له مبالغ وفواتير في الحسابات.\nحذفه سيؤدي إلى مسح كافة حركاته المالية للحفاظ على توازن الجداول الحسابية وتطابق الإجماليات.\n\nهل أنت متأكد تماماً من حذفه؟`
-        : `هل تريد حذف "${getPersonDisplayName(p)}" من القائمة؟`;
-
-      if (confirm(msg)) {
+      if (confirm(`هل تريد حذف الخانة الفارغة "${getPersonDisplayName(p)}" نهائياً؟`)) {
         state.data.people = state.data.people.filter(item => item.id !== pid);
-        // Clean up entries to prevent orphaned calculations
-        for (const dateKey of Object.keys(state.data.entries)) {
-          if (state.data.entries[dateKey] && state.data.entries[dateKey][pid]) {
-            delete state.data.entries[dateKey][pid];
-          }
-        }
         if (state.selectedPersonId === pid) {
           state.selectedPersonId = state.data.people[0]?.id || null;
         }
         renumberPeople();
         saveState();
         renderAll();
-        showToast('تم حذف الاسم وتحديث الحسابات بنجاح');
+        showToast('تم حذف الخانة بنجاح');
       }
     });
   });
@@ -2322,19 +2524,50 @@ function renderCustodyTab() {
     settPeriodInput.value = `فواتير شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
   }
 
-  // 1-Click Helper: Auto-fill monthly driver invoices into settlement form
+  // 1-Click Helper: Auto-fill monthly driver invoices into settlement form with Duplicate Protection
   const btnAutoFill = document.getElementById('btnAutoFillMonthInvoices');
   if (btnAutoFill && !btnAutoFill._bound) {
     btnAutoFill._bound = true;
     btnAutoFill.addEventListener('click', () => {
-      const sumInv = calculateMonthDriverInvoices(state.year, state.month);
+      const summary = getPeriodSettlementSummary(state.year, state.month, 'custody');
       const amtInput = document.getElementById('custodySettlementAmount');
       const perInput = document.getElementById('custodySettlementPeriod');
       const noteInput = document.getElementById('custodySettlementNote');
-      if (amtInput) amtInput.value = sumInv;
+
+      if (summary.isFullySettled) {
+        const prevDate = summary.settlements[0]?.date || 'سابقاً';
+        const prevRef = summary.settlements[0]?.ref || '-';
+        alert(
+          `⚠️ تنبيه منع الازدواجية والتكرار:\n\n` +
+          `فواتير شهر ${summary.periodName} تم تسليمها وتسويتها للشركة مسبقاً بمبلغ (${formatNumber(summary.totalSettled)} ر.ق) بتاريخ ${prevDate} (مرجع: ${prevRef}).\n` +
+          `إجمالي فواتير الشهر الحالي: ${formatNumber(summary.currentDriverInvoices)} ر.ق.\n` +
+          `لا توجد فواتير متبقية غير مسواة لهذا الشهر.\n\n` +
+          `إذا كان لديك كشف تكميلي إضافي، يمكنك إدخال المبلغ يدوياً.`
+        );
+        return;
+      }
+
+      if (summary.hasPartialSettlement) {
+        if (confirm(
+          `💡 تنبيه - فواتير جديدة بعد التسوية السابقة:\n\n` +
+          `تم تسليم كشف للشركة سابقاً بمبلغ (${formatNumber(summary.totalSettled)} ر.ق) لهذا الشهر.\n` +
+          `إجمالي الفواتير الآن (${formatNumber(summary.currentDriverInvoices)} ر.ق).\n` +
+          `الفرق المتبقي غير المسوى: (${formatNumber(summary.unSettledDiff)} ر.ق).\n\n` +
+          `هل تريد تعبئة فارق الفواتير المتبقي (${formatNumber(summary.unSettledDiff)} ر.ق) ككشف تكميلي؟`
+        )) {
+          if (amtInput) amtInput.value = summary.unSettledDiff;
+          if (perInput) perInput.value = `كشف تكميلي - فواتير شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
+          if (noteInput && !noteInput.value) noteInput.value = `تسوية تكميلية لفارق فواتير شهر ${ARABIC_MONTHS[state.month]} ${state.year} (متبقي من أصل ${formatNumber(summary.currentDriverInvoices)})`;
+          showToast(`تم سحب فارق الفواتير المتبقي (${formatNumber(summary.unSettledDiff)} ر.ق) بنجاح ⚡`);
+          return;
+        }
+        return;
+      }
+
+      if (amtInput) amtInput.value = summary.currentDriverInvoices;
       if (perInput) perInput.value = `فواتير شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
       if (noteInput && !noteInput.value) noteInput.value = `تسوية فواتير سيارات وسائقي شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
-      showToast(`تم سحب إجمالي فواتير شهر ${ARABIC_MONTHS[state.month]} (${formatNumber(sumInv)} ر.ق) بنجاح ⚡`);
+      showToast(`تم سحب إجمالي فواتير شهر ${ARABIC_MONTHS[state.month]} (${formatNumber(summary.currentDriverInvoices)} ر.ق) بنجاح ⚡`);
     });
   }
 
@@ -2575,6 +2808,134 @@ function renderCustodyTab() {
 // TAB 7: My Transactions with the Treasury / Safe (معاملاتي مع الخزنة)
 // ============================================================================
 
+function getSafeTabFinancials(targetYear, targetMonth, isYearScope) {
+  // 1. Period Movement
+  let periodWithdrawalCents = 0;
+  const withdrawalsList = [];
+  const startM = isYearScope ? 1 : targetMonth;
+  const endM = isYearScope ? 12 : targetMonth;
+
+  for (let m = startM; m <= endM; m++) {
+    const daysCount = getDaysInMonth(targetYear, m);
+    for (let d = 1; d <= daysCount; d++) {
+      const dk = formatDateKey(targetYear, m, d);
+      const rec = getDayReceived(dk);
+      if (rec > 0) {
+        periodWithdrawalCents += toCents(rec);
+        const dt = new Date(targetYear, m - 1, d);
+        const dayName = ARABIC_DAYS[dt.getDay()];
+        const totals = getDayTotals(dk);
+
+        const dayEntries = state.data.entries[dk] || {};
+        const recipients = [];
+        for (const [pid, entry] of Object.entries(dayEntries)) {
+          const cashVal = Number(entry.cash) || 0;
+          if (cashVal > 0) {
+            const p = state.data.people.find(person => person.id === pid);
+            const pName = p ? getPersonDisplayName(p) : 'شخص';
+            recipients.push(`${pName} (${formatNumber(cashVal)})`);
+          }
+        }
+
+        withdrawalsList.push({
+          date: dk,
+          dayName,
+          amount: rec,
+          distributed: totals.distributed,
+          extraAmount: totals.extraAmount,
+          extraNote: totals.extraNote,
+          remaining: totals.remaining,
+          returnedCashTotal: totals.returnedCashTotal,
+          recipientsSummary: recipients.join('، ')
+        });
+      }
+    }
+  }
+
+  const periodInvoicesList = isYearScope 
+    ? getSafeInvoicesForYear(targetYear)
+    : getSafeInvoicesForMonth(targetYear, targetMonth);
+
+  let periodInvoiceCents = 0;
+  periodInvoicesList.forEach(inv => {
+    periodInvoiceCents += toCents(inv.amount);
+  });
+
+  const periodWithdrawn = fromCents(periodWithdrawalCents);
+  const periodInvoices = fromCents(periodInvoiceCents);
+  const periodNet = fromCents(periodWithdrawalCents - periodInvoiceCents);
+
+  // 2. Historical Cumulative Balance (up to end of selected period)
+  const periodEndDate = isYearScope
+    ? `${targetYear}-12-31`
+    : formatDateKey(targetYear, targetMonth, getDaysInMonth(targetYear, targetMonth));
+
+  const periodStartDate = isYearScope
+    ? `${targetYear}-01-01`
+    : formatDateKey(targetYear, targetMonth, 1);
+
+  // Prior Opening Balance strictly before this period
+  let priorWithdrawalCents = 0;
+  for (const [dk, amt] of Object.entries(state.data.dailyReceipts || {})) {
+    if (dk < periodStartDate) {
+      priorWithdrawalCents += toCents(amt);
+    }
+  }
+
+  let priorInvoiceCents = 0;
+  (state.data.safeInvoices || []).forEach(inv => {
+    if (inv && inv.date && inv.date < periodStartDate) {
+      priorInvoiceCents += toCents(inv.amount);
+    }
+  });
+
+  const priorOpeningBalance = fromCents(priorWithdrawalCents - priorInvoiceCents);
+
+  // Cumulative up to periodEndDate
+  let cumulativeWithdrawalCents = 0;
+  for (const [dk, amt] of Object.entries(state.data.dailyReceipts || {})) {
+    if (dk <= periodEndDate) {
+      cumulativeWithdrawalCents += toCents(amt);
+    }
+  }
+
+  let cumulativeInvoiceCents = 0;
+  (state.data.safeInvoices || []).forEach(inv => {
+    if (inv && inv.date && inv.date <= periodEndDate) {
+      cumulativeInvoiceCents += toCents(inv.amount);
+    }
+  });
+
+  const cumulativeWithdrawn = fromCents(cumulativeWithdrawalCents);
+  const cumulativeInvoices = fromCents(cumulativeInvoiceCents);
+  const cumulativeNet = fromCents(cumulativeWithdrawalCents - cumulativeInvoiceCents);
+
+  return {
+    periodWithdrawn,
+    periodInvoices,
+    periodNet,
+    priorOpeningBalance,
+    cumulativeWithdrawn,
+    cumulativeInvoices,
+    cumulativeNet,
+    periodMovement: {
+      withdrawn: periodWithdrawn,
+      invoices: periodInvoices,
+      netBalance: periodNet
+    },
+    cumulativeRunning: {
+      priorOpeningBalance,
+      cumulativeWithdrawn,
+      cumulativeInvoices,
+      cumulativeNetBalance: cumulativeNet
+    },
+    withdrawalsList,
+    periodInvoicesList,
+    periodStartDate,
+    periodEndDate
+  };
+}
+
 function renderSafeTab() {
   const targetYear = state.year;
   const isYearScope = !!state.safeShowYear;
@@ -2613,93 +2974,79 @@ function renderSafeTab() {
     safeInvoiceDate.value = state.selectedDate;
   }
 
-  // 1. Gather Daily Withdrawals
-  let totalWithdrawn = 0;
-  const withdrawalsList = [];
+  // Calculate Dual Financial Views
+  const fin = getSafeTabFinancials(targetYear, targetMonth, isYearScope);
 
-  const startM = isYearScope ? 1 : targetMonth;
-  const endM = isYearScope ? 12 : targetMonth;
-
-  for (let m = startM; m <= endM; m++) {
-    const daysCount = getDaysInMonth(targetYear, m);
-    for (let d = 1; d <= daysCount; d++) {
-      const dk = formatDateKey(targetYear, m, d);
-      const rec = getDayReceived(dk);
-      if (rec > 0) {
-        totalWithdrawn += rec;
-        const dt = new Date(targetYear, m - 1, d);
-        const dayName = ARABIC_DAYS[dt.getDay()];
-        const totals = getDayTotals(dk);
-
-        // Build list of who received cash
-        const dayEntries = state.data.entries[dk] || {};
-        const recipients = [];
-        for (const [pid, entry] of Object.entries(dayEntries)) {
-          const cashVal = Number(entry.cash) || 0;
-          if (cashVal > 0) {
-            const p = state.data.people.find(person => person.id === pid);
-            const pName = p ? getPersonDisplayName(p) : 'شخص';
-            recipients.push(`${pName} (${formatNumber(cashVal)})`);
-          }
-        }
-
-        withdrawalsList.push({
-          date: dk,
-          dayName,
-          amount: rec,
-          distributed: totals.distributed,
-          extraAmount: totals.extraAmount,
-          extraNote: totals.extraNote,
-          remaining: totals.remaining,
-          returnedCashTotal: totals.returnedCashTotal,
-          recipientsSummary: recipients.join('، ')
-        });
-      }
-    }
-  }
-
-  // 2. Gather Safe Invoices
-  const safeInvoicesList = isYearScope 
-    ? getSafeInvoicesForYear(targetYear)
-    : getSafeInvoicesForMonth(targetYear, targetMonth);
-
-  const totalInvoices = safeInvoicesList.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
-
-  // 3. Net Balance Calculation
-  const netBalance = totalWithdrawn - totalInvoices;
-
-  // Update KPIs
+  // 1. Update Selected Period KPIs
   const wTotalEl = document.getElementById('safeWithdrawnTotal');
-  if (wTotalEl) wTotalEl.textContent = `${formatNumber(totalWithdrawn)} ر.ق`;
+  if (wTotalEl) wTotalEl.textContent = `${formatNumber(fin.periodWithdrawn)} ر.ق`;
   const wSubEl = document.getElementById('safeWithdrawnSub');
-  if (wSubEl) wSubEl.textContent = `إجمالي سحوبات ${scopeText}`;
+  if (wSubEl) wSubEl.textContent = `سحوبات ${scopeText}`;
 
   const iTotalEl = document.getElementById('safeInvoicesTotal');
-  if (iTotalEl) iTotalEl.textContent = `${formatNumber(totalInvoices)} ر.ق`;
+  if (iTotalEl) iTotalEl.textContent = `${formatNumber(fin.periodInvoices)} ر.ق`;
   const iSubEl = document.getElementById('safeInvoicesSub');
   if (iSubEl) iSubEl.textContent = `فواتير مسلّمة في ${scopeText}`;
 
   const netBalEl = document.getElementById('safeNetBalance');
   const netStatEl = document.getElementById('safeNetStatus');
   if (netBalEl) {
-    netBalEl.textContent = `${formatNumber(Math.abs(netBalance))} ر.ق`;
-    if (Math.abs(netBalance) < 0.001) {
+    netBalEl.textContent = `${formatNumber(Math.abs(fin.periodNet))} ر.ق`;
+    if (Math.abs(fin.periodNet) < 0.001) {
       netBalEl.className = 'kpi-value text-green';
       if (netStatEl) {
-        netStatEl.textContent = 'خالص ومصفى بالكامل مع الخزنة ✓';
+        netStatEl.textContent = 'خالص بالفواتير في هذه الفترة ✓';
         netStatEl.className = 'kpi-sub-split text-green';
       }
-    } else if (netBalance > 0) {
+    } else if (fin.periodNet > 0) {
       netBalEl.className = 'kpi-value text-amber';
       if (netStatEl) {
-        netStatEl.textContent = `مطلوب منك تقديم فواتير بقيمة: ${formatNumber(netBalance)} ر.ق ⚠️`;
+        netStatEl.textContent = `سحوبات تزيد عن فواتير الفترة: ${formatNumber(fin.periodNet)} ر.ق`;
         netStatEl.className = 'kpi-sub-split text-amber';
       }
     } else {
       netBalEl.className = 'kpi-value text-blue';
       if (netStatEl) {
-        netStatEl.textContent = `لك فائض فواتير لدى الخزنة: ${formatNumber(Math.abs(netBalance))} ر.ق ℹ️`;
+        netStatEl.textContent = `فواتير تزيد عن سحوبات الفترة: ${formatNumber(Math.abs(fin.periodNet))} ر.ق`;
         netStatEl.className = 'kpi-sub-split text-blue';
+      }
+    }
+  }
+
+  // 2. Update Historical Cumulative KPIs
+  const priorOpenEl = document.getElementById('safePriorOpeningBalance');
+  if (priorOpenEl) {
+    priorOpenEl.textContent = `${fin.priorOpeningBalance > 0 ? '+' : ''}${formatNumber(fin.priorOpeningBalance)} ر.ق`;
+    priorOpenEl.className = fin.priorOpeningBalance > 0 ? 'kpi-value text-amber' : (fin.priorOpeningBalance < 0 ? 'kpi-value text-blue' : 'kpi-value text-muted');
+  }
+
+  const cumWEl = document.getElementById('safeCumulativeWithdrawnTotal');
+  if (cumWEl) cumWEl.textContent = `${formatNumber(fin.cumulativeWithdrawn)} ر.ق`;
+
+  const cumIEl = document.getElementById('safeCumulativeInvoicesTotal');
+  if (cumIEl) cumIEl.textContent = `${formatNumber(fin.cumulativeInvoices)} ر.ق`;
+
+  const cumNetEl = document.getElementById('safeCumulativeNetBalance');
+  const cumNetStatEl = document.getElementById('safeCumulativeNetStatus');
+  if (cumNetEl) {
+    cumNetEl.textContent = `${formatNumber(Math.abs(fin.cumulativeNet))} ر.ق`;
+    if (Math.abs(fin.cumulativeNet) < 0.001) {
+      cumNetEl.className = 'kpi-value text-green';
+      if (cumNetStatEl) {
+        cumNetStatEl.textContent = 'خالص ومصفى بالكامل مع الخزنة تاريخياً ✓';
+        cumNetStatEl.className = 'kpi-sub-split text-green';
+      }
+    } else if (fin.cumulativeNet > 0) {
+      cumNetEl.className = 'kpi-value text-amber';
+      if (cumNetStatEl) {
+        cumNetStatEl.textContent = `مطلوب منك تقديم فواتير بقيمة: ${formatNumber(fin.cumulativeNet)} ر.ق ⚠️`;
+        cumNetStatEl.className = 'kpi-sub-split text-amber';
+      }
+    } else {
+      cumNetEl.className = 'kpi-value text-blue';
+      if (cumNetStatEl) {
+        cumNetStatEl.textContent = `لك فائض فواتير لدى الخزنة: ${formatNumber(Math.abs(fin.cumulativeNet))} ر.ق ℹ️`;
+        cumNetStatEl.className = 'kpi-sub-split text-blue';
       }
     }
   }
@@ -2708,7 +3055,7 @@ function renderSafeTab() {
   const tbodyWithdrawals = document.getElementById('safeWithdrawalsBody');
   if (tbodyWithdrawals) {
     tbodyWithdrawals.innerHTML = '';
-    if (withdrawalsList.length === 0) {
+    if (fin.withdrawalsList.length === 0) {
       tbodyWithdrawals.innerHTML = `
         <tr>
           <td colspan="5" style="text-align: center; padding: 24px; color: var(--text-muted);">
@@ -2717,8 +3064,8 @@ function renderSafeTab() {
         </tr>
       `;
     } else {
-      withdrawalsList.sort((a, b) => b.date.localeCompare(a.date));
-      withdrawalsList.forEach((w, idx) => {
+      fin.withdrawalsList.sort((a, b) => b.date.localeCompare(a.date));
+      fin.withdrawalsList.forEach((w, idx) => {
         const tr = document.createElement('tr');
         
         let distBadge = '';
@@ -2758,14 +3105,14 @@ function renderSafeTab() {
     }
 
     const footWithdrawalsEl = document.getElementById('footSafeWithdrawalsTotal');
-    if (footWithdrawalsEl) footWithdrawalsEl.textContent = `${formatNumber(totalWithdrawn)} ر.ق`;
+    if (footWithdrawalsEl) footWithdrawalsEl.textContent = `${formatNumber(fin.periodWithdrawn)} ر.ق`;
   }
 
   // Render Table 2: Safe Invoices Body
   const tbodyInvoices = document.getElementById('safeInvoicesBody');
   if (tbodyInvoices) {
     tbodyInvoices.innerHTML = '';
-    const sortedInvoices = [...safeInvoicesList].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const sortedInvoices = [...fin.periodInvoicesList].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     if (sortedInvoices.length === 0) {
       tbodyInvoices.innerHTML = `
@@ -2842,47 +3189,51 @@ function renderSafeTab() {
     }
 
     const footInvoicesEl = document.getElementById('footSafeInvoicesTotal');
-    if (footInvoicesEl) footInvoicesEl.textContent = `${formatNumber(totalInvoices)} ر.ق`;
+    if (footInvoicesEl) footInvoicesEl.textContent = `${formatNumber(fin.periodInvoices)} ر.ق`;
   }
 
   // Render Net Balance Summary Card Content
   const sumContentEl = document.getElementById('safeNetSummaryContent');
   if (sumContentEl) {
     let summaryHtml = `
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
         <div style="padding: 10px 14px; background: rgba(255,255,255,0.7); border-radius: 8px; border: 1px solid #fed7aa;">
-          <span style="display: block; font-size: 0.9rem; color: #78350f;">📥 إجمالي ما سحبته كاش:</span>
-          <strong style="font-size: 1.3rem; color: var(--green);">${formatNumber(totalWithdrawn)} ر.ق</strong>
+          <span style="display: block; font-size: 0.88rem; color: #78350f;">📥 سحوبات ${scopeText}:</span>
+          <strong style="font-size: 1.25rem; color: var(--green);">${formatNumber(fin.periodWithdrawn)} ر.ق</strong>
         </div>
         <div style="padding: 10px 14px; background: rgba(255,255,255,0.7); border-radius: 8px; border: 1px solid #fed7aa;">
-          <span style="display: block; font-size: 0.9rem; color: #78350f;">📤 إجمالي الفواتير المسلّمة:</span>
-          <strong style="font-size: 1.3rem; color: var(--purple);">${formatNumber(totalInvoices)} ر.ق</strong>
+          <span style="display: block; font-size: 0.88rem; color: #78350f;">📤 فواتير ${scopeText}:</span>
+          <strong style="font-size: 1.25rem; color: var(--purple);">${formatNumber(fin.periodInvoices)} ر.ق</strong>
         </div>
         <div style="padding: 10px 14px; background: rgba(255,255,255,0.7); border-radius: 8px; border: 1px solid #fed7aa;">
-          <span style="display: block; font-size: 0.9rem; color: #78350f;">⚖️ الصافي المعلق:</span>
-          <strong style="font-size: 1.3rem; ${netBalance > 0 ? 'color: #b45309;' : (netBalance < 0 ? 'color: #1d4ed8;' : 'color: #15803d;')}">
-            ${formatNumber(Math.abs(netBalance))} ر.ق
+          <span style="display: block; font-size: 0.88rem; color: #78350f;">⏳ مرحّل من قبل هذه الفترة:</span>
+          <strong style="font-size: 1.25rem; color: #64748b;">${fin.priorOpeningBalance > 0 ? '+' : ''}${formatNumber(fin.priorOpeningBalance)} ر.ق</strong>
+        </div>
+        <div style="padding: 10px 14px; background: rgba(255,255,255,0.85); border-radius: 8px; border: 2px solid ${fin.cumulativeNet > 0 ? '#f59e0b' : '#3b82f6'};">
+          <span style="display: block; font-size: 0.88rem; color: #1e3a8a; font-weight: 700;">⚖️ الصافي التراكمي الشامل المعلق:</span>
+          <strong style="font-size: 1.3rem; ${fin.cumulativeNet > 0 ? 'color: #b45309;' : (fin.cumulativeNet < 0 ? 'color: #1d4ed8;' : 'color: #15803d;')}">
+            ${formatNumber(Math.abs(fin.cumulativeNet))} ر.ق
           </strong>
         </div>
       </div>
     `;
 
-    if (Math.abs(netBalance) < 0.001) {
+    if (Math.abs(fin.cumulativeNet) < 0.001) {
       summaryHtml += `
         <div style="padding: 12px; background: #ecfdf5; border-radius: 8px; border: 1px solid #a7f3d0; color: #065f46; font-weight: 700;">
-          ✅ ممتاز! حسابك مع الخزينة خالص ومصفى تماماً عن ${scopeText}. الفواتير المسلّمة غطّت بالكامل جميع ما سحبته كاش.
+          ✅ ممتاز! حسابك مع الخزينة خالص ومصفى تماماً حتى نهاية ${scopeText}. الفواتير المسلّمة غطّت بالكامل جميع ما سحبته كاش عبر كافة الشهور.
         </div>
       `;
-    } else if (netBalance > 0) {
+    } else if (fin.cumulativeNet > 0) {
       summaryHtml += `
         <div style="padding: 12px; background: #fff7ed; border-radius: 8px; border: 1px solid #fdba74; color: #9a3412; font-weight: 700;">
-          ⚠️ موقف الحساب: أنت سحبت كاش أكثر مما سلّمت فواتير. المتبقي بذمتك لتقديمه للخزينة (سواء فواتير متبقية أو رد كاش) هو: <span style="font-size: 1.25rem; font-weight: 800;">${formatNumber(netBalance)} ر.ق</span>.
+          ⚠️ موقف الحساب التراكمي: أنت سحبت كاش أكثر مما سلّمت فواتير. المتبقي بذمتك لتقديمه للخزينة حتى تاريخ ${scopeText} (سواء فواتير متبقية أو رد كاش) هو: <span style="font-size: 1.25rem; font-weight: 800;">${formatNumber(fin.cumulativeNet)} ر.ق</span>.
         </div>
       `;
     } else {
       summaryHtml += `
         <div style="padding: 12px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe; color: #1e40af; font-weight: 700;">
-          ℹ️ موقف الحساب: الفواتير التي سلّمتها تتجاوز إجمالي ما سحبته كاش. لك رصيد مستحق لدى الخزنة أو استعاضة بقيمة: <span style="font-size: 1.25rem; font-weight: 800;">${formatNumber(Math.abs(netBalance))} ر.ق</span>.
+          ℹ️ موقف الحساب التراكمي: الفواتير التي سلّمتها تتجاوز إجمالي ما سحبته كاش. لك رصيد مستحق لدى الخزنة أو استعاضة حتى تاريخ ${scopeText} بقيمة: <span style="font-size: 1.25rem; font-weight: 800;">${formatNumber(Math.abs(fin.cumulativeNet))} ر.ق</span>.
         </div>
       `;
     }
@@ -3237,7 +3588,9 @@ function addSinglePerson(name, role, meta) {
     num: nextNum,
     name: cleanName,
     role: role || 'driver',
-    meta: (meta || '').trim()
+    meta: (meta || '').trim(),
+    archived: false,
+    archivedAt: null
   };
   state.data.people.push(newPerson);
   if (!state.selectedPersonId) {
@@ -3458,6 +3811,147 @@ window.addEventListener('afterprint', () => {
   document.body.classList.remove('printing-voucher');
 });
 
+const MAX_BACKUP_SIZE = 15 * 1024 * 1024; // 15MB limit
+
+function validateBackupPayload(parsed) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('صيغة ملف النسخة الاحتياطية غير صالحة (يجب أن يكون كائن JSON صحيح).');
+  }
+  // Prevent prototype pollution
+  if (Object.prototype.hasOwnProperty.call(parsed, '__proto__') ||
+      Object.prototype.hasOwnProperty.call(parsed, 'prototype') ||
+      Object.prototype.hasOwnProperty.call(parsed, 'constructor')) {
+    throw new Error('تم رفض الملف لأسباب أمنية (Prototype Pollution Detected).');
+  }
+
+  if (!Array.isArray(parsed.people)) {
+    throw new Error('ملف النسخة الاحتياطية غير صالح: لا يحتوي على سجل الأشخاص (people array).');
+  }
+
+  // Validate people and detect duplicate IDs
+  const seenPersonIds = new Set();
+  const sanitizedPeople = [];
+  parsed.people.forEach((p, idx) => {
+    if (!p || typeof p !== 'object') return;
+    const pid = String(p.id || ('p_' + Date.now() + '_' + idx)).trim();
+    if (seenPersonIds.has(pid)) {
+      throw new Error(`تم اكتشاف تكرار في معرفات الأشخاص (Duplicate Person ID: ${pid}). الملف قد يكون تالفاً.`);
+    }
+    seenPersonIds.add(pid);
+    sanitizedPeople.push({
+      id: pid,
+      num: Number.isFinite(Number(p.num)) && Number(p.num) > 0 ? Number(p.num) : (idx + 1),
+      name: typeof p.name === 'string' ? p.name.trim() : '',
+      role: p.role === 'staff' ? 'staff' : 'driver',
+      meta: typeof p.meta === 'string' ? p.meta.trim() : '',
+      archived: !!p.archived,
+      archivedAt: p.archivedAt || null
+    });
+  });
+
+  // Validate dailyReceipts
+  const sanitizedDailyReceipts = {};
+  if (parsed.dailyReceipts && typeof parsed.dailyReceipts === 'object') {
+    for (const [dateKey, amount] of Object.entries(parsed.dailyReceipts)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+        const numAmt = Number(amount);
+        if (Number.isFinite(numAmt) && numAmt >= 0) {
+          sanitizedDailyReceipts[dateKey] = fromCents(toCents(numAmt));
+        }
+      }
+    }
+  }
+
+  // Validate dailyExtras
+  const sanitizedDailyExtras = {};
+  if (parsed.dailyExtras && typeof parsed.dailyExtras === 'object') {
+    for (const [dateKey, extra] of Object.entries(parsed.dailyExtras)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey) && extra && typeof extra === 'object') {
+        const numAmt = Number(extra.amount);
+        if (Number.isFinite(numAmt) && numAmt >= 0) {
+          sanitizedDailyExtras[dateKey] = {
+            amount: fromCents(toCents(numAmt)),
+            description: typeof extra.description === 'string' ? extra.description.trim() : '',
+            excludeFromCompany: !!extra.excludeFromCompany
+          };
+        }
+      }
+    }
+  }
+
+  // Validate entries and check referential integrity
+  const sanitizedEntries = {};
+  if (parsed.entries && typeof parsed.entries === 'object') {
+    for (const [dateKey, dayEntries] of Object.entries(parsed.entries)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || !dayEntries || typeof dayEntries !== 'object') continue;
+      sanitizedEntries[dateKey] = {};
+      for (const [personId, entry] of Object.entries(dayEntries)) {
+        if (!entry || typeof entry !== 'object') continue;
+        // Referential integrity check: If person does not exist in people array, preserve financial history by archiving
+        if (!seenPersonIds.has(personId)) {
+          seenPersonIds.add(personId);
+          sanitizedPeople.push({
+            id: personId,
+            num: sanitizedPeople.length + 1,
+            name: `شخص سابق (${personId})`,
+            role: 'driver',
+            meta: 'تم استرجاعه تلقائياً لحفظ العمليات المالية القديمة',
+            archived: true,
+            archivedAt: new Date().toISOString()
+          });
+        }
+        const cash = Number.isFinite(Number(entry.cash)) && Number(entry.cash) >= 0 ? fromCents(toCents(entry.cash)) : 0;
+        const invoice = Number.isFinite(Number(entry.invoice)) && Number(entry.invoice) >= 0 ? fromCents(toCents(entry.invoice)) : 0;
+        const returnedCash = Number.isFinite(Number(entry.returnedCash)) && Number(entry.returnedCash) >= 0 ? fromCents(toCents(entry.returnedCash)) : 0;
+        const note = typeof entry.note === 'string' ? entry.note.trim() : '';
+
+        if (cash > 0 || invoice > 0 || returnedCash > 0 || note) {
+          sanitizedEntries[dateKey][personId] = { cash, invoice, returnedCash, note };
+        }
+      }
+    }
+  }
+
+  // Helper to validate monetary transaction arrays
+  const sanitizeTxArray = (arr, prefix) => {
+    if (!Array.isArray(arr)) return [];
+    const seenTxIds = new Set();
+    const sanitized = [];
+    arr.forEach((item, idx) => {
+      if (!item || typeof item !== 'object') return;
+      const txId = String(item.id || (`${prefix}_${Date.now()}_${idx}`));
+      if (seenTxIds.has(txId)) return; // skip duplicate tx IDs
+      seenTxIds.add(txId);
+      const amount = Number.isFinite(Number(item.amount)) && Number(item.amount) >= 0 ? fromCents(toCents(item.amount)) : 0;
+      const date = typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date) ? item.date : (state ? formatDateKey(state.year, state.month, 1) : '2026-01-01');
+      sanitized.push({
+        ...item,
+        id: txId,
+        date,
+        amount,
+        ref: typeof item.ref === 'string' ? item.ref.trim() : '',
+        note: typeof item.note === 'string' ? item.note.trim() : ''
+      });
+    });
+    return sanitized;
+  };
+
+  const sanitizedCustodyReceipts = sanitizeTxArray(parsed.custodyReceipts, 'cr');
+  const sanitizedCustodySettlements = sanitizeTxArray(parsed.custodySettlements, 'cs');
+  const sanitizedSafeInvoices = sanitizeTxArray(parsed.safeInvoices, 'si');
+
+  return {
+    schemaVersion: 5,
+    people: sanitizedPeople,
+    dailyReceipts: sanitizedDailyReceipts,
+    dailyExtras: sanitizedDailyExtras,
+    entries: sanitizedEntries,
+    custodyReceipts: sanitizedCustodyReceipts,
+    custodySettlements: sanitizedCustodySettlements,
+    safeInvoices: sanitizedSafeInvoices
+  };
+}
+
 function bindEvents() {
   // Accessibility: Close modals with Escape key (WCAG 2.2 AA)
   window.addEventListener('keydown', (e) => {
@@ -3579,7 +4073,7 @@ function bindEvents() {
   document.getElementById('btnCloseCloudSyncModal')?.addEventListener('click', () => {
     cloudModal.classList.add('hidden');
   });
-  document.getElementById('btnConnectCloudAccount')?.addEventListener('click', () => {
+  document.getElementById('btnConnectCloudAccount')?.addEventListener('click', async () => {
     const acct = document.getElementById('cloudAccountNameInput').value.trim();
     const pin = document.getElementById('cloudPinInput').value.trim();
     if (!acct || !pin) {
@@ -3591,15 +4085,36 @@ function bindEvents() {
       return;
     }
     try {
-      localStorage.setItem('petty_cash_cloud_account', JSON.stringify({ acct, pin, lastSync: new Date().toISOString() }));
+      // Security Hardening: Hash PIN with SHA-256 and salt instead of storing plaintext
+      const salt = 'petty_cash_salt_' + acct;
+      let pinHash = '';
+      if (window.crypto && window.crypto.subtle) {
+        const enc = new TextEncoder();
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', enc.encode(salt + ':' + pin));
+        pinHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      } else {
+        let h = 0;
+        const str = salt + ':' + pin;
+        for (let i = 0; i < str.length; i++) {
+          h = ((h << 5) - h) + str.charCodeAt(i);
+          h |= 0;
+        }
+        pinHash = 'h_' + Math.abs(h).toString(16);
+      }
+      localStorage.setItem('petty_cash_cloud_account', JSON.stringify({
+        acct,
+        pinHash,
+        salt,
+        lastSync: new Date().toISOString()
+      }));
     } catch (e) {}
     const badge = document.getElementById('cloudSyncStatusBadge');
     if (badge) {
-      badge.textContent = `✓ تم ربط الحساب محلياً (${acct}) ومستعد للمزامنة فور الرفع أونلاين`;
+      badge.textContent = `✓ تم تشفير وحفظ الحساب (${acct}) ومستعد للمزامنة بأمان`;
       badge.style.color = '#15803d';
       badge.style.fontWeight = 'bold';
     }
-    showToast('تم حفظ الحساب السحابي بنجاح ✓');
+    showToast('تم تشفير وحفظ الحساب السحابي بنجاح ✓');
     setTimeout(() => {
       cloudModal.classList.add('hidden');
     }, 1200);
@@ -3859,7 +4374,9 @@ function bindEvents() {
         num: state.data.people.length + 1,
         name,
         role,
-        meta: ''
+        meta: '',
+        archived: false,
+        archivedAt: null
       });
     });
 
@@ -3880,7 +4397,9 @@ function bindEvents() {
           num: nextNum,
           name: '',
           role: nextNum <= 25 ? 'driver' : 'staff',
-          meta: ''
+          meta: '',
+          archived: false,
+          archivedAt: null
         });
       }
     } else {
@@ -3984,17 +4503,20 @@ function bindEvents() {
 
   document.getElementById('btnAddCustodySettlement')?.addEventListener('click', () => {
     const dateVal = document.getElementById('custodySettlementDate').value || state.selectedDate;
-    const amountVal = Number(document.getElementById('custodySettlementAmount').value) || 0;
+    const rawAmt = document.getElementById('custodySettlementAmount').value;
+    const vAmt = validateMonetaryInput(rawAmt, false);
+    if (!vAmt.valid || vAmt.value <= 0) {
+      alert('يرجى كتابة مبلغ كشف الفواتير المسلم للشركة بشكل صحيح (رقم موجب بدقة قرشين)');
+      return;
+    }
+    const amountVal = vAmt.value;
     const periodVal = document.getElementById('custodySettlementPeriod').value.trim() || `فواتير شهر ${ARABIC_MONTHS[state.month]} ${state.year}`;
     const refVal = document.getElementById('custodySettlementRef').value.trim();
     const noteVal = document.getElementById('custodySettlementNote').value.trim();
 
-    if (amountVal <= 0) {
-      alert('يرجى كتابة مبلغ كشف الفواتير المسلم للشركة بشكل صحيح');
-      return;
-    }
-
     state.data.custodySettlements = state.data.custodySettlements || [];
+    const { y, m } = parseDateParts(dateVal);
+    const periodKey = `${y}-${String(m).padStart(2, '0')}`;
 
     if (state.editingCustodySettlementId) {
       const idx = state.data.custodySettlements.findIndex(s => s.id === state.editingCustodySettlementId);
@@ -4004,8 +4526,10 @@ function bindEvents() {
           date: dateVal,
           amount: amountVal,
           period: periodVal,
+          periodKey: state.data.custodySettlements[idx].periodKey || periodKey,
           ref: refVal,
-          note: noteVal
+          note: noteVal,
+          status: 'active'
         };
       }
       state.editingCustodySettlementId = null;
@@ -4023,8 +4547,10 @@ function bindEvents() {
         date: dateVal,
         amount: amountVal,
         period: periodVal,
+        periodKey: periodKey,
         ref: refVal,
-        note: noteVal
+        note: noteVal,
+        status: 'active'
       });
       showToast(`تم تسجيل كشف التصفية المسلم للشركة بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
     }
@@ -4065,16 +4591,19 @@ function bindEvents() {
 
   document.getElementById('btnAddSafeInvoice')?.addEventListener('click', () => {
     const dateVal = document.getElementById('safeInvoiceDate').value || state.selectedDate;
-    const amountVal = Number(document.getElementById('safeInvoiceAmount').value) || 0;
+    const rawAmt = document.getElementById('safeInvoiceAmount').value;
+    const vAmt = validateMonetaryInput(rawAmt, false);
+    if (!vAmt.valid || vAmt.value <= 0) {
+      alert('يرجى كتابة مبلغ الفاتورة المسلّمة للخزنة بشكل صحيح (رقم موجب بدقة قرشين)');
+      return;
+    }
+    const amountVal = vAmt.value;
     const refVal = document.getElementById('safeInvoiceRef').value.trim();
     const noteVal = document.getElementById('safeInvoiceNote').value.trim();
 
-    if (amountVal <= 0) {
-      alert('يرجى كتابة مبلغ الفاتورة المسلّمة للخزنة بشكل صحيح');
-      return;
-    }
-
     state.data.safeInvoices = state.data.safeInvoices || [];
+    const { y, m } = parseDateParts(dateVal);
+    const periodKey = `${y}-${String(m).padStart(2, '0')}`;
 
     if (state.editingSafeInvoiceId) {
       const idx = state.data.safeInvoices.findIndex(inv => inv.id === state.editingSafeInvoiceId);
@@ -4083,8 +4612,10 @@ function bindEvents() {
           ...state.data.safeInvoices[idx],
           date: dateVal,
           amount: amountVal,
+          periodKey: state.data.safeInvoices[idx].periodKey || periodKey,
           ref: refVal,
-          note: noteVal
+          note: noteVal,
+          status: 'active'
         };
       }
       state.editingSafeInvoiceId = null;
@@ -4101,8 +4632,10 @@ function bindEvents() {
         id: 'si_' + Date.now(),
         date: dateVal,
         amount: amountVal,
+        periodKey: periodKey,
         ref: refVal,
-        note: noteVal
+        note: noteVal,
+        status: 'active'
       });
       showToast(`تم تسجيل الفاتورة المسلّمة للخزنة بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
     }
@@ -4132,14 +4665,45 @@ function bindEvents() {
 
   document.getElementById('btnAutoFillSafeMonthInvoices')?.addEventListener('click', () => {
     const targetMonth = state.safeMonth || state.month;
-    const sumInv = calculateMonthDriverInvoices(state.year, targetMonth);
+    const summary = getPeriodSettlementSummary(state.year, targetMonth, 'safe');
     const amtInput = document.getElementById('safeInvoiceAmount');
     const refInput = document.getElementById('safeInvoiceRef');
     const noteInput = document.getElementById('safeInvoiceNote');
-    if (amtInput) amtInput.value = sumInv;
-    if (refInput && !refInput.value) refInput.value = `فواتير شهر ${ARABIC_MONTHS[targetMonth]}`;
+
+    if (summary.isFullySettled) {
+      const prevDate = summary.settlements[0]?.date || 'سابقاً';
+      const prevRef = summary.settlements[0]?.ref || '-';
+      alert(
+        `⚠️ تنبيه منع الازدواجية والتكرار:\n\n` +
+        `فواتير شهر ${summary.periodName} تم تسليمها للخزنة مسبقاً بمبلغ (${formatNumber(summary.totalSettled)} ر.ق) بتاريخ ${prevDate} (مرجع: ${prevRef}).\n` +
+        `إجمالي فواتير الشهر الحالي: ${formatNumber(summary.currentDriverInvoices)} ر.ق.\n` +
+        `لا توجد فواتير متبقية غير مسواة لهذا الشهر.\n\n` +
+        `إذا كان لديك كشف فواتير إضافي/تكميلي، يمكنك إدخال المبلغ يدوياً.`
+      );
+      return;
+    }
+
+    if (summary.hasPartialSettlement) {
+      if (confirm(
+        `💡 تنبيه - فواتير جديدة بعد التسوية السابقة للخزنة:\n\n` +
+        `تم تسليم فواتير للخزنة سابقاً بمبلغ (${formatNumber(summary.totalSettled)} ر.ق) لهذا الشهر.\n` +
+        `إجمالي الفواتير الآن (${formatNumber(summary.currentDriverInvoices)} ر.ق).\n` +
+        `الفرق المتبقي غير المسوى: (${formatNumber(summary.unSettledDiff)} ر.ق).\n\n` +
+        `هل تريد تعبئة فارق الفواتير المتبقي (${formatNumber(summary.unSettledDiff)} ر.ق) كفاتورة تكميلية؟`
+      )) {
+        if (amtInput) amtInput.value = summary.unSettledDiff;
+        if (refInput) refInput.value = `كشف تكميلي - فواتير شهر ${ARABIC_MONTHS[targetMonth]} ${state.year}`;
+        if (noteInput && !noteInput.value) noteInput.value = `تسوية تكميلية لفارق فواتير شهر ${ARABIC_MONTHS[targetMonth]} ${state.year} (متبقي من أصل ${formatNumber(summary.currentDriverInvoices)})`;
+        showToast(`تم سحب فارق الفواتير المتبقي (${formatNumber(summary.unSettledDiff)} ر.ق) بنجاح ⚡`);
+        return;
+      }
+      return;
+    }
+
+    if (amtInput) amtInput.value = summary.currentDriverInvoices;
+    if (refInput && !refInput.value) refInput.value = `فواتير شهر ${ARABIC_MONTHS[targetMonth]} ${state.year}`;
     if (noteInput && !noteInput.value) noteInput.value = `تسوية فواتير سيارات وسائقي شهر ${ARABIC_MONTHS[targetMonth]} ${state.year}`;
-    showToast(`تم سحب إجمالي فواتير شهر ${ARABIC_MONTHS[targetMonth]} (${formatNumber(sumInv)} ر.ق) بنجاح ⚡`);
+    showToast(`تم سحب إجمالي فواتير شهر ${ARABIC_MONTHS[targetMonth]} (${formatNumber(summary.currentDriverInvoices)} ر.ق) بنجاح ⚡`);
   });
 
   document.getElementById('btnPrintSafeStatement')?.addEventListener('click', printReportWithHeader);
@@ -4167,9 +4731,53 @@ function bindEvents() {
   const modal = document.getElementById('backupModal');
   document.getElementById('btnBackupModal').addEventListener('click', () => {
     modal.classList.remove('hidden');
+    // Check if a pre-restore snapshot exists for rollback
+    const snapRaw = localStorage.getItem('petty_cash_pre_restore_snapshot');
+    const btnRollback = document.getElementById('btnRollbackRestore');
+    const statusMsg = document.getElementById('restoreStatusMsg');
+    if (snapRaw && btnRollback && statusMsg) {
+      try {
+        const snap = JSON.parse(snapRaw);
+        btnRollback.classList.remove('hidden');
+        btnRollback.textContent = `↩️ تراجع عن آخر استعادة (نقطة حفظ: ${snap.dateFormatted || 'السابقة'})`;
+        statusMsg.textContent = `ℹ️ توجد نقطة تراجع محفوظة مسجلة في ${snap.dateFormatted || 'وقت سابق'}. يمكنك التراجع في أي وقت.`;
+        statusMsg.style.color = '#b45309';
+      } catch (e) {
+        btnRollback.classList.add('hidden');
+      }
+    } else if (btnRollback) {
+      btnRollback.classList.add('hidden');
+    }
   });
   document.getElementById('btnCloseBackupModal').addEventListener('click', () => {
     modal.classList.add('hidden');
+  });
+
+  // Rollback Action
+  document.getElementById('btnRollbackRestore')?.addEventListener('click', () => {
+    const snapRaw = localStorage.getItem('petty_cash_pre_restore_snapshot');
+    if (!snapRaw) {
+      alert('لا توجد نقطة تراجع محفوظة');
+      return;
+    }
+    try {
+      const snap = JSON.parse(snapRaw);
+      if (!confirm(`هل أنت متأكد من التراجع عن الاستعادة والعودة إلى البيانات السابقة كما كانت (${snap.dateFormatted || ''})؟`)) {
+        return;
+      }
+      state.data = snap.data;
+      saveState();
+      renderAll();
+      showToast('تم التراجع بنجاح واسترجاع البيانات السابقة بالكامل ✓');
+      const statusMsg = document.getElementById('restoreStatusMsg');
+      if (statusMsg) {
+        statusMsg.textContent = '✓ تمت العودة بنجاح إلى النسخة السابقة قبل الاسترجاع.';
+        statusMsg.style.color = '#15803d';
+      }
+      document.getElementById('btnRollbackRestore')?.classList.add('hidden');
+    } catch (err) {
+      alert('تعذر استرجاع نقطة التراجع: ' + err.message);
+    }
   });
 
   // Backup Reminder Banner actions
@@ -4197,36 +4805,50 @@ function bindEvents() {
   document.getElementById('fileRestoreBackup').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    if (file.size > MAX_BACKUP_SIZE) {
+      alert(`⚠️ حجم الملف كبير جداً (${(file.size / (1024 * 1024)).toFixed(2)} ميجابايت). الحد الأقصى المسموح به هو 15 ميجابايت.`);
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
         const parsed = JSON.parse(ev.target.result);
-        if (parsed && Array.isArray(parsed.people)) {
-          state.data = {
-            schemaVersion: parsed.schemaVersion || 4,
-            people: parsed.people.map((p, idx) => ({
-              id: p.id || ('p_' + Date.now() + '_' + idx),
-              num: Number(p.num) || (idx + 1),
-              name: p.name || '',
-              role: p.role === 'staff' ? 'staff' : 'driver',
-              meta: p.meta || ''
-            })),
-            dailyReceipts: typeof parsed.dailyReceipts === 'object' && parsed.dailyReceipts !== null ? parsed.dailyReceipts : {},
-            dailyExtras: typeof parsed.dailyExtras === 'object' && parsed.dailyExtras !== null ? parsed.dailyExtras : {},
-            entries: typeof parsed.entries === 'object' && parsed.entries !== null ? parsed.entries : {},
-            custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : [],
-            custodySettlements: Array.isArray(parsed.custodySettlements) ? parsed.custodySettlements : [],
-            safeInvoices: Array.isArray(parsed.safeInvoices) ? parsed.safeInvoices : []
-          };
-          saveState();
-          renderAll();
-          modal.classList.add('hidden');
-          showToast('تم استعادة كافة البيانات بنجاح ✓');
-        } else {
-          alert('ملف النسخة الاحتياطية غير صالح أو تالف');
+        const validatedData = validateBackupPayload(parsed);
+
+        // Before replacing data: Create automatic pre-restore snapshot in localStorage
+        const snapshot = {
+          timestamp: Date.now(),
+          dateFormatted: new Date().toLocaleString('ar-QA'),
+          data: JSON.parse(JSON.stringify(state.data))
+        };
+        localStorage.setItem('petty_cash_pre_restore_snapshot', JSON.stringify(snapshot));
+
+        // Apply new validated data
+        state.data = validatedData;
+        saveState();
+        renderAll();
+
+        const statusMsg = document.getElementById('restoreStatusMsg');
+        if (statusMsg) {
+          statusMsg.textContent = `✓ تم التحقق من سلامة البيانات واستعادتها بنجاح (${validatedData.people.length} اسم). تم حفظ نقطة تراجع للبيانات السابقة.`;
+          statusMsg.style.color = '#15803d';
         }
+        const btnRollback = document.getElementById('btnRollbackRestore');
+        if (btnRollback) {
+          btnRollback.classList.remove('hidden');
+          btnRollback.textContent = `↩️ تراجع عن آخر استعادة (نقطة حفظ: ${snapshot.dateFormatted})`;
+        }
+        showToast('تم استعادة كافة البيانات والتحقق من سلامتها بنجاح ✓');
       } catch (err) {
-        alert('تعذر قراءة ملف النسخة الاحتياطية');
+        alert('فشل استعادة النسخة الاحتياطية: ' + (err.message || 'الملف تالف أو غير صالح'));
+        const statusMsg = document.getElementById('restoreStatusMsg');
+        if (statusMsg) {
+          statusMsg.textContent = `❌ فشلت الاستعادة: ${err.message}`;
+          statusMsg.style.color = '#dc2626';
+        }
       } finally {
         e.target.value = '';
       }
@@ -4265,21 +4887,51 @@ function bindEvents() {
 // Bootstrap Application
 // ============================================================================
 
-document.addEventListener('DOMContentLoaded', () => {
-  loadState();
-  updateMonthLabels();
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    loadState();
+    updateMonthLabels();
 
-  // Always open on today's real date on page load (الفتح دائماً على تاريخ اليوم الحالي الحقيقي)
-  const todayNow = new Date();
-  state.year = todayNow.getFullYear();
-  state.month = todayNow.getMonth() + 1;
-  state.selectedDate = formatDateKey(state.year, state.month, todayNow.getDate());
+    // Always open on today's real date on page load (الفتح دائماً على تاريخ اليوم الحالي الحقيقي)
+    const todayNow = new Date();
+    state.year = todayNow.getFullYear();
+    state.month = todayNow.getMonth() + 1;
+    state.selectedDate = formatDateKey(state.year, state.month, todayNow.getDate());
 
-  initYearMonthSelectors();
-  try {
-    bindEvents();
-  } catch (err) {
-    console.error('Error binding events:', err);
-  }
-  renderAll();
-});
+    initYearMonthSelectors();
+    try {
+      bindEvents();
+    } catch (err) {
+      console.error('Error binding events:', err);
+    }
+    renderAll();
+  });
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    state,
+    toCents,
+    fromCents,
+    addMoney,
+    subMoney,
+    mulMoney,
+    sumMoney,
+    validateMonetaryInput,
+    formatNumber,
+    calculateMonthDriverInvoices,
+    getPeriodSettlementSummary,
+    getSafeTabFinancials,
+    validateBackupPayload,
+    hasPersonAnyEntryInHistory,
+    getReportablePeople,
+    getPersonBalanceBeforeDate,
+    getDayTotals,
+    getPersonMonthTotals,
+    getPersonYearTotals,
+    loadState,
+    saveState,
+    createCleanData,
+    formatCsvCell
+  };
+}
