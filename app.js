@@ -165,8 +165,10 @@ function saveState(skipUndo = false) {
       updateUndoButtonState();
     }
     lastSavedDataJson = currentJson;
-    localStorage.setItem(STORAGE_KEY, currentJson);
-    localStorage.setItem('petty_cash_last_modified', Date.now().toString());
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, currentJson);
+      localStorage.setItem('petty_cash_last_modified', Date.now().toString());
+    }
     checkBackupReminder();
   } catch (err) {
     console.error('Failed to save state:', err);
@@ -194,6 +196,7 @@ function performUndo() {
 }
 
 function updateUndoButtonState() {
+  if (typeof document === 'undefined') return;
   const btn = document.getElementById('btnUndo');
   if (btn) {
     const canUndo = undoStack.length > 0;
@@ -203,7 +206,8 @@ function updateUndoButtonState() {
 }
 
 function checkBackupReminder() {
-  const lastBackupStr = localStorage.getItem('petty_cash_last_backup_download');
+  if (typeof document === 'undefined') return;
+  const lastBackupStr = typeof localStorage !== 'undefined' ? localStorage.getItem('petty_cash_last_backup_download') : null;
   const reminderBanner = document.getElementById('backupReminderBanner');
   const backupBtn = document.getElementById('btnBackupModal');
   if (!reminderBanner) return;
@@ -437,20 +441,27 @@ function deleteSafeInvoice(invoiceId) {
   state.data.safeInvoices = (state.data.safeInvoices || []).filter(x => x.id !== invoiceId);
   if (state.editingSafeInvoiceId === invoiceId) {
     state.editingSafeInvoiceId = null;
-    const btnAdd = document.getElementById('btnAddSafeInvoice');
-    if (btnAdd) {
-      btnAdd.textContent = '📑 حفظ الفاتورة المسلّمة للخزنة';
-      btnAdd.className = 'btn btn-primary';
+    if (typeof document !== 'undefined') {
+      const btnAdd = document.getElementById('btnAddSafeInvoice');
+      if (btnAdd) {
+        btnAdd.textContent = '📑 حفظ الفاتورة المسلّمة للخزنة';
+        btnAdd.className = 'btn btn-primary';
+      }
+      const btnCancel = document.getElementById('btnCancelEditSafeInvoice');
+      if (btnCancel) btnCancel.classList.add('hidden');
     }
-    const btnCancel = document.getElementById('btnCancelEditSafeInvoice');
-    if (btnCancel) btnCancel.classList.add('hidden');
   }
   saveState();
-  renderSafeTab();
+  if (typeof document !== 'undefined') {
+    renderSafeTab();
+  }
   return true;
 }
 
 function rollbackPreRestore() {
+  if (typeof localStorage === 'undefined') {
+    throw new Error('localStorage غير متاح');
+  }
   const snapRaw = localStorage.getItem('petty_cash_pre_restore_snapshot');
   if (!snapRaw) {
     throw new Error('لا توجد نقطة تراجع محفوظة');
@@ -458,7 +469,9 @@ function rollbackPreRestore() {
   const snap = JSON.parse(snapRaw);
   state.data = snap.data;
   saveState();
-  renderAll();
+  if (typeof document !== 'undefined') {
+    renderAll();
+  }
   return true;
 }
 
@@ -2981,6 +2994,7 @@ function getSafeTabFinancials(targetYear, targetMonth, isYearScope) {
 }
 
 function renderSafeTab() {
+  if (typeof document === 'undefined') return;
   const targetYear = state.year;
   const isYearScope = !!state.safeShowYear;
   const targetMonth = state.safeMonth || state.month;
@@ -3583,6 +3597,7 @@ function switchTab(tabId) {
 }
 
 function renderAll() {
+  if (typeof document === 'undefined') return;
   updateMonthLabels();
   if (state.activeTab === 'daily') renderDailyTab();
   if (state.activeTab === 'monthly') renderMonthlyMatrixTab();
