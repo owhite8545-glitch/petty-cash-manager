@@ -1331,38 +1331,39 @@
   </div>
 
   <!-- ==================== MODAL: CLOUD SYNC & PIN ==================== -->
-  <div id="cloudSyncModal" class="modal-overlay hidden no-print" role="dialog" aria-modal="true" aria-label="نافذة المزامنة السحابية">
+  <!-- Local PIN Lock & Access Modal -->
+  <div id="cloudSyncModal" class="modal-overlay hidden no-print" role="dialog" aria-modal="true" aria-label="نافذة القفل المحلي">
     <div class="modal-card" style="max-width: 540px;">
       <div class="modal-header">
-        <h3>☁️ المزامنة والحساب السحابي برمز PIN</h3>
+        <h3>🔒 قفل محلي برمز PIN (حماية الوصول على هذا المتصفح)</h3>
         <button id="btnCloseCloudSyncModal" class="btn-close">✕</button>
       </div>
       <div class="modal-body">
         <div class="modal-section">
-          <h4>مزامنة بياناتك بين الكمبيوتر والموبايل بسهولة وأمان:</h4>
-          <p class="text-muted">
-            أدخل اسم حسابك أو رقم الموبايل ورمز PIN بسيط من 4 أرقام لفتح شغلك على أي جهاز مع ضمان حفظ نسخة على جهازك دائماً:
+          <h4>تعيين اسم الحساب ورمز PIN محلي على هذا الجهاز:</h4>
+          <p class="text-muted" style="font-size: 0.9rem; line-height: 1.6;">
+            💡 <strong>توضيح أمني وشفافية:</strong> يعمل التطبيق حالياً بنظام الحفظ المحلي المستقل (Local-First). تعيين رمز PIN هنا يحفظ هاش أحادي الاتجاه (SHA-256) محلياً على هذا الجهاز لحماية واجهة العمل من التطفل العابر، وهو <strong>لا يمثل مصادقة سحابية عبر خادم</strong> ولا يقوم بمزامنة تلقائية دون توفر بنية خادم خلفية. الاعتماد الأساسي لحفظ ونقل البيانات هو ملفات النسخ الاحتياطي (JSON).
           </p>
           <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
             <div class="field-group">
-              <label>👤 اسم الحساب أو رقم الموبايل:</label>
-              <input type="text" id="cloudAccountNameInput" class="input-control" placeholder="مثال: حساب عهدة قطر / 55XXXXXX" />
+              <label>👤 اسم المستخدم أو معرف الحساب:</label>
+              <input type="text" id="cloudAccountNameInput" class="input-control" placeholder="مثال: حساب عهدة الدوحة" />
             </div>
             <div class="field-group">
-              <label>🔒 رمز الدخول السري (PIN من 4 أرقام):</label>
+              <label>🔒 رمز PIN السري (4 أرقام على الأقل):</label>
               <input type="password" id="cloudPinInput" maxlength="6" class="input-control" placeholder="••••" style="letter-spacing: 4px; font-size: 1.2rem;" />
             </div>
             <label class="checkbox-label" style="margin-top: 4px;">
               <input type="checkbox" id="chkCloudRemember" checked />
-              <span>تذكّرني على هذا الجهاز (عدم طلب الرمز مرة أخرى)</span>
+              <span>تذكّر المعرّف على هذا الجهاز</span>
             </label>
             <div class="modal-btn-row" style="margin-top: 8px;">
               <button type="button" id="btnConnectCloudAccount" class="btn btn-primary" style="flex: 1;">
-                ☁️ حفظ وربط الحساب السحابي الآن
+                🔒 حفظ وتثبيت القفل المحلي
               </button>
             </div>
             <div id="cloudSyncStatusBadge" class="hint-badge" style="margin-top: 8px; text-align: center;">
-              الحالة: البيانات الحالية محفوظة في أمان محلياً على هذا الجهاز ✓
+              الحالة: تخزين محلي بالكامل على هذا الجهاز (Local-First) ✓
             </div>
           </div>
         </div>

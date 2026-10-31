@@ -2255,6 +2255,7 @@ function renderPeopleManagementTab() {
     } else {
       actionButtonsHtml = `
         <button type="button" class="btn btn-sm btn-outline" data-open-person="${p.id}" title="فتح صفحة هذا الشخص">📄 صفحته</button>
+        <button type="button" class="btn btn-sm btn-outline text-amber" data-archive-person="${p.id}" title="أرشفة هذا الشخص">📦 أرشفة</button>
         <button type="button" class="btn btn-sm btn-danger-outline" data-del-person="${p.id}" title="حذف الخانة الفارغة نهائياً">🗑️</button>
       `;
     }
@@ -4085,7 +4086,8 @@ function bindEvents() {
       return;
     }
     try {
-      // Security Hardening: Hash PIN with SHA-256 and salt instead of storing plaintext
+      // Local Lock Security Note: Hash PIN with SHA-256 and salt for local browser verification only.
+      // This is a local-first client verification and does NOT provide cloud backend authentication.
       const salt = 'petty_cash_salt_' + acct;
       let pinHash = '';
       if (window.crypto && window.crypto.subtle) {
@@ -4105,16 +4107,16 @@ function bindEvents() {
         acct,
         pinHash,
         salt,
-        lastSync: new Date().toISOString()
+        lastSaved: new Date().toISOString()
       }));
     } catch (e) {}
     const badge = document.getElementById('cloudSyncStatusBadge');
     if (badge) {
-      badge.textContent = `✓ تم تشفير وحفظ الحساب (${acct}) ومستعد للمزامنة بأمان`;
+      badge.textContent = `✓ تم حفظ وتفعيل القفل المحلي (${acct}) على هذا الجهاز بنجاح`;
       badge.style.color = '#15803d';
       badge.style.fontWeight = 'bold';
     }
-    showToast('تم تشفير وحفظ الحساب السحابي بنجاح ✓');
+    showToast('تم حفظ وتفعيل القفل المحلي بنجاح ✓');
     setTimeout(() => {
       cloudModal.classList.add('hidden');
     }, 1200);
@@ -4876,7 +4878,7 @@ function bindEvents() {
     }
   });
 
-  if ('serviceWorker' in navigator) {
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     });
