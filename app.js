@@ -25,7 +25,8 @@ function createCleanData() {
     entries: {},       // { "YYYY-MM-DD": { [personId]: { cash: number, invoice: number, returnedCash: number, note: string } } }
     custodyReceipts: [], // [ { id, date, amount, ref, note } ] (دفعات العهدة المستلمة من الشركة)
     custodySettlements: [], // [ { id, date, amount, period, periodKey, ref, note, settlementType, status } ] (كشوف الفواتير والتسويات المسلمة للشركة)
-    safeInvoices: [] // [ { id, date, amount, periodKey, ref, note, settlementType, status } ] (فواتير مسلمة للخزنة لتسوية السحوبات)
+    safeInvoices: [], // [ { id, date, amount, periodKey, ref, note, settlementType, status, reversedAt, reversalReason } ] (فواتير مسلمة للخزنة لتسوية السحوبات)
+    safeInvoicesAudit: [] // [ { action, invoice, timestamp, reason } ] (سجل التدقيق التاريخي للعمليات المحذوفة والمعكوسة)
   };
 }
 
@@ -437,7 +438,17 @@ function unarchivePerson(personId) {
   return true;
 }
 
-function deleteSafeInvoice(invoiceId) {
+function deleteSafeInvoice(invoiceId, reason = 'حذف يدوي بواسطة المستخدم') {
+  const existingItem = (state.data.safeInvoices || []).find(x => x.id === invoiceId);
+  if (existingItem) {
+    state.data.safeInvoicesAudit = state.data.safeInvoicesAudit || [];
+    state.data.safeInvoicesAudit.push({
+      action: 'deleted',
+      invoice: { ...existingItem },
+      timestamp: new Date().toISOString(),
+      reason
+    });
+  }
   state.data.safeInvoices = (state.data.safeInvoices || []).filter(x => x.id !== invoiceId);
   if (state.editingSafeInvoiceId === invoiceId) {
     state.editingSafeInvoiceId = null;
@@ -450,6 +461,32 @@ function deleteSafeInvoice(invoiceId) {
       const btnCancel = document.getElementById('btnCancelEditSafeInvoice');
       if (btnCancel) btnCancel.classList.add('hidden');
     }
+  }
+  saveState();
+  if (typeof document !== 'undefined') {
+    renderSafeTab();
+  }
+  return true;
+}
+
+function reverseSafeInvoice(invoiceId, reason = 'إلغاء وعكس فاتورة الخزنة') {
+  const inv = (state.data.safeInvoices || []).find(x => x.id === invoiceId);
+  if (!inv) return false;
+  inv.status = 'reversed';
+  inv.reversedAt = new Date().toISOString();
+  inv.reversalReason = reason;
+  state.data.safeInvoicesAudit = state.data.safeInvoicesAudit || [];
+  state.data.safeInvoicesAudit.push({
+    action: 'reversed',
+    invoiceId: inv.id,
+    amount: inv.amount,
+    periodKey: inv.periodKey,
+    ref: inv.ref,
+    timestamp: inv.reversedAt,
+    reason: inv.reversalReason
+  });
+  if (state.editingSafeInvoiceId === invoiceId) {
+    state.editingSafeInvoiceId = null;
   }
   saveState();
   if (typeof document !== 'undefined') {
@@ -705,12 +742,12 @@ function getCustodySettlementsForYear(year) {
 
 function getSafeInvoicesForMonth(year, month) {
   const prefix = `${year}-${String(month).padStart(2, '0')}`;
-  return (state.data.safeInvoices || []).filter(r => r && r.date && r.date.startsWith(prefix));
+  return (state.data.safeInvoices || []).filter(r => r && r.status !== 'reversed' && r.date && r.date.startsWith(prefix));
 }
 
 function getSafeInvoicesForYear(year) {
   const prefix = `${year}-`;
-  return (state.data.safeInvoices || []).filter(r => r && r.date && r.date.startsWith(prefix));
+  return (state.data.safeInvoices || []).filter(r => r && r.status !== 'reversed' && r.date && r.date.startsWith(prefix));
 }
 
 function calculateMonthDriverInvoices(year, month, filterRole = 'all') {
@@ -740,8 +777,8 @@ function calculateMonthDriverInvoices(year, month, filterRole = 'all') {
 function getPeriodSettlementSummary(year, month, type = 'safe', filterRole = 'driver') {
   const periodKey = `${year}-${String(month).padStart(2, '0')}`;
   const settlements = type === 'safe'
-    ? (state.data.safeInvoices || []).filter(inv => inv && (inv.periodKey === periodKey || (inv.ref && inv.ref.includes(periodKey)) || (inv.note && inv.note.includes(periodKey))))
-    : (state.data.custodySettlements || []).filter(s => s && (s.periodKey === periodKey || (s.period && s.period.includes(periodKey))));
+    ? (state.data.safeInvoices || []).filter(inv => inv && inv.status !== 'reversed' && (inv.periodKey === periodKey || (inv.ref && inv.ref.includes(periodKey)) || (inv.note && inv.note.includes(periodKey))))
+    : (state.data.custodySettlements || []).filter(s => s && s.status !== 'reversed' && (s.periodKey === periodKey || (s.period && s.period.includes(periodKey))));
 
   let settledCents = 0;
   settlements.forEach(s => {
@@ -2941,7 +2978,7 @@ function getSafeTabFinancials(targetYear, targetMonth, isYearScope) {
 
   let priorInvoiceCents = 0;
   (state.data.safeInvoices || []).forEach(inv => {
-    if (inv && inv.date && inv.date < periodStartDate) {
+    if (inv && inv.status !== 'reversed' && inv.date && inv.date < periodStartDate) {
       priorInvoiceCents += toCents(inv.amount);
     }
   });
@@ -2958,7 +2995,7 @@ function getSafeTabFinancials(targetYear, targetMonth, isYearScope) {
 
   let cumulativeInvoiceCents = 0;
   (state.data.safeInvoices || []).forEach(inv => {
-    if (inv && inv.date && inv.date <= periodEndDate) {
+    if (inv && inv.status !== 'reversed' && inv.date && inv.date <= periodEndDate) {
       cumulativeInvoiceCents += toCents(inv.amount);
     }
   });
@@ -4980,6 +5017,7 @@ if (typeof module !== 'undefined' && module.exports) {
     archivePerson,
     unarchivePerson,
     deleteSafeInvoice,
+    reverseSafeInvoice,
     rollbackPreRestore,
     getReportablePeople,
     getPersonBalanceBeforeDate,
