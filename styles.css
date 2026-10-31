@@ -885,6 +885,15 @@ body.dark-mode .custody-balance-card {
   background: linear-gradient(to left, rgba(20, 184, 166, 0.12), #151f32) !important;
 }
 
+body.dark-mode #safeNetSummaryCard {
+  background: #1e293b !important;
+  border-color: #d97706 !important;
+}
+
+body.dark-mode #safeNetSummaryCard h3 {
+  color: #fbbf24 !important;
+}
+
 .kpi-label {
   display: block;
   font-size: 0.82rem;

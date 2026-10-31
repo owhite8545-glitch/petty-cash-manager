@@ -24,7 +24,8 @@ function createCleanData() {
     dailyExtras: {},   // { "YYYY-MM-DD": { amount: number, note: string, excludeFromCompany: boolean } }
     entries: {},       // { "YYYY-MM-DD": { [personId]: { cash: number, invoice: number, returnedCash: number, note: string } } }
     custodyReceipts: [], // [ { id, date, amount, ref, note } ] (دفعات العهدة المستلمة من الشركة)
-    custodySettlements: [] // [ { id, date, amount, period, ref, note } ] (كشوف الفواتير والتسويات المسلمة للشركة)
+    custodySettlements: [], // [ { id, date, amount, period, ref, note } ] (كشوف الفواتير والتسويات المسلمة للشركة)
+    safeInvoices: [] // [ { id, date, amount, ref, note } ] (فواتير مسلمة للخزنة لتسوية السحوبات)
   };
 }
 
@@ -75,6 +76,9 @@ const state = {
   peopleManageSearch: '',
   editingCustodyReceiptId: null,
   editingCustodySettlementId: null,
+  editingSafeInvoiceId: null,
+  safeMonth: initM,
+  safeShowYear: false,
   data: createCleanData()
 };
 
@@ -106,7 +110,8 @@ function loadState() {
           dailyExtras: parsed.dailyExtras || {},
           entries: parsed.entries || {},
           custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : [],
-          custodySettlements: Array.isArray(parsed.custodySettlements) ? parsed.custodySettlements : []
+          custodySettlements: Array.isArray(parsed.custodySettlements) ? parsed.custodySettlements : [],
+          safeInvoices: Array.isArray(parsed.safeInvoices) ? parsed.safeInvoices : []
         };
       }
     }
@@ -538,6 +543,16 @@ function getCustodySettlementsForMonth(year, month) {
 function getCustodySettlementsForYear(year) {
   const prefix = `${year}-`;
   return (state.data.custodySettlements || []).filter(r => r && r.date && r.date.startsWith(prefix));
+}
+
+function getSafeInvoicesForMonth(year, month) {
+  const prefix = `${year}-${String(month).padStart(2, '0')}`;
+  return (state.data.safeInvoices || []).filter(r => r && r.date && r.date.startsWith(prefix));
+}
+
+function getSafeInvoicesForYear(year) {
+  const prefix = `${year}-`;
+  return (state.data.safeInvoices || []).filter(r => r && r.date && r.date.startsWith(prefix));
 }
 
 function calculateMonthDriverInvoices(year, month) {
@@ -2556,6 +2571,326 @@ function renderCustodyTab() {
   }
 }
 
+// ============================================================================
+// TAB 7: My Transactions with the Treasury / Safe (معاملاتي مع الخزنة)
+// ============================================================================
+
+function renderSafeTab() {
+  const targetYear = state.year;
+  const isYearScope = !!state.safeShowYear;
+  const targetMonth = state.safeMonth || state.month;
+
+  // Sync inputs
+  const safeMonthSelect = document.getElementById('safeMonthSelect');
+  if (safeMonthSelect) {
+    safeMonthSelect.value = String(targetMonth);
+    safeMonthSelect.disabled = isYearScope;
+  }
+  const chkSafeYear = document.getElementById('chkSafeShowYear');
+  if (chkSafeYear) {
+    chkSafeYear.checked = isYearScope;
+  }
+
+  // Update scope labels
+  const scopeText = isYearScope 
+    ? `سنة ${targetYear}` 
+    : `شهر ${ARABIC_MONTHS[targetMonth]} ${targetYear}`;
+
+  const wScopeEl = document.getElementById('safeWithdrawalsScope');
+  if (wScopeEl) wScopeEl.textContent = scopeText;
+  const iScopeEl = document.getElementById('safeInvoicesScope');
+  if (iScopeEl) iScopeEl.textContent = scopeText;
+
+  // Auto-fill button label
+  const curMonthLabels = document.querySelectorAll('#tab-safe .current-month-label');
+  curMonthLabels.forEach(el => {
+    el.textContent = ARABIC_MONTHS[targetMonth];
+  });
+
+  // Set default date for invoice input if empty
+  const safeInvoiceDate = document.getElementById('safeInvoiceDate');
+  if (safeInvoiceDate && !safeInvoiceDate.value) {
+    safeInvoiceDate.value = state.selectedDate;
+  }
+
+  // 1. Gather Daily Withdrawals
+  let totalWithdrawn = 0;
+  const withdrawalsList = [];
+
+  const startM = isYearScope ? 1 : targetMonth;
+  const endM = isYearScope ? 12 : targetMonth;
+
+  for (let m = startM; m <= endM; m++) {
+    const daysCount = getDaysInMonth(targetYear, m);
+    for (let d = 1; d <= daysCount; d++) {
+      const dk = formatDateKey(targetYear, m, d);
+      const rec = getDayReceived(dk);
+      if (rec > 0) {
+        totalWithdrawn += rec;
+        const dt = new Date(targetYear, m - 1, d);
+        const dayName = ARABIC_DAYS[dt.getDay()];
+        const totals = getDayTotals(dk);
+
+        // Build list of who received cash
+        const dayEntries = state.data.entries[dk] || {};
+        const recipients = [];
+        for (const [pid, entry] of Object.entries(dayEntries)) {
+          const cashVal = Number(entry.cash) || 0;
+          if (cashVal > 0) {
+            const p = state.data.people.find(person => person.id === pid);
+            const pName = p ? getPersonDisplayName(p) : 'شخص';
+            recipients.push(`${pName} (${formatNumber(cashVal)})`);
+          }
+        }
+
+        withdrawalsList.push({
+          date: dk,
+          dayName,
+          amount: rec,
+          distributed: totals.distributed,
+          extraAmount: totals.extraAmount,
+          extraNote: totals.extraNote,
+          remaining: totals.remaining,
+          returnedCashTotal: totals.returnedCashTotal,
+          recipientsSummary: recipients.join('، ')
+        });
+      }
+    }
+  }
+
+  // 2. Gather Safe Invoices
+  const safeInvoicesList = isYearScope 
+    ? getSafeInvoicesForYear(targetYear)
+    : getSafeInvoicesForMonth(targetYear, targetMonth);
+
+  const totalInvoices = safeInvoicesList.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+
+  // 3. Net Balance Calculation
+  const netBalance = totalWithdrawn - totalInvoices;
+
+  // Update KPIs
+  const wTotalEl = document.getElementById('safeWithdrawnTotal');
+  if (wTotalEl) wTotalEl.textContent = `${formatNumber(totalWithdrawn)} ر.ق`;
+  const wSubEl = document.getElementById('safeWithdrawnSub');
+  if (wSubEl) wSubEl.textContent = `إجمالي سحوبات ${scopeText}`;
+
+  const iTotalEl = document.getElementById('safeInvoicesTotal');
+  if (iTotalEl) iTotalEl.textContent = `${formatNumber(totalInvoices)} ر.ق`;
+  const iSubEl = document.getElementById('safeInvoicesSub');
+  if (iSubEl) iSubEl.textContent = `فواتير مسلّمة في ${scopeText}`;
+
+  const netBalEl = document.getElementById('safeNetBalance');
+  const netStatEl = document.getElementById('safeNetStatus');
+  if (netBalEl) {
+    netBalEl.textContent = `${formatNumber(Math.abs(netBalance))} ر.ق`;
+    if (Math.abs(netBalance) < 0.001) {
+      netBalEl.className = 'kpi-value text-green';
+      if (netStatEl) {
+        netStatEl.textContent = 'خالص ومصفى بالكامل مع الخزنة ✓';
+        netStatEl.className = 'kpi-sub-split text-green';
+      }
+    } else if (netBalance > 0) {
+      netBalEl.className = 'kpi-value text-amber';
+      if (netStatEl) {
+        netStatEl.textContent = `مطلوب منك تقديم فواتير بقيمة: ${formatNumber(netBalance)} ر.ق ⚠️`;
+        netStatEl.className = 'kpi-sub-split text-amber';
+      }
+    } else {
+      netBalEl.className = 'kpi-value text-blue';
+      if (netStatEl) {
+        netStatEl.textContent = `لك فائض فواتير لدى الخزنة: ${formatNumber(Math.abs(netBalance))} ر.ق ℹ️`;
+        netStatEl.className = 'kpi-sub-split text-blue';
+      }
+    }
+  }
+
+  // Render Table 1: Daily Withdrawals Body
+  const tbodyWithdrawals = document.getElementById('safeWithdrawalsBody');
+  if (tbodyWithdrawals) {
+    tbodyWithdrawals.innerHTML = '';
+    if (withdrawalsList.length === 0) {
+      tbodyWithdrawals.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align: center; padding: 24px; color: var(--text-muted);">
+            لا توجد سحوبات نقدية مسجلة من الخزينة في ${scopeText}. (تظهر المبالغ تلقائياً مما تسجله في خانة "المستلم اليومي").
+          </td>
+        </tr>
+      `;
+    } else {
+      withdrawalsList.sort((a, b) => b.date.localeCompare(a.date));
+      withdrawalsList.forEach((w, idx) => {
+        const tr = document.createElement('tr');
+        
+        let distBadge = '';
+        if (w.distributed > 0) {
+          distBadge += `<span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.85rem; margin-left: 6px;">موزع سُلف: ${formatNumber(w.distributed)} ر.ق</span>`;
+        }
+        if (w.extraAmount > 0) {
+          distBadge += `<span style="display: inline-block; background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.85rem; margin-left: 6px;">مصروف جانبي: ${formatNumber(w.extraAmount)} ر.ق ${w.extraNote ? `(${escapeHtml(w.extraNote)})` : ''}</span>`;
+        }
+        if (w.returnedCashTotal > 0) {
+          distBadge += `<span style="display: inline-block; background: #f0fdf4; color: #15803d; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.85rem; margin-left: 6px;">كاش مرتجع: ${formatNumber(w.returnedCashTotal)} ر.ق</span>`;
+        }
+        if (w.remaining !== 0) {
+          const remColor = w.remaining > 0 ? '#15803d' : '#b91c1c';
+          distBadge += `<span style="display: inline-block; background: #f1f5f9; color: ${remColor}; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.85rem;">المتبقي بالدرج: ${formatNumber(w.remaining)} ر.ق</span>`;
+        }
+
+        let recipientsHtml = '';
+        if (w.recipientsSummary) {
+          recipientsHtml = `<div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">👥 <strong>المستلمون:</strong> ${escapeHtml(w.recipientsSummary)}</div>`;
+        }
+
+        tr.innerHTML = `
+          <td><strong>${idx + 1}</strong></td>
+          <td><strong>${w.date}</strong></td>
+          <td>${w.dayName}</td>
+          <td style="font-weight: 800; color: var(--green); font-size: 1.05rem;">${formatNumber(w.amount)} ر.ق</td>
+          <td>
+            <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
+              ${distBadge || '<span class="text-muted">لم يُوزع في هذا اليوم</span>'}
+            </div>
+            ${recipientsHtml}
+          </td>
+        `;
+        tbodyWithdrawals.appendChild(tr);
+      });
+    }
+
+    const footWithdrawalsEl = document.getElementById('footSafeWithdrawalsTotal');
+    if (footWithdrawalsEl) footWithdrawalsEl.textContent = `${formatNumber(totalWithdrawn)} ر.ق`;
+  }
+
+  // Render Table 2: Safe Invoices Body
+  const tbodyInvoices = document.getElementById('safeInvoicesBody');
+  if (tbodyInvoices) {
+    tbodyInvoices.innerHTML = '';
+    const sortedInvoices = [...safeInvoicesList].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    if (sortedInvoices.length === 0) {
+      tbodyInvoices.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted);">
+            لم يتم تسجيل فواتير مسلّمة للخزنة في ${scopeText}. يمكنك تسجيل الفواتير من النموذج أعلاه أو الضغط على زر "سحب فواتير سائقي شهر" لتعبئتها بضغطة زر واحدة ⚡.
+          </td>
+        </tr>
+      `;
+    } else {
+      sortedInvoices.forEach((inv, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${idx + 1}</strong></td>
+          <td><strong>${inv.date}</strong></td>
+          <td style="font-weight: 800; color: var(--purple); font-size: 1.05rem;">${formatNumber(inv.amount)} ر.ق</td>
+          <td>${escapeHtml(inv.ref) || '-'}</td>
+          <td>${escapeHtml(inv.note) || '-'}</td>
+          <td class="no-print">
+            <button type="button" class="btn btn-sm btn-outline" data-edit-safe-inv="${inv.id}" title="تعديل">✏️</button>
+            <button type="button" class="btn btn-sm btn-outline text-danger" data-del-safe-inv="${inv.id}" title="حذف">🗑️</button>
+          </td>
+        `;
+        tbodyInvoices.appendChild(tr);
+      });
+
+      // Bind Edit / Delete buttons
+      tbodyInvoices.querySelectorAll('[data-edit-safe-inv]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-edit-safe-inv');
+          const item = (state.data.safeInvoices || []).find(x => x.id === id);
+          if (item) {
+            state.editingSafeInvoiceId = item.id;
+            document.getElementById('safeInvoiceDate').value = item.date;
+            document.getElementById('safeInvoiceAmount').value = item.amount;
+            document.getElementById('safeInvoiceRef').value = item.ref || '';
+            document.getElementById('safeInvoiceNote').value = item.note || '';
+
+            const btnAdd = document.getElementById('btnAddSafeInvoice');
+            if (btnAdd) {
+              btnAdd.textContent = '💾 حفظ تعديل الفاتورة';
+              btnAdd.className = 'btn btn-primary';
+            }
+            const btnCancel = document.getElementById('btnCancelEditSafeInvoice');
+            if (btnCancel) btnCancel.classList.remove('hidden');
+
+            document.getElementById('safeInvoiceAmount').focus();
+            showToast('وضع تعديل الفاتورة: عدّل المبالغ ثم اضغط حفظ');
+          }
+        });
+      });
+
+      tbodyInvoices.querySelectorAll('[data-del-safe-inv]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-del-safe-inv');
+          if (confirm('هل أنت متأكد من حذف هذه الفاتورة المسلّمة للخزنة؟')) {
+            state.data.safeInvoices = (state.data.safeInvoices || []).filter(x => x.id !== id);
+            if (state.editingSafeInvoiceId === id) {
+              state.editingSafeInvoiceId = null;
+              const btnAdd = document.getElementById('btnAddSafeInvoice');
+              if (btnAdd) {
+                btnAdd.textContent = '📑 حفظ الفاتورة المسلّمة للخزنة';
+                btnAdd.className = 'btn btn-primary';
+              }
+              const btnCancel = document.getElementById('btnCancelEditSafeInvoice');
+              if (btnCancel) btnCancel.classList.add('hidden');
+            }
+            saveState();
+            renderSafeTab();
+            showToast('تم حذف الفاتورة بنجاح');
+          }
+        });
+      });
+    }
+
+    const footInvoicesEl = document.getElementById('footSafeInvoicesTotal');
+    if (footInvoicesEl) footInvoicesEl.textContent = `${formatNumber(totalInvoices)} ر.ق`;
+  }
+
+  // Render Net Balance Summary Card Content
+  const sumContentEl = document.getElementById('safeNetSummaryContent');
+  if (sumContentEl) {
+    let summaryHtml = `
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px;">
+        <div style="padding: 10px 14px; background: rgba(255,255,255,0.7); border-radius: 8px; border: 1px solid #fed7aa;">
+          <span style="display: block; font-size: 0.9rem; color: #78350f;">📥 إجمالي ما سحبته كاش:</span>
+          <strong style="font-size: 1.3rem; color: var(--green);">${formatNumber(totalWithdrawn)} ر.ق</strong>
+        </div>
+        <div style="padding: 10px 14px; background: rgba(255,255,255,0.7); border-radius: 8px; border: 1px solid #fed7aa;">
+          <span style="display: block; font-size: 0.9rem; color: #78350f;">📤 إجمالي الفواتير المسلّمة:</span>
+          <strong style="font-size: 1.3rem; color: var(--purple);">${formatNumber(totalInvoices)} ر.ق</strong>
+        </div>
+        <div style="padding: 10px 14px; background: rgba(255,255,255,0.7); border-radius: 8px; border: 1px solid #fed7aa;">
+          <span style="display: block; font-size: 0.9rem; color: #78350f;">⚖️ الصافي المعلق:</span>
+          <strong style="font-size: 1.3rem; ${netBalance > 0 ? 'color: #b45309;' : (netBalance < 0 ? 'color: #1d4ed8;' : 'color: #15803d;')}">
+            ${formatNumber(Math.abs(netBalance))} ر.ق
+          </strong>
+        </div>
+      </div>
+    `;
+
+    if (Math.abs(netBalance) < 0.001) {
+      summaryHtml += `
+        <div style="padding: 12px; background: #ecfdf5; border-radius: 8px; border: 1px solid #a7f3d0; color: #065f46; font-weight: 700;">
+          ✅ ممتاز! حسابك مع الخزينة خالص ومصفى تماماً عن ${scopeText}. الفواتير المسلّمة غطّت بالكامل جميع ما سحبته كاش.
+        </div>
+      `;
+    } else if (netBalance > 0) {
+      summaryHtml += `
+        <div style="padding: 12px; background: #fff7ed; border-radius: 8px; border: 1px solid #fdba74; color: #9a3412; font-weight: 700;">
+          ⚠️ موقف الحساب: أنت سحبت كاش أكثر مما سلّمت فواتير. المتبقي بذمتك لتقديمه للخزينة (سواء فواتير متبقية أو رد كاش) هو: <span style="font-size: 1.25rem; font-weight: 800;">${formatNumber(netBalance)} ر.ق</span>.
+        </div>
+      `;
+    } else {
+      summaryHtml += `
+        <div style="padding: 12px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe; color: #1e40af; font-weight: 700;">
+          ℹ️ موقف الحساب: الفواتير التي سلّمتها تتجاوز إجمالي ما سحبته كاش. لك رصيد مستحق لدى الخزنة أو استعاضة بقيمة: <span style="font-size: 1.25rem; font-weight: 800;">${formatNumber(Math.abs(netBalance))} ر.ق</span>.
+        </div>
+      `;
+    }
+
+    sumContentEl.innerHTML = summaryHtml;
+  }
+}
+
 // Replenishment Statement Modal Logic
 function openReplenishmentModal() {
   const mRecList = getCustodyReceiptsForMonth(state.year, state.month);
@@ -2872,6 +3207,7 @@ function renderAll() {
   if (state.activeTab === 'annual') renderAnnualTab();
   if (state.activeTab === 'people') renderPeopleManagementTab();
   if (state.activeTab === 'custody') renderCustodyTab();
+  if (state.activeTab === 'safe') renderSafeTab();
 }
 
 function stepWorkday(direction) {
@@ -2987,6 +3323,49 @@ function exportCurrentViewToExcel() {
     (state.data.custodySettlements || []).forEach((s, idx) => {
       csvRows.push([idx + 1, s.date, s.period || '', s.amount, s.ref || '', s.note || '']);
     });
+  } else if (state.activeTab === 'safe') {
+    const isYear = !!state.safeShowYear;
+    const targetM = state.safeMonth || state.month;
+    filename = isYear 
+      ? `معاملاتي_مع_الخزنة_${state.year}.csv`
+      : `معاملاتي_مع_الخزنة_${ARABIC_MONTHS[targetM]}_${state.year}.csv`;
+    
+    csvRows.push(['=== كشف حساب معاملاتي مع الخزنة ===']);
+    csvRows.push(['الفترة', isYear ? `سنة ${state.year}` : `شهر ${ARABIC_MONTHS[targetM]} ${state.year}`]);
+    csvRows.push([]);
+    csvRows.push(['=== 1. السحوبات النقدية اليومية من الخزنة ===']);
+    csvRows.push(['م', 'التاريخ', 'المبلغ المسحوب (ر.ق)', 'الموزع سُلف', 'المتبقي']);
+
+    const startM = isYear ? 1 : targetM;
+    const endM = isYear ? 12 : targetM;
+    let idxW = 1;
+    let totalW = 0;
+    for (let m = startM; m <= endM; m++) {
+      const days = getDaysInMonth(state.year, m);
+      for (let d = 1; d <= days; d++) {
+        const dk = formatDateKey(state.year, m, d);
+        const rec = getDayReceived(dk);
+        if (rec > 0) {
+          totalW += rec;
+          const totals = getDayTotals(dk);
+          csvRows.push([idxW++, dk, rec, totals.distributed, totals.remaining]);
+        }
+      }
+    }
+    csvRows.push(['إجمالي السحوبات', '', totalW]);
+    csvRows.push([]);
+
+    csvRows.push(['=== 2. الفواتير المسلّمة للخزنة ===']);
+    csvRows.push(['م', 'التاريخ', 'المبلغ (ر.ق)', 'رقم الفاتورة/المرجع', 'البيان']);
+    const safeInvs = isYear ? getSafeInvoicesForYear(state.year) : getSafeInvoicesForMonth(state.year, targetM);
+    let totalI = 0;
+    safeInvs.forEach((inv, idx) => {
+      totalI += (Number(inv.amount) || 0);
+      csvRows.push([idx + 1, inv.date, inv.amount, inv.ref || '', inv.note || '']);
+    });
+    csvRows.push(['إجمالي الفواتير المسلّمة', '', totalI]);
+    csvRows.push([]);
+    csvRows.push(['الصافي المعلق (سحوبات - فواتير)', '', totalW - totalI]);
   } else {
     const daysCount = getDaysInMonth(state.year, state.month);
     const header = ['الرقم', 'الاسم', 'الفئة', 'السيارة/القسم'];
@@ -3052,6 +3431,10 @@ function printReportWithHeader() {
       subEl.textContent = `التقرير السنوي وتجميع الشهور — سنة ${state.year}`;
     } else if (state.activeTab === 'custody') {
       subEl.textContent = `سجل عهدة الشركة ومطابقة الخزنة — سنة ${state.year}`;
+    } else if (state.activeTab === 'safe') {
+      const isYear = !!state.safeShowYear;
+      const targetM = state.safeMonth || state.month;
+      subEl.textContent = `كشف حساب معاملاتي مع الخزنة — ${isYear ? `سنة ${state.year}` : `شهر ${ARABIC_MONTHS[targetM]} ${state.year}`}`;
     } else {
       subEl.textContent = `قائمة السائقين والستاف المسجلين`;
     }
@@ -3669,6 +4052,98 @@ function bindEvents() {
     showToast('تم إلغاء تعديل كشف التصفية');
   });
 
+  // Tab 7: Safe Transactions Controls (معاملاتي مع الخزنة)
+  document.getElementById('safeMonthSelect')?.addEventListener('change', (e) => {
+    state.safeMonth = Number(e.target.value);
+    renderSafeTab();
+  });
+
+  document.getElementById('chkSafeShowYear')?.addEventListener('change', (e) => {
+    state.safeShowYear = e.target.checked;
+    renderSafeTab();
+  });
+
+  document.getElementById('btnAddSafeInvoice')?.addEventListener('click', () => {
+    const dateVal = document.getElementById('safeInvoiceDate').value || state.selectedDate;
+    const amountVal = Number(document.getElementById('safeInvoiceAmount').value) || 0;
+    const refVal = document.getElementById('safeInvoiceRef').value.trim();
+    const noteVal = document.getElementById('safeInvoiceNote').value.trim();
+
+    if (amountVal <= 0) {
+      alert('يرجى كتابة مبلغ الفاتورة المسلّمة للخزنة بشكل صحيح');
+      return;
+    }
+
+    state.data.safeInvoices = state.data.safeInvoices || [];
+
+    if (state.editingSafeInvoiceId) {
+      const idx = state.data.safeInvoices.findIndex(inv => inv.id === state.editingSafeInvoiceId);
+      if (idx !== -1) {
+        state.data.safeInvoices[idx] = {
+          ...state.data.safeInvoices[idx],
+          date: dateVal,
+          amount: amountVal,
+          ref: refVal,
+          note: noteVal
+        };
+      }
+      state.editingSafeInvoiceId = null;
+      const btnAdd = document.getElementById('btnAddSafeInvoice');
+      if (btnAdd) {
+        btnAdd.textContent = '📑 حفظ الفاتورة المسلّمة للخزنة';
+        btnAdd.className = 'btn btn-primary';
+      }
+      const btnCancel = document.getElementById('btnCancelEditSafeInvoice');
+      if (btnCancel) btnCancel.classList.add('hidden');
+      showToast(`تم حفظ تعديل الفاتورة بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
+    } else {
+      state.data.safeInvoices.push({
+        id: 'si_' + Date.now(),
+        date: dateVal,
+        amount: amountVal,
+        ref: refVal,
+        note: noteVal
+      });
+      showToast(`تم تسجيل الفاتورة المسلّمة للخزنة بمبلغ ${formatNumber(amountVal)} ر.ق بنجاح ✓`);
+    }
+
+    document.getElementById('safeInvoiceAmount').value = '';
+    document.getElementById('safeInvoiceRef').value = '';
+    document.getElementById('safeInvoiceNote').value = '';
+
+    saveState();
+    renderSafeTab();
+  });
+
+  document.getElementById('btnCancelEditSafeInvoice')?.addEventListener('click', () => {
+    state.editingSafeInvoiceId = null;
+    document.getElementById('safeInvoiceAmount').value = '';
+    document.getElementById('safeInvoiceRef').value = '';
+    document.getElementById('safeInvoiceNote').value = '';
+    const btnAdd = document.getElementById('btnAddSafeInvoice');
+    if (btnAdd) {
+      btnAdd.textContent = '📑 حفظ الفاتورة المسلّمة للخزنة';
+      btnAdd.className = 'btn btn-primary';
+    }
+    const btnCancel = document.getElementById('btnCancelEditSafeInvoice');
+    if (btnCancel) btnCancel.classList.add('hidden');
+    showToast('تم إلغاء تعديل الفاتورة');
+  });
+
+  document.getElementById('btnAutoFillSafeMonthInvoices')?.addEventListener('click', () => {
+    const targetMonth = state.safeMonth || state.month;
+    const sumInv = calculateMonthDriverInvoices(state.year, targetMonth);
+    const amtInput = document.getElementById('safeInvoiceAmount');
+    const refInput = document.getElementById('safeInvoiceRef');
+    const noteInput = document.getElementById('safeInvoiceNote');
+    if (amtInput) amtInput.value = sumInv;
+    if (refInput && !refInput.value) refInput.value = `فواتير شهر ${ARABIC_MONTHS[targetMonth]}`;
+    if (noteInput && !noteInput.value) noteInput.value = `تسوية فواتير سيارات وسائقي شهر ${ARABIC_MONTHS[targetMonth]} ${state.year}`;
+    showToast(`تم سحب إجمالي فواتير شهر ${ARABIC_MONTHS[targetMonth]} (${formatNumber(sumInv)} ر.ق) بنجاح ⚡`);
+  });
+
+  document.getElementById('btnPrintSafeStatement')?.addEventListener('click', printReportWithHeader);
+
   document.getElementById('dailyExtraExcludeCompany')?.addEventListener('change', (e) => {
     const isExcluded = e.target.checked;
     setDayExtra(state.selectedDate, { excludeFromCompany: isExcluded });
@@ -3740,7 +4215,8 @@ function bindEvents() {
             dailyExtras: typeof parsed.dailyExtras === 'object' && parsed.dailyExtras !== null ? parsed.dailyExtras : {},
             entries: typeof parsed.entries === 'object' && parsed.entries !== null ? parsed.entries : {},
             custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : [],
-            custodySettlements: Array.isArray(parsed.custodySettlements) ? parsed.custodySettlements : []
+            custodySettlements: Array.isArray(parsed.custodySettlements) ? parsed.custodySettlements : [],
+            safeInvoices: Array.isArray(parsed.safeInvoices) ? parsed.safeInvoices : []
           };
           saveState();
           renderAll();

@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#1e3a8a" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=20261027c" />
+  <link rel="stylesheet" href="styles.css?v=20261031a" />
 </head>
 <body class="senior-friendly">
   <!-- Official Print-Only Header (Appears on Paper/PDF when printing any report) -->
@@ -154,6 +154,13 @@
       <div>
         <span class="tab-title">6. عهدة الشركة والخزنة</span>
         <span class="tab-desc">سجل استلام العهدة والمتبقي بالدرج</span>
+      </div>
+    </button>
+    <button class="nav-tab" data-tab="safe">
+      <span class="tab-icon">🏦</span>
+      <div>
+        <span class="tab-title">7. معاملاتي مع الخزنة</span>
+        <span class="tab-desc">حساب السحوبات والفواتير مع الخزينة</span>
       </div>
     </button>
   </nav>
@@ -991,6 +998,165 @@
       </div>
     </section>
 
+    <!-- ==================== TAB 7: MY TRANSACTIONS WITH THE TREASURY / SAFE ==================== -->
+    <section id="tab-safe" class="tab-section">
+      <div class="card monthly-header-card">
+        <div class="monthly-title-row">
+          <div>
+            <h2>🏦 معاملاتي مع الخزنة (سحوبات يومية وتسليم فواتير)</h2>
+            <p class="text-muted">حساب مستقل يعرض ما سحبته يومياً من الخزينة مقابل ما سلّمته من فواتير — لمعرفة الصافي النهائي المعلق</p>
+          </div>
+          <div class="monthly-controls no-print">
+            <button id="btnPrintSafeStatement" class="btn btn-primary" title="طباعة كشف حساب معاملات الخزنة">
+              🖨️ طباعة كشف الخزنة
+            </button>
+          </div>
+        </div>
+
+        <!-- Safe KPI Cards -->
+        <div class="monthly-kpis">
+          <div class="kpi-item">
+            <span class="kpi-label">💵 إجمالي السحوبات من الخزنة</span>
+            <strong class="kpi-value text-green" id="safeWithdrawnTotal">0</strong>
+            <small class="kpi-sub-split" id="safeWithdrawnSub">ما سحبته من الخزينة في هذا الشهر</small>
+          </div>
+          <div class="kpi-item">
+            <span class="kpi-label">🧾 إجمالي الفواتير المسلّمة للخزنة</span>
+            <strong class="kpi-value text-purple" id="safeInvoicesTotal">0</strong>
+            <small class="kpi-sub-split" id="safeInvoicesSub">فواتير قدمتها للخزنة لتغطية السحوبات</small>
+          </div>
+          <div class="kpi-item" style="border: 2px dashed #f59e0b; background: #fffbeb;">
+            <span class="kpi-label" style="color: #92400e;">⚖️ الصافي المعلق (سحوبات - فواتير)</span>
+            <strong class="kpi-value" id="safeNetBalance">0</strong>
+            <small class="kpi-sub-split" id="safeNetStatus">الفرق بين ما سحبته وما سلّمته</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Safe Month Selector Strip -->
+      <div class="card no-print" style="padding: 12px 16px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <strong style="white-space: nowrap;">📅 عرض شهر:</strong>
+          <select id="safeMonthSelect" class="select-control" style="min-width: 160px;" aria-label="اختيار الشهر لعرض معاملات الخزنة">
+            <option value="1">1 - يناير</option>
+            <option value="2">2 - فبراير</option>
+            <option value="3">3 - مارس</option>
+            <option value="4">4 - إبريل</option>
+            <option value="5">5 - مايو</option>
+            <option value="6">6 - يونيو</option>
+            <option value="7">7 - يوليو</option>
+            <option value="8">8 - أغسطس</option>
+            <option value="9">9 - سبتمبر</option>
+            <option value="10">10 - أكتوبر</option>
+            <option value="11">11 - نوفمبر</option>
+            <option value="12">12 - ديسمبر</option>
+          </select>
+          <label class="checkbox-label" style="margin-right: 10px;">
+            <input type="checkbox" id="chkSafeShowYear" />
+            <span>عرض السنة كاملة</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Form: Submit Invoice to Treasury -->
+      <div class="card no-print" style="margin-top: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+          <h3 style="margin: 0; font-size: 1.05rem; color: var(--purple);">
+            📑 تسجيل فاتورة مسلّمة للخزنة (تسوية سحوبات):
+          </h3>
+          <button type="button" id="btnAutoFillSafeMonthInvoices" class="btn btn-sm btn-outline" style="border-color: var(--purple); color: var(--purple); font-weight: 700;">
+            ⚡ سحب فواتير سائقي شهر (<span class="current-month-label">يناير</span>)
+          </button>
+        </div>
+        <div class="custody-receipt-form">
+          <div class="field-group" style="width: 100%;">
+            <label>تاريخ تسليم الفاتورة:</label>
+            <input type="date" id="safeInvoiceDate" class="input-control" aria-label="تاريخ تسليم الفاتورة للخزنة" />
+          </div>
+          <div class="field-group" style="width: 100%;">
+            <label>مبلغ الفاتورة / الفواتير (ر.ق):</label>
+            <input type="number" id="safeInvoiceAmount" class="input-control" placeholder="مثال: 5000" step="any" min="0" />
+          </div>
+          <div class="field-group" style="width: 100%;">
+            <label>رقم الفاتورة / المرجع:</label>
+            <input type="text" id="safeInvoiceRef" class="input-control" placeholder="رقم الفاتورة أو الكشف..." />
+          </div>
+          <div class="field-group field-grow" style="width: 100%;">
+            <label>البيان / ملاحظات:</label>
+            <input type="text" id="safeInvoiceNote" class="input-control" placeholder="مثال: فواتير بترول أسبوع 1..." />
+          </div>
+          <div class="field-group field-btn" style="width: 100%; margin-top: 8px;">
+            <button id="btnAddSafeInvoice" class="btn btn-primary" style="width: 100%;">📑 حفظ الفاتورة المسلّمة للخزنة</button>
+            <button type="button" id="btnCancelEditSafeInvoice" class="btn btn-sm btn-outline hidden" style="width: 100%; margin-top: 6px;">إلغاء التعديل ✕</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table 1: Daily Withdrawals (Auto from dailyReceipts) -->
+      <div class="card table-card">
+        <div class="table-toolbar no-print">
+          <h3>📋 سجل السحوبات اليومية من الخزنة في <span id="safeWithdrawalsScope">شهر يناير</span> <span class="current-year-label">2026</span></h3>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 55px;">#</th>
+                <th style="width: 140px;">التاريخ</th>
+                <th style="width: 100px;">اليوم</th>
+                <th style="width: 180px;">💵 المبلغ المسحوب (ر.ق)</th>
+                <th>📦 كيف وُزّع هذا المبلغ؟</th>
+              </tr>
+            </thead>
+            <tbody id="safeWithdrawalsBody"></tbody>
+            <tfoot>
+              <tr class="totals-row">
+                <td colspan="3"><strong>إجمالي السحوبات</strong></td>
+                <td><strong id="footSafeWithdrawalsTotal" style="color: #fff; font-size: 1.15rem;">0</strong></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Table 2: Invoices Submitted to Treasury -->
+      <div class="card table-card">
+        <div class="table-toolbar no-print">
+          <h3>🧾 سجل الفواتير المسلّمة للخزنة في <span id="safeInvoicesScope">شهر يناير</span> <span class="current-year-label">2026</span></h3>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 55px;">#</th>
+                <th style="width: 140px;">التاريخ</th>
+                <th style="width: 180px;">🧾 مبلغ الفاتورة (ر.ق)</th>
+                <th style="width: 180px;">رقم الفاتورة / المرجع</th>
+                <th>البيان / الملاحظات</th>
+                <th style="width: 125px;" class="no-print">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="safeInvoicesBody"></tbody>
+            <tfoot>
+              <tr class="totals-row">
+                <td colspan="2"><strong>إجمالي الفواتير المسلّمة</strong></td>
+                <td><strong id="footSafeInvoicesTotal" style="color: #fff; font-size: 1.15rem;">0</strong></td>
+                <td colspan="3"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Net Balance Summary Card -->
+      <div class="card" id="safeNetSummaryCard" style="border: 2px solid #f59e0b; background: #fffbeb;">
+        <h3 style="margin-bottom: 12px; color: #92400e;">⚖️ ملخص الحساب الصافي مع الخزنة:</h3>
+        <div id="safeNetSummaryContent" style="font-size: 1.1rem; line-height: 2;"></div>
+      </div>
+
+    </section>
+
   </main>
 
   <!-- ==================== MODAL: MOVE OR COPY DAY'S DISTRIBUTION ==================== -->
@@ -1264,6 +1430,6 @@
   <!-- Toast Notification -->
   <div id="toastContainer" class="toast-container no-print"></div>
 
-  <script src="app.js?v=20261027c"></script>
+  <script src="app.js?v=20261031a"></script>
 </body>
 </html>
