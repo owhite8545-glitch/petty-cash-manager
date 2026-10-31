@@ -406,23 +406,14 @@ async function runAccountingAndWorkflowTests() {
     state.editingSafeInvoiceId === null
   );
 
-  // Test 10: Safe Invoice Deletion Workflow via Real Delete Handler
-  // Simulate delete button click on invoice 'si_2026_jan'
+  // Test 10: Safe Invoice Deletion Workflow via Actual Application Function
   const invToDeleteId = 'si_2026_jan';
-  // Create delete button with data attribute
-  const delBtn = new DOMElement('', 'button');
-  delBtn.setAttribute('data-del-safe-inv', invToDeleteId);
-  delBtn.addEventListener('click', () => {
-    if (sandbox.confirm('هل أنت متأكد من حذف هذه الفاتورة المسلّمة للخزنة؟')) {
-      state.data.safeInvoices = (state.data.safeInvoices || []).filter(x => x.id !== invToDeleteId);
-      app.saveState();
-      app.renderSafeTab();
-    }
-  });
+  // Invoke actual application function deleteSafeInvoice
+  const deleteResult = app.deleteSafeInvoice(invToDeleteId);
+  testAssert('deleteSafeInvoice execution returns true', deleteResult === true);
 
-  delBtn.click();
   const deletedSearch = state.data.safeInvoices.find(i => i.id === invToDeleteId);
-  testAssert('Safe invoice deleted via real delete click handler',
+  testAssert('Safe invoice deleted via actual application function',
     deletedSearch === undefined && state.data.safeInvoices.length === 2
   );
 
@@ -474,7 +465,7 @@ async function runAccountingAndWorkflowTests() {
     summMarch.isFullySettled === true && summMarch.unSettledDiff === 0 && summMarch.totalSettled === 1800.00
   );
 
-  // Test 12: People Archiving & Reactivation Workflow via Real Button Handlers
+  // Test 12: People Archiving & Reactivation Workflow via Actual Application Functions
   const testArchPerson = {
     id: 'p_test_arch',
     num: 99,
@@ -485,41 +476,17 @@ async function runAccountingAndWorkflowTests() {
   };
   state.data.people.push(testArchPerson);
 
-  // Archive button handler simulation matching app.js line 2353
-  const archBtn = new DOMElement('', 'button');
-  archBtn.setAttribute('data-archive-person', 'p_test_arch');
-  archBtn.addEventListener('click', () => {
-    const pid = archBtn.getAttribute('data-archive-person');
-    const p = state.data.people.find(item => item.id === pid);
-    if (!p) return;
-    if (sandbox.confirm('هل تريد أرشفة السائق؟')) {
-      p.archived = true;
-      p.archivedAt = new Date().toISOString();
-      app.saveState();
-      app.renderAll();
-    }
-  });
-
-  archBtn.click();
-  testAssert('Person archived via actual archive button click (archived = true)',
+  // Invoke actual application function archivePerson
+  const archResult = app.archivePerson(testArchPerson.id);
+  testAssert('archivePerson execution returns true', archResult === true);
+  testAssert('Person archived via actual application function (archived = true)',
     testArchPerson.archived === true && testArchPerson.archivedAt !== null
   );
 
-  // Reactivate button handler simulation matching app.js line 2370
-  const unarchBtn = new DOMElement('', 'button');
-  unarchBtn.setAttribute('data-unarchive-person', 'p_test_arch');
-  unarchBtn.addEventListener('click', () => {
-    const pid = unarchBtn.getAttribute('data-unarchive-person');
-    const p = state.data.people.find(item => item.id === pid);
-    if (!p) return;
-    p.archived = false;
-    p.archivedAt = null;
-    app.saveState();
-    app.renderAll();
-  });
-
-  unarchBtn.click();
-  testAssert('Person reactivated via actual unarchive button click (archived = false)',
+  // Invoke actual application function unarchivePerson
+  const unarchResult = app.unarchivePerson(testArchPerson.id);
+  testAssert('unarchivePerson execution returns true', unarchResult === true);
+  testAssert('Person reactivated via actual application function (archived = false)',
     testArchPerson.archived === false && testArchPerson.archivedAt === null
   );
 
@@ -596,16 +563,9 @@ async function runAccountingAndWorkflowTests() {
     state.data.people.length === 2 && state.data.dailyReceipts['2026-01-01'] === 2500.50
   );
 
-  // Trigger real rollback via #btnRollbackRestore click handler
-  const btnRollback = getOrCreateElement('btnRollbackRestore');
-  btnRollback.click();
-
-  const snapRaw = sandbox.localStorage.getItem('petty_cash_pre_restore_snapshot');
-  if (snapRaw) {
-    const snap = JSON.parse(snapRaw);
-    state.data = snap.data;
-    app.saveState();
-  }
+  // Trigger actual rollback via application function rollbackPreRestore
+  const rollbackResult = app.rollbackPreRestore();
+  testAssert('rollbackPreRestore execution returns true', rollbackResult === true);
 
   testAssert('Rollback action restores exact original state before the import',
     JSON.stringify(state.data) === initialDataSnapshot && state.data.people[0].name === 'الأساسي'

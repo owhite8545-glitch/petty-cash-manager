@@ -1,0 +1,19 @@
+# Vercel Deployment Ignore Rules
+.git
+.github
+.gitignore
+.env*
+.tmp*
+.tmp_edge_e2e_profile
+.tmp_edge_e2e_profile_full
+tests/
+scratch/
+server.js
+PROJECT_MEMORY.md
+test_tab7_verify.js
+*.bat
+*.zip
+*.log
+*.ldb
+*.png
+node_modules/

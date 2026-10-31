@@ -7,8 +7,22 @@
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self';" }
       ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/(server\\.js|PROJECT_MEMORY\\.md|test_tab7_verify\\.js|package\\.json|package-lock\\.json|\\.env.*|\\.git.*)",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/(tests|scratch|\\.tmp_.*)/:path*",
+      "destination": "/",
+      "permanent": false
     }
   ]
 }

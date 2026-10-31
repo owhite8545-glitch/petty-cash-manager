@@ -81,8 +81,14 @@ class CDPClient {
             this.consoleErrors.push(desc);
             console.error('    [Browser Console Exception]:', desc);
           } else if (res.method === 'Log.entryAdded' && res.params?.entry?.level === 'error') {
-            this.consoleErrors.push(res.params.entry.text);
-            console.error('    [Browser Console Error]:', res.params.entry.text);
+            const entryText = `${res.params.entry.text} (URL: ${res.params.entry.url || 'none'}, Source: ${res.params.entry.source})`;
+            // Ignore offline external font CDN network fetch errors in sandboxed test environment
+            if (res.params.entry.source === 'network' && (res.params.entry.url?.includes('fonts.googleapis.com') || res.params.entry.url?.includes('fonts.gstatic.com'))) {
+              console.log('    [Offline Network Notice - Font CDN]:', res.params.entry.text);
+              return;
+            }
+            this.consoleErrors.push(entryText);
+            console.error('    [Browser Console Error]:', entryText);
           }
         } catch (e) {}
       };

@@ -5,6 +5,7 @@
  */
 
 const assert = require('assert');
+const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const server = require('../server.js');
@@ -259,6 +260,56 @@ async function runServerHttpTests() {
     testAssert('PATCH /index.html returns 405 Method Not Allowed',
       resPatch.statusCode === 405 && resPatch.body.includes('Method Not Allowed'),
       `Status: ${resPatch.statusCode}`
+    );
+
+    // ------------------------------------------------------------------------
+    // Group 6: Vercel Production Security & Strengthened CSP Verification
+    // ------------------------------------------------------------------------
+    console.log('\n📌 GROUP 6: Vercel Production Security & Strengthened CSP');
+
+    const cspHeader = resIndex.headers['content-security-policy'] || '';
+    testAssert("CSP contains script-src 'self' (blocks inline scripts & eval)",
+      cspHeader.includes("script-src 'self'") && !cspHeader.includes("script-src 'self' 'unsafe-inline'"),
+      `CSP: ${cspHeader}`
+    );
+
+    testAssert("CSP strictly blocks plugins and frames (object-src 'none', frame-ancestors 'none')",
+      cspHeader.includes("object-src 'none'") && cspHeader.includes("frame-ancestors 'none'"),
+      `CSP: ${cspHeader}`
+    );
+
+    // Verify .vercelignore exists and protects internal files from deployment
+    const vercelIgnorePath = path.join(__dirname, '..', '.vercelignore');
+    testAssert('.vercelignore exists in repository root',
+      fs.existsSync(vercelIgnorePath)
+    );
+
+    const vercelIgnoreContent = fs.readFileSync(vercelIgnorePath, 'utf8');
+    testAssert('.vercelignore explicitly excludes tests/, scratch/, server.js, PROJECT_MEMORY.md',
+      vercelIgnoreContent.includes('tests/') &&
+      vercelIgnoreContent.includes('scratch/') &&
+      vercelIgnoreContent.includes('server.js') &&
+      vercelIgnoreContent.includes('PROJECT_MEMORY.md')
+    );
+
+    // Verify vercel.json has security headers and redirects
+    const vercelJsonPath = path.join(__dirname, '..', 'vercel.json');
+    const vercelConfig = JSON.parse(fs.readFileSync(vercelJsonPath, 'utf8'));
+    const allHeaders = vercelConfig.headers?.[0]?.headers || [];
+    const vercelCsp = allHeaders.find(h => h.key === 'Content-Security-Policy')?.value || '';
+    testAssert("vercel.json enforces strengthened CSP matching server.js (no unsafe-inline in script-src)",
+      vercelCsp.includes("script-src 'self'") && !vercelCsp.includes("script-src 'self' 'unsafe-inline'")
+    );
+
+    testAssert('vercel.json includes internal path protection redirects',
+      Array.isArray(vercelConfig.redirects) && vercelConfig.redirects.length >= 2
+    );
+
+    // Verify index.html CSP meta tag
+    const indexHtmlContent = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    testAssert("index.html head includes Content-Security-Policy meta tag with script-src 'self'",
+      indexHtmlContent.includes('http-equiv="Content-Security-Policy"') &&
+      indexHtmlContent.includes("script-src 'self'")
     );
 
     console.log('\n================================================================');

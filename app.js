@@ -413,6 +413,55 @@ function getReportablePeople(year) {
   return list.length > 0 ? list : all.filter(p => !p.archived);
 }
 
+function archivePerson(personId) {
+  const p = (state.data.people || []).find(item => item.id === personId);
+  if (!p) return false;
+  p.archived = true;
+  p.archivedAt = new Date().toISOString();
+  saveState();
+  renderAll();
+  return true;
+}
+
+function unarchivePerson(personId) {
+  const p = (state.data.people || []).find(item => item.id === personId);
+  if (!p) return false;
+  p.archived = false;
+  p.archivedAt = null;
+  saveState();
+  renderAll();
+  return true;
+}
+
+function deleteSafeInvoice(invoiceId) {
+  state.data.safeInvoices = (state.data.safeInvoices || []).filter(x => x.id !== invoiceId);
+  if (state.editingSafeInvoiceId === invoiceId) {
+    state.editingSafeInvoiceId = null;
+    const btnAdd = document.getElementById('btnAddSafeInvoice');
+    if (btnAdd) {
+      btnAdd.textContent = '📑 حفظ الفاتورة المسلّمة للخزنة';
+      btnAdd.className = 'btn btn-primary';
+    }
+    const btnCancel = document.getElementById('btnCancelEditSafeInvoice');
+    if (btnCancel) btnCancel.classList.add('hidden');
+  }
+  saveState();
+  renderSafeTab();
+  return true;
+}
+
+function rollbackPreRestore() {
+  const snapRaw = localStorage.getItem('petty_cash_pre_restore_snapshot');
+  if (!snapRaw) {
+    throw new Error('لا توجد نقطة تراجع محفوظة');
+  }
+  const snap = JSON.parse(snapRaw);
+  state.data = snap.data;
+  saveState();
+  renderAll();
+  return true;
+}
+
 // ============================================================================
 // Data Access & Calculation Helpers
 // ============================================================================
@@ -2358,10 +2407,7 @@ function renderPeopleManagementTab() {
       if (!p) return;
 
       if (confirm(`هل تريد أرشفة "${getPersonDisplayName(p)}"\n\nالأرشفة تخفيه من شاشات التسجيل اليومي الجديدة مع الاحتفاظ التام بكافة معاملاته وفواتيره في التقارير التاريخية.`)) {
-        p.archived = true;
-        p.archivedAt = new Date().toISOString();
-        saveState();
-        renderAll();
+        archivePerson(pid);
         showToast(`تمت أرشفة ${getPersonDisplayName(p)} بنجاح مع الاحتفاظ بكافة سجلاته المالية 📦`);
       }
     });
@@ -2374,10 +2420,7 @@ function renderPeopleManagementTab() {
       const p = state.data.people.find(item => item.id === pid);
       if (!p) return;
 
-      p.archived = false;
-      p.archivedAt = null;
-      saveState();
-      renderAll();
+      unarchivePerson(pid);
       showToast(`تمت استعادة وتنشيط ${getPersonDisplayName(p)} في جداول التسجيل اليومي بنجاح 🔄`);
     });
   });
@@ -3170,19 +3213,7 @@ function renderSafeTab() {
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-del-safe-inv');
           if (confirm('هل أنت متأكد من حذف هذه الفاتورة المسلّمة للخزنة؟')) {
-            state.data.safeInvoices = (state.data.safeInvoices || []).filter(x => x.id !== id);
-            if (state.editingSafeInvoiceId === id) {
-              state.editingSafeInvoiceId = null;
-              const btnAdd = document.getElementById('btnAddSafeInvoice');
-              if (btnAdd) {
-                btnAdd.textContent = '📑 حفظ الفاتورة المسلّمة للخزنة';
-                btnAdd.className = 'btn btn-primary';
-              }
-              const btnCancel = document.getElementById('btnCancelEditSafeInvoice');
-              if (btnCancel) btnCancel.classList.add('hidden');
-            }
-            saveState();
-            renderSafeTab();
+            deleteSafeInvoice(id);
             showToast('تم حذف الفاتورة بنجاح');
           }
         });
@@ -3808,9 +3839,11 @@ function printVoucherOnly() {
   }, 500);
 }
 
-window.addEventListener('afterprint', () => {
-  document.body.classList.remove('printing-voucher');
-});
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('afterprint', () => {
+    document.body?.classList.remove('printing-voucher');
+  });
+}
 
 const MAX_BACKUP_SIZE = 15 * 1024 * 1024; // 15MB limit
 
@@ -3951,6 +3984,10 @@ function validateBackupPayload(parsed) {
     custodySettlements: sanitizedCustodySettlements,
     safeInvoices: sanitizedSafeInvoices
   };
+}
+
+function migrateLegacyData(raw) {
+  return validateBackupPayload(raw);
 }
 
 function bindEvents() {
@@ -4767,9 +4804,7 @@ function bindEvents() {
       if (!confirm(`هل أنت متأكد من التراجع عن الاستعادة والعودة إلى البيانات السابقة كما كانت (${snap.dateFormatted || ''})؟`)) {
         return;
       }
-      state.data = snap.data;
-      saveState();
-      renderAll();
+      rollbackPreRestore();
       showToast('تم التراجع بنجاح واسترجاع البيانات السابقة بالكامل ✓');
       const statusMsg = document.getElementById('restoreStatusMsg');
       if (statusMsg) {
@@ -4925,7 +4960,12 @@ if (typeof module !== 'undefined' && module.exports) {
     getPeriodSettlementSummary,
     getSafeTabFinancials,
     validateBackupPayload,
+    migrateLegacyData,
     hasPersonAnyEntryInHistory,
+    archivePerson,
+    unarchivePerson,
+    deleteSafeInvoice,
+    rollbackPreRestore,
     getReportablePeople,
     getPersonBalanceBeforeDate,
     getDayTotals,
