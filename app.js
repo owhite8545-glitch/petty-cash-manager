@@ -4085,7 +4085,7 @@ function updateDispatchI18nLabels(isEn) {
   const lblKpi4 = document.getElementById('lblKpiDrawerBalance');
   const subKpi4 = document.getElementById('dispatchKpiDrawerBalanceSub');
 
-  if (lblPrint) lblPrint.textContent = isEn ? 'Print Official Voucher' : 'طباعة السند الرسمي المعتمد';
+  if (lblPrint) lblPrint.textContent = isEn ? 'Print Daily Sheet' : 'طباعة الكشف اليومي';
   if (lblExport) lblExport.textContent = isEn ? 'Export Excel (CSV)' : 'تصدير إكسيل معتمد';
   if (lblWhatsApp) lblWhatsApp.textContent = isEn ? 'Copy WhatsApp Summary' : 'نسخ ملخص الواتساب';
   if (lblDate) lblDate.textContent = isEn ? '📅 Sheet Date:' : '📅 تاريخ اليومية:';
@@ -4115,9 +4115,15 @@ function updateDispatchI18nLabels(isEn) {
   const pCopyLbl = document.getElementById('printCorpCopyLbl');
   const pCopyVal = document.getElementById('printCorpCopyVal');
 
-  if (pComp) pComp.textContent = isEn ? 'LOGISTICS & TRANSPORTATION SERVICES CO. W.L.L.' : 'شركة النقليات والخدمات اللوجستية ش.م.ق';
-  if (pDept) pDept.textContent = isEn ? 'Fleet Operations & Logistics Division — Corporate Treasury & Petty Cash Dept.' : 'إدارة الحركة والعمليات اللوجستية — قسم الخزينة والعهد النقدية';
-  if (pTitle) pTitle.textContent = isEn ? 'DAILY PETTY CASH DISBURSEMENT STATEMENT & VOUCHER' : 'سند وكشف توزيع النقدية اليومي (بيتي كاش)';
+  if (pComp) pComp.textContent = isEn ? 'HELIOPOLIS ELECTRIC COMPANY' : 'شركة هليوبوليس للكهرباء (HELIOPOLIS ELECTRIC COMPANY)';
+  if (pDept) pDept.textContent = isEn ? 'Corporate Treasury & Petty Cash Department' : 'قسم الخزينة والعهد النقدية — Corporate Treasury & Petty Cash Dept.';
+  const pLegal = document.getElementById('printCorpLegalMeta');
+  if (pLegal) {
+    pLegal.textContent = isEn
+      ? 'Official Website: heliopoliselectric.ae | Abu Dhabi: +971 2 641 2641 | Doha: +974 4463 4054'
+      : 'الموقع الرسمي: heliopoliselectric.ae | هاتف أبوظبي: 26412641 (971+) | الدوحة: 44634054 (974+)';
+  }
+  if (pTitle) pTitle.textContent = isEn ? 'DAILY PETTY CASH DISBURSEMENT STATEMENT' : 'كشف الصرف اليومي للعهدة النقدية (DAILY DISBURSEMENT SHEET)';
   if (pVouchNoLbl) pVouchNoLbl.textContent = isEn ? 'Voucher Ref:' : 'رقم السند:';
   if (pDateLbl) pDateLbl.textContent = isEn ? 'Statement Date:' : 'تاريخ اليومية:';
   if (pCurrLbl) pCurrLbl.textContent = isEn ? 'Currency:' : 'العملة:';
@@ -4184,7 +4190,10 @@ function updateDispatchI18nLabels(isEn) {
   if (sRevS) sRevS.textContent = isEn ? 'Name, Signature & Date' : 'الاسم، التوقيع والتاريخ';
   if (sAppT) sAppT.textContent = isEn ? 'Approved By (Financial Controller)' : 'اعتماد / المدير المالي';
   if (sAppS) sAppS.textContent = isEn ? 'Name, Signature & Date' : 'الاسم، التوقيع والتاريخ';
-  if (sSeal) sSeal.textContent = isEn ? 'OFFICIAL CORPORATE SEAL' : 'ختم الشركة الرسمي';
+  const sSealTitle = document.getElementById('signSealTitle');
+  const sSealSub = document.getElementById('signSealSub');
+  if (sSealTitle) sSealTitle.textContent = isEn ? 'HELIOPOLIS ELECTRIC' : 'شركة هليوبوليس للكهرباء';
+  if (sSealSub) sSealSub.textContent = isEn ? 'OFFICIAL COMPANY SEAL' : 'خاتم الاعتماد الرسمي';
 }
 
 function generateDispatchWhatsAppSummary(dateStr, isEn) {

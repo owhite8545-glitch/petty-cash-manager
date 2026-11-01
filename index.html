@@ -16,9 +16,12 @@
 <body class="senior-friendly">
   <!-- Official Print-Only Header (Appears on Paper/PDF when printing any report) -->
   <div class="only-print print-report-header">
-    <div>
-      <h2>كشف حساب النقدية اليومية والفواتير (البيتي كاش - ر.ق)</h2>
-      <p id="printHeaderSubtitle">الفترة: -</p>
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <img src="assets/heliopolis-logo-transparent.png" alt="Heliopolis Electric Company" style="height: 48px; width: auto; object-fit: contain;" />
+      <div>
+        <h2 style="margin: 0; font-size: 1.25rem;">شركة هليوبوليس للكهرباء — HELIOPOLIS ELECTRIC COMPANY</h2>
+        <p id="printHeaderSubtitle" style="margin: 2px 0 0; font-size: 0.85rem; color: #475569;">الفترة: -</p>
+      </div>
     </div>
     <div id="printHeaderDate" style="font-size: 0.9rem; font-weight: 700;"></div>
   </div>
@@ -26,10 +29,10 @@
   <!-- Top Header -->
   <header class="app-header no-print">
     <div class="header-brand">
-      <div class="brand-icon">💰</div>
+      <img src="assets/heliopolis-logo-transparent.png" alt="Heliopolis Electric Company" style="height: 44px; width: auto; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.12)); margin-inline-end: 12px;" />
       <div>
-        <h1>إدارة العُهد النقدية وحركة نقليات السائقين (البيتي كاش)</h1>
-        <p class="subtitle">صندوق العهدة، توزيع النقدية اليومية على السائقين، تصفية الفواتير وكشوف الشهور — دولة قطر (ر.ق)</p>
+        <h1>شركة هليوبوليس للكهرباء — إدارة العُهد النقدية والبيتي كاش</h1>
+        <p class="subtitle">HELIOPOLIS ELECTRIC COMPANY — نظام العهد النقدية اليومية، الفواتير، وحساب الخزينة (heliopoliselectric.ae)</p>
       </div>
     </div>
 
@@ -486,8 +489,8 @@
 
           <!-- Action Buttons -->
           <div class="monthly-controls no-print" style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button id="btnPrintDispatchStatement" class="btn-corporate-print" title="طباعة كشف الصرف اليومي المعتمد">
-              🖨️ <span id="lblPrintDispatch">طباعة الكشف</span>
+            <button id="btnPrintDispatchStatement" class="btn-corporate-print" title="طباعة الكشف اليومي">
+              🖨️ <span id="lblPrintDispatch">طباعة الكشف اليومي</span>
             </button>
             <button id="btnExportDispatchExcel" class="btn btn-outline" title="تصدير كشف الصرف إلى Excel / CSV">
               📊 <span id="lblExportDispatch">تصدير إكسيل</span>
@@ -554,23 +557,23 @@
           <div class="dispatch-corp-letterhead">
             <div class="dispatch-corp-identity">
               <div class="dispatch-corp-logo-group">
-                <div class="dispatch-corp-symbol">🏢</div>
+                <img src="assets/heliopolis-logo-transparent.png" alt="HELIOPOLIS ELECTRIC COMPANY" class="dispatch-corp-logo-img" />
                 <div>
                   <h2 id="printCorpCompanyName" class="dispatch-corp-legal-name">
-                    شركة النقليات والخدمات اللوجستية ش.م.ق
+                    شركة هليوبوليس للكهرباء (HELIOPOLIS ELECTRIC COMPANY)
                   </h2>
                   <div id="printCorpDeptName" class="dispatch-corp-division">
-                    إدارة الحركة والعمليات اللوجستية — قسم الخزينة والعهد النقدية
+                    قسم الخزينة والعهد النقدية — Corporate Treasury & Petty Cash Dept.
                   </div>
-                  <div class="dispatch-corp-legal-meta">
-                    سجل تجاري رقم: 108422 | ص.ب: 44210 الدوحة - قطر | C.R. No: 108422 Doha - Qatar
+                  <div id="printCorpLegalMeta" class="dispatch-corp-legal-meta">
+                    الموقع الرسمي: heliopoliselectric.ae | هاتف أبوظبي: 26412641 (971+) | الدوحة: 44634054 (974+)
                   </div>
                 </div>
               </div>
 
               <div class="dispatch-voucher-badge">
                 <h3 id="printCorpDocTitle" class="dispatch-voucher-title">
-                  سند وكشف توزيع النقدية اليومي (بيتي كاش)
+                  كشف الصرف اليومي للعهدة النقدية (DAILY DISBURSEMENT SHEET)
                 </h3>
               </div>
             </div>
@@ -652,9 +655,9 @@
               <span class="dispatch-sign-sub" id="signApprovedBySub">الاسم، التوقيع والتاريخ</span>
             </div>
             <div class="dispatch-seal-box">
-              <div style="font-size: 1.2rem; margin-bottom: 2px;">🛡️</div>
-              <span id="signSealTitle">ختم الشركة الرسمي</span>
-              <span style="font-size: 0.68rem; color: #94a3b8; margin-top: 2px;">OFFICIAL SEAL</span>
+              <div style="font-size: 1.15rem; font-weight: 900; letter-spacing: 1.5px; color: #0f172a; margin-bottom: 2px;">HEC</div>
+              <span id="signSealTitle" style="font-size: 0.72rem; font-weight: 700; color: #0f172a;">HELIOPOLIS ELECTRIC</span>
+              <span id="signSealSub" style="font-size: 0.62rem; color: #64748b; margin-top: 2px;">خاتم الاعتماد الرسمي</span>
             </div>
           </div>
         </div>

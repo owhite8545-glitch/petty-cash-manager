@@ -12,7 +12,10 @@ const ALLOWED_PUBLIC_FILES = new Set([
   '/app.js',
   '/sw.js',
   '/manifest.json',
-  '/favicon.ico'
+  '/favicon.ico',
+  '/assets/heliopolis-logo-transparent.png',
+  '/assets/heliopolis-logo.jpg',
+  '/assets/heliopolis-banner-logo.jpg'
 ]);
 
 const MIME_TYPES = {

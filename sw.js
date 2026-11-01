@@ -1,12 +1,13 @@
 // Service Worker for Daily Petty Cash Manager
 // Network-First with Cache Fallback and Automatic Cache Update for True Offline Support
-const CACHE_NAME = 'petty-cash-v10-tab3-final';
+const CACHE_NAME = 'petty-cash-v11-heliopolis';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
-  './manifest.json'
+  './manifest.json',
+  './assets/heliopolis-logo-transparent.png'
 ];
 
 self.addEventListener('install', (event) => {

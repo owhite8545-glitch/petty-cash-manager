@@ -1927,7 +1927,17 @@ body.senior-friendly .day-pill .d-name {
   .dispatch-corp-logo-group {
     display: flex !important;
     align-items: center !important;
-    gap: 10px !important;
+    gap: 12px !important;
+  }
+
+  .dispatch-corp-logo-img {
+    height: 52px !important;
+    max-height: 52px !important;
+    width: auto !important;
+    object-fit: contain !important;
+    display: inline-block !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
   }
 
   .dispatch-corp-symbol {
