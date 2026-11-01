@@ -15,5 +15,7 @@ test_tab7_verify.js
 *.zip
 *.log
 *.ldb
-*.png
+/*.png
+!assets/
+!assets/**
 node_modules/
