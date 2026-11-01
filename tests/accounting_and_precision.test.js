@@ -681,6 +681,107 @@ async function runAccountingAndWorkflowTests() {
   );
 
   // --------------------------------------------------------------------------
+  // CATEGORY 7: Tab 7 Audit Trail Persistence, Date-Edit PeriodKey Synchronization & Minor-Unit Excel Precision
+  // --------------------------------------------------------------------------
+  console.log('\n📌 CATEGORY 7: Tab 7 Audit Trail Persistence, PeriodKey Sync & Minor-Unit Excel Precision');
+
+  // Test 40: Audit Trail Persistence across loadState()
+  state.data = app.createCleanData();
+  state.data.people = [
+    { id: 'p_audit_test_1', num: 1, name: 'سائق الفحص', role: 'driver', archived: false, archivedAt: null }
+  ];
+  state.data.safeInvoices = [
+    { id: 'si_audit_1', date: '2026-01-10', amount: 500, periodKey: '2026-01', ref: 'INV-1', status: 'active' }
+  ];
+  state.data.safeInvoicesAudit = [
+    { action: 'reversed', invoiceId: 'si_audit_old', amount: 200, timestamp: new Date().toISOString(), reason: 'إلغاء تدقيقي' }
+  ];
+
+  // Save to storage
+  app.saveState();
+  testAssert('saveState writes safeInvoicesAudit to localStorage',
+    storage['petty_cash_clean_v2'] && JSON.parse(storage['petty_cash_clean_v2']).safeInvoicesAudit.length === 1
+  );
+
+  // Clear memory state and reload from storage
+  state.data = null;
+  app.loadState();
+  testAssert('loadState restores safeInvoicesAudit across page reload/restart',
+    Array.isArray(state.data.safeInvoicesAudit) &&
+    state.data.safeInvoicesAudit.length === 1 &&
+    state.data.safeInvoicesAudit[0].action === 'reversed' &&
+    state.data.safeInvoicesAudit[0].reason === 'إلغاء تدقيقي'
+  );
+
+  // Test 41: Editing safe invoice date updates periodKey to new period and logs audit
+  state.editingSafeInvoiceId = 'si_audit_1';
+  sandbox.document.getElementById('safeInvoiceDate').value = '2026-02-15';
+  sandbox.document.getElementById('safeInvoiceAmount').value = '550.00';
+  sandbox.document.getElementById('safeInvoiceRef').value = 'INV-1-EDITED';
+  sandbox.document.getElementById('safeInvoiceNote').value = 'تم ترحيل الفاتورة لشهر فبراير';
+
+  // Trigger #btnAddSafeInvoice click handler
+  const btnSaveSafe = sandbox.document.getElementById('btnAddSafeInvoice');
+  btnSaveSafe.click();
+
+  const editedInv = state.data.safeInvoices.find(x => x.id === 'si_audit_1');
+  testAssert('Editing invoice date updates periodKey to match new date (2026-02)',
+    editedInv && editedInv.date === '2026-02-15' && editedInv.periodKey === '2026-02'
+  );
+  testAssert('Editing invoice records audit entry in safeInvoicesAudit with action: edited',
+    state.data.safeInvoicesAudit.some(a => a.action === 'edited' && a.invoiceId === 'si_audit_1' && a.periodKey === '2026-02')
+  );
+
+  // Test 42: Period settlement summary strictly isolates months without false warnings
+  state.data.entries['2026-01-05'] = {
+    [state.data.people[0].id]: { cash: 0, invoice: 500, returnedCash: 0 }
+  };
+  state.data.entries['2026-02-05'] = {
+    [state.data.people[0].id]: { cash: 0, invoice: 550, returnedCash: 0 }
+  };
+
+  const janSummary = app.getPeriodSettlementSummary(2026, 1, 'safe', 'driver');
+  testAssert('January period summary is NOT settled by invoice moved to February (no false settlement)',
+    janSummary.totalSettled === 0 && janSummary.isFullySettled === false
+  );
+
+  const febSummary = app.getPeriodSettlementSummary(2026, 2, 'safe', 'driver');
+  testAssert('February period summary correctly accounts for the edited invoice (550.00 settled)',
+    febSummary.totalSettled === 550.00 && febSummary.isFullySettled === true
+  );
+
+  // Test 43: Backup payload validation preserves and sanitizes safeInvoicesAudit
+  const backupWithAudit = {
+    schemaVersion: 5,
+    people: [{ id: 'p1', num: 1, name: 'سائق', role: 'driver' }],
+    dailyReceipts: {},
+    dailyExtras: {},
+    entries: {},
+    custodyReceipts: [],
+    custodySettlements: [],
+    safeInvoices: [],
+    safeInvoicesAudit: [
+      { action: 'reversed', invoiceId: 'si_test', amount: '123.45', timestamp: '2026-02-01T10:00:00Z', reason: 'تدقيق' },
+      { badProp: true } // malformed entry
+    ]
+  };
+  const validatedBackup = app.validateBackupPayload(backupWithAudit);
+  testAssert('validateBackupPayload retains and sanitizes safeInvoicesAudit array',
+    Array.isArray(validatedBackup.safeInvoicesAudit) &&
+    validatedBackup.safeInvoicesAudit.length === 2 &&
+    validatedBackup.safeInvoicesAudit[0].amount === 123.45 &&
+    validatedBackup.safeInvoicesAudit[0].action === 'reversed' &&
+    validatedBackup.safeInvoicesAudit[1].action === 'unknown'
+  );
+
+  // Test 44: CSV cell formatting blocks formula injection (CWE-1236)
+  testAssert('formatCsvCell escapes formula trigger characters (=, +, -, @)',
+    app.formatCsvCell('=1+1') === "\"'=1+1\"" &&
+    app.formatCsvCell('+SUM(A1:A5)') === "\"'"+"+SUM(A1:A5)\"" &&
+    app.formatCsvCell('Regular Text') === '"Regular Text"'
+  );
+
+  // --------------------------------------------------------------------------
   // Summary
   // --------------------------------------------------------------------------
   console.log('\n================================================================');

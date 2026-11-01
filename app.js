@@ -123,7 +123,8 @@ function loadState() {
           entries: parsed.entries || {},
           custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : [],
           custodySettlements: Array.isArray(parsed.custodySettlements) ? parsed.custodySettlements : [],
-          safeInvoices: Array.isArray(parsed.safeInvoices) ? parsed.safeInvoices : []
+          safeInvoices: Array.isArray(parsed.safeInvoices) ? parsed.safeInvoices : [],
+          safeInvoicesAudit: Array.isArray(parsed.safeInvoicesAudit) ? parsed.safeInvoicesAudit : []
         };
       }
     }
@@ -332,6 +333,10 @@ function formatCsvCell(cell) {
 }
 
 function parseDateParts(dateStr) {
+  if (typeof dateStr !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const d = new Date();
+    return { y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate() };
+  }
   const [y, m, d] = dateStr.split('-').map(Number);
   return { y, m, d };
 }
@@ -444,6 +449,10 @@ function deleteSafeInvoice(invoiceId, reason = 'حذف يدوي بواسطة ا�
     state.data.safeInvoicesAudit = state.data.safeInvoicesAudit || [];
     state.data.safeInvoicesAudit.push({
       action: 'deleted',
+      invoiceId: existingItem.id,
+      amount: existingItem.amount,
+      periodKey: existingItem.periodKey,
+      ref: existingItem.ref,
       invoice: { ...existingItem },
       timestamp: new Date().toISOString(),
       reason
@@ -777,8 +786,20 @@ function calculateMonthDriverInvoices(year, month, filterRole = 'all') {
 function getPeriodSettlementSummary(year, month, type = 'safe', filterRole = 'driver') {
   const periodKey = `${year}-${String(month).padStart(2, '0')}`;
   const settlements = type === 'safe'
-    ? (state.data.safeInvoices || []).filter(inv => inv && inv.status !== 'reversed' && (inv.periodKey === periodKey || (inv.ref && inv.ref.includes(periodKey)) || (inv.note && inv.note.includes(periodKey))))
-    : (state.data.custodySettlements || []).filter(s => s && s.status !== 'reversed' && (s.periodKey === periodKey || (s.period && s.period.includes(periodKey))));
+    ? (state.data.safeInvoices || []).filter(inv => {
+        if (!inv || inv.status === 'reversed') return false;
+        if (inv.periodKey) return inv.periodKey === periodKey;
+        return (inv.date && inv.date.startsWith(periodKey)) ||
+               (inv.ref && inv.ref.includes(periodKey)) ||
+               (inv.note && inv.note.includes(periodKey));
+      })
+    : (state.data.custodySettlements || []).filter(s => {
+        if (!s || s.status === 'reversed') return false;
+        if (s.periodKey) return s.periodKey === periodKey;
+        return (s.date && s.date.startsWith(periodKey)) ||
+               (s.period && s.period.includes(periodKey)) ||
+               (s.ref && s.ref.includes(periodKey));
+      });
 
   let settledCents = 0;
   settlements.forEach(s => {
@@ -1835,10 +1856,10 @@ function renderPersonSheet() {
 
   tbody.innerHTML = '';
 
-  let totalCash = 0;
-  let totalInvoices = 0;
-  let totalReturned = 0;
-  let runningBalance = openingBal;
+  let totalCashCents = 0;
+  let totalInvoicesCents = 0;
+  let totalReturnedCents = 0;
+  let runningBalanceCents = toCents(openingBal);
 
   if (Math.abs(openingBal) > 0.001) {
     const trOp = document.createElement('tr');
@@ -1868,17 +1889,23 @@ function renderPersonSheet() {
     `;
   } else {
     rows.forEach((r, idx) => {
-      totalCash += r.cash;
-      totalInvoices += r.invoice;
-      totalReturned += r.returnedCash;
-      runningBalance += (r.cash - (r.invoice + r.returnedCash));
+      const cCents = toCents(r.cash);
+      const iCents = toCents(r.invoice);
+      const retCents = toCents(r.returnedCash || 0);
+
+      totalCashCents += cCents;
+      totalInvoicesCents += iCents;
+      totalReturnedCents += retCents;
+      runningBalanceCents += (cCents - (iCents + retCents));
+
+      const runningBalance = fromCents(runningBalanceCents);
 
       let balClass = 'bal-settled';
       let balText = '0.00 ر.ق (مصفى)';
-      if (runningBalance > 0.001) {
+      if (runningBalanceCents > 0) {
         balClass = 'bal-owes';
         balText = `+${formatNumber(runningBalance)} ر.ق (متبقي بعهدته)`;
-      } else if (runningBalance < -0.001) {
+      } else if (runningBalanceCents < 0) {
         balClass = 'bal-credit';
         balText = `-${formatNumber(Math.abs(runningBalance))} ر.ق (له فرق)`;
       }
@@ -1902,12 +1929,16 @@ function renderPersonSheet() {
     });
   }
 
+  const totalCash = fromCents(totalCashCents);
+  const totalInvoices = fromCents(totalInvoicesCents);
+  const totalReturned = fromCents(totalReturnedCents);
+  const netDiff = fromCents(runningBalanceCents);
+
   document.getElementById('personTotalCash').textContent = formatNumber(totalCash);
   document.getElementById('personTotalInvoices').textContent = formatNumber(totalInvoices);
   const pTotRetEl = document.getElementById('personTotalReturned');
   if (pTotRetEl) pTotRetEl.textContent = formatNumber(totalReturned);
 
-  const netDiff = runningBalance;
   document.getElementById('ledgerSettlementBadge').innerHTML = getSettlementBadgeHtml(totalCash + openingBal, totalInvoices, totalReturned);
 
   document.getElementById('personNetSummaryCell').innerHTML = `
@@ -2038,9 +2069,9 @@ function sharePersonStatementWhatsApp() {
   const endMonth = isYearScope ? 12 : state.month;
 
   let lines = [];
-  let totalCash = 0;
-  let totalInv = 0;
-  let totalRet = 0;
+  let totalCashCents = 0;
+  let totalInvCents = 0;
+  let totalRetCents = 0;
 
   for (let m = startMonth; m <= endMonth; m++) {
     const daysCount = getDaysInMonth(state.year, m);
@@ -2048,9 +2079,9 @@ function sharePersonStatementWhatsApp() {
       const dk = formatDateKey(state.year, m, d);
       const e = getPersonEntry(dk, person.id);
       if (e.cash > 0 || e.invoice > 0 || e.returnedCash > 0 || e.note) {
-        totalCash += e.cash;
-        totalInv += e.invoice;
-        totalRet += e.returnedCash;
+        totalCashCents += toCents(e.cash);
+        totalInvCents += toCents(e.invoice);
+        totalRetCents += toCents(e.returnedCash || 0);
         let line = `• ${d}/${m}: استلام ${formatNumber(e.cash)} ر.ق | فواتير ${formatNumber(e.invoice)} ر.ق`;
         if (e.returnedCash > 0) line += ` | مرتجع كاش ${formatNumber(e.returnedCash)} ر.ق`;
         if (e.note) line += ` (${e.note})`;
@@ -2059,7 +2090,10 @@ function sharePersonStatementWhatsApp() {
     }
   }
 
-  const diff = totalCash - (totalInv + totalRet);
+  const totalCash = fromCents(totalCashCents);
+  const totalInv = fromCents(totalInvCents);
+  const totalRet = fromCents(totalRetCents);
+  const diff = fromCents(totalCashCents - (totalInvCents + totalRetCents));
   const statusLine = Math.abs(diff) < 0.001
     ? 'خالص ومصفى بالكامل ✓'
     : (diff > 0 ? `متبقي بذمته (لم يأتِ بباقي التصفية بعد): ${formatNumber(diff)} ر.ق` : `له فرق فواتير مستحق الصرف: ${formatNumber(Math.abs(diff))} ر.ق`);
@@ -2112,30 +2146,30 @@ function renderAnnualTab() {
   const isInv = state.annualDataType === 'invoices';
 
   const monthSummary = {};
-  let grandReceived = 0;
-  let grandDistributed = 0;
-  let grandInvoices = 0;
+  let grandReceivedCents = 0;
+  let grandDistributedCents = 0;
+  let grandInvoicesCents = 0;
 
   monthsRange.forEach(m => {
     const daysCount = getDaysInMonth(state.year, m);
-    let rec = 0;
-    let dist = 0;
-    let inv = 0;
+    let recCents = 0;
+    let distCents = 0;
+    let invCents = 0;
     for (let d = 1; d <= daysCount; d++) {
       const dt = getDayTotals(formatDateKey(state.year, m, d));
-      rec += dt.received;
-      dist += dt.distributed;
-      inv += dt.invoices;
+      recCents += toCents(dt.received);
+      distCents += toCents(dt.distributed);
+      invCents += toCents(dt.invoices);
     }
-    monthSummary[m] = { rec, dist, inv };
-    grandReceived += rec;
-    grandDistributed += dist;
-    grandInvoices += inv;
+    monthSummary[m] = { rec: fromCents(recCents), dist: fromCents(distCents), inv: fromCents(invCents) };
+    grandReceivedCents += recCents;
+    grandDistributedCents += distCents;
+    grandInvoicesCents += invCents;
   });
 
-  document.getElementById('annualTotalReceived').textContent = formatNumber(grandReceived);
-  document.getElementById('annualTotalDistributed').textContent = formatNumber(grandDistributed);
-  document.getElementById('annualTotalInvoices').textContent = formatNumber(grandInvoices);
+  document.getElementById('annualTotalReceived').textContent = formatNumber(fromCents(grandReceivedCents));
+  document.getElementById('annualTotalDistributed').textContent = formatNumber(fromCents(grandDistributedCents));
+  document.getElementById('annualTotalInvoices').textContent = formatNumber(fromCents(grandInvoicesCents));
 
   const thead = document.getElementById('annualMatrixHead');
   let headHtml = `
@@ -3358,20 +3392,67 @@ function renderSafeTab() {
 
     sumContentEl.innerHTML = summaryHtml;
   }
+
+  // Render Tab 7 Audit Trail (Modifications, Reversals, Deletions)
+  const tbodyAudit = document.getElementById('safeAuditTrailBody');
+  const badgeAudit = document.getElementById('safeAuditBadge');
+  const auditList = state.data.safeInvoicesAudit || [];
+  if (badgeAudit) badgeAudit.textContent = String(auditList.length);
+  if (tbodyAudit) {
+    tbodyAudit.innerHTML = '';
+    if (auditList.length === 0) {
+      tbodyAudit.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:16px; color:var(--text-muted);">لا توجد حركات تدقيق أو تعديلات مسجلة بعد في هذا السجل.</td></tr>`;
+    } else {
+      const sortedAudit = [...auditList].reverse();
+      sortedAudit.forEach((item, idx) => {
+        const tr = document.createElement('tr');
+        let actionBadge = '';
+        if (item.action === 'reversed') {
+          actionBadge = '<span class="badge" style="background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:4px; font-weight:700;">معكوسة ↩️</span>';
+        } else if (item.action === 'deleted') {
+          actionBadge = '<span class="badge" style="background:#fef2f2; color:#dc2626; padding:2px 6px; border-radius:4px; font-weight:700;">محذوفة 🗑️</span>';
+        } else if (item.action === 'edited') {
+          actionBadge = '<span class="badge" style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-weight:700;">تعديل ✏️</span>';
+        } else {
+          actionBadge = `<span class="badge" style="background:#f1f5f9; color:#475569; padding:2px 6px; border-radius:4px; font-weight:700;">${escapeHtml(item.action || 'إجراء')}</span>`;
+        }
+
+        const amtNum = item.amount || (item.invoice && item.invoice.amount) || (item.updated && item.updated.amount);
+        const amtDisplay = (amtNum !== undefined && amtNum !== null) ? `${formatNumber(amtNum)} ر.ق` : '-';
+        const dateVal = (item.invoice && item.invoice.date) || (item.updated && item.updated.date) || item.periodKey || '-';
+        const timeDisplay = item.timestamp ? new Date(item.timestamp).toLocaleString('ar-QA') : '-';
+        const detailsDisplay = escapeHtml(item.reason || '') + (item.ref ? ` (مرجع: ${escapeHtml(item.ref)})` : '');
+
+        tr.innerHTML = `
+          <td><strong>${idx + 1}</strong></td>
+          <td style="font-size:0.8rem; color:var(--text-muted);">${timeDisplay}</td>
+          <td>${actionBadge}</td>
+          <td style="font-weight:700;">${amtDisplay}</td>
+          <td>${escapeHtml(dateVal)}</td>
+          <td>${detailsDisplay}</td>
+        `;
+        tbodyAudit.appendChild(tr);
+      });
+    }
+  }
 }
 
 // Replenishment Statement Modal Logic
 function openReplenishmentModal() {
   const mRecList = getCustodyReceiptsForMonth(state.year, state.month);
-  const monthReceived = mRecList.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  let monthReceivedCents = 0;
+  mRecList.forEach(r => {
+    monthReceivedCents += toCents(r.amount);
+  });
+  const monthReceived = fromCents(monthReceivedCents);
 
-  let monthDistributed = 0;
-  let monthInvoices = 0;
-  let monthReturned = 0;
-  let monthExtras = 0;
-  let monthEligibleExtras = 0;
+  let monthDistributedCents = 0;
+  let monthInvoicesCents = 0;
+  let monthReturnedCents = 0;
+  let monthExtrasCents = 0;
+  let monthEligibleExtrasCents = 0;
 
-  const categoryTotals = {
+  const categoryTotalsCents = {
     '⛽ بترول / وقود': 0,
     '🔧 صيانة وإصلاحات': 0,
     '📦 مشتريات ومواد': 0,
@@ -3386,25 +3467,25 @@ function openReplenishmentModal() {
     for (const p of state.data.people) {
       const e = dayEntries[p.id];
       if (e) {
-        const cash = Number(e.cash) || 0;
-        const inv = Number(e.invoice) || 0;
-        const ret = Number(e.returnedCash) || 0;
-        monthDistributed += cash;
-        monthInvoices += inv;
-        monthReturned += ret;
+        const cashC = toCents(e.cash);
+        const invC = toCents(e.invoice);
+        const retC = toCents(e.returnedCash || 0);
+        monthDistributedCents += cashC;
+        monthInvoicesCents += invC;
+        monthReturnedCents += retC;
 
-        if (inv > 0) {
+        if (invC > 0) {
           const note = (e.note || '').toLowerCase();
           if (note.includes('بترول') || note.includes('وقود') || note.includes('ديزل') || note.includes('بنزين') || note.includes('petrol')) {
-            categoryTotals['⛽ بترول / وقود'] += inv;
+            categoryTotalsCents['⛽ بترول / وقود'] += invC;
           } else if (note.includes('صيانة') || note.includes('تصليح') || note.includes('ميكانيك') || note.includes('غسيل') || note.includes('إطارات')) {
-            categoryTotals['🔧 صيانة وإصلاحات'] += inv;
+            categoryTotalsCents['🔧 صيانة وإصلاحات'] += invC;
           } else if (note.includes('مشتريات') || note.includes('أغراض') || note.includes('قطع') || note.includes('شراء')) {
-            categoryTotals['📦 مشتريات ومواد'] += inv;
+            categoryTotalsCents['📦 مشتريات ومواد'] += invC;
           } else if (note.includes('نثريات') || note.includes('شاي') || note.includes('ضيافة') || note.includes('ماء')) {
-            categoryTotals['☕ نثريات وضيافة'] += inv;
+            categoryTotalsCents['☕ نثريات وضيافة'] += invC;
           } else {
-            categoryTotals['📋 مصروفات أخرى'] += inv;
+            categoryTotalsCents['📋 مصروفات أخرى'] += invC;
           }
         }
       }
@@ -3412,17 +3493,19 @@ function openReplenishmentModal() {
 
     const extra = state.data.dailyExtras[dk];
     if (extra && extra.amount) {
-      const exAmt = Number(extra.amount) || 0;
-      monthExtras += exAmt;
+      const exAmtC = toCents(extra.amount);
+      monthExtrasCents += exAmtC;
       if (!extra.excludeFromCompany) {
-        monthInvoices += exAmt;
-        monthEligibleExtras += exAmt;
-        categoryTotals['📋 مصروفات أخرى'] += exAmt;
+        monthInvoicesCents += exAmtC;
+        monthEligibleExtrasCents += exAmtC;
+        categoryTotalsCents['📋 مصروفات أخرى'] += exAmtC;
       }
     }
   }
 
-  const cashInHand = (monthReceived + monthReturned) - (monthDistributed + monthExtras);
+  const monthDistributed = fromCents(monthDistributedCents);
+  const monthInvoices = fromCents(monthInvoicesCents);
+  const cashInHand = fromCents((monthReceivedCents + monthReturnedCents) - (monthDistributedCents + monthExtrasCents));
 
   document.getElementById('repPeriodSubtitle').textContent = `الفترة المحاسبية: شهر ${ARABIC_MONTHS[state.month]} ${state.year} — تاريخ الإصدار: ${state.selectedDate}`;
   document.getElementById('repTotalReceived').textContent = `${formatNumber(monthReceived)} ر.ق`;
@@ -3432,7 +3515,8 @@ function openReplenishmentModal() {
 
   const tbody = document.getElementById('repCategoryBreakdownBody');
   tbody.innerHTML = '';
-  for (const [catName, catVal] of Object.entries(categoryTotals)) {
+  for (const [catName, catValCents] of Object.entries(categoryTotalsCents)) {
+    const catVal = fromCents(catValCents);
     if (catVal > 0 || monthInvoices === 0) {
       const pct = monthInvoices > 0 ? ((catVal / monthInvoices) * 100).toFixed(1) : '0';
       const tr = document.createElement('tr');
@@ -3737,23 +3821,27 @@ function exportCurrentViewToExcel() {
     csvRows.push([]);
     csvRows.push(['التاريخ', 'اليوم', 'الفلوس اللي استلمها (ر.ق)', 'الفواتير المقدمة - بيتي كاش (ر.ق)', 'الكاش المرتجع في اليد (ر.ق)', 'البيان / الملاحظات']);
 
-    let totalC = 0;
-    let totalI = 0;
-    let totalRet = 0;
+    let totalCCents = 0;
+    let totalICents = 0;
+    let totalRetCents = 0;
     for (let m = 1; m <= 12; m++) {
       const days = getDaysInMonth(state.year, m);
       for (let d = 1; d <= days; d++) {
         const dk = formatDateKey(state.year, m, d);
         const e = getPersonEntry(dk, person.id);
         if (e.cash > 0 || e.invoice > 0 || e.returnedCash > 0 || e.note) {
-          totalC += e.cash;
-          totalI += e.invoice;
-          totalRet += (e.returnedCash || 0);
+          totalCCents += toCents(e.cash);
+          totalICents += toCents(e.invoice);
+          totalRetCents += toCents(e.returnedCash || 0);
           csvRows.push([dk, getArabicDayName(state.year, m, d), e.cash, e.invoice, e.returnedCash || 0, e.note || '']);
         }
       }
     }
-    csvRows.push(['الإجمالي الكلي (ر.ق)', '', totalC, totalI, totalRet, `الصافي: ${totalC - (totalI + totalRet)} ر.ق`]);
+    const totalC = fromCents(totalCCents);
+    const totalI = fromCents(totalICents);
+    const totalRet = fromCents(totalRetCents);
+    const netBalance = fromCents(totalCCents - (totalICents + totalRetCents));
+    csvRows.push(['الإجمالي الكلي (ر.ق)', '', totalC, totalI, totalRet, `الصافي: ${netBalance} ر.ق`]);
   } else if (state.activeTab === 'annual') {
     let mFrom = Number(state.annualFromMonth) || 1;
     let mTo = Number(state.annualToMonth) || 12;
@@ -3771,30 +3859,40 @@ function exportCurrentViewToExcel() {
     const annualPeople = getReportablePeople(state.year);
     annualPeople.forEach(p => {
       const row = [p.num, getPersonDisplayName(p), p.role === 'driver' ? 'سائق' : 'ستاف'];
-      let pCash = 0;
-      let pInv = 0;
+      let pCashCents = 0;
+      let pInvCents = 0;
       monthsRange.forEach(m => {
         const mt = getPersonMonthTotals(p.id, state.year, m);
-        pCash += mt.cash;
-        pInv += mt.invoice;
+        pCashCents += toCents(mt.cash);
+        pInvCents += toCents(mt.invoice);
         row.push(isInv ? mt.invoice : mt.cash);
       });
-      row.push(pCash, pInv);
+      row.push(fromCents(pCashCents), fromCents(pInvCents));
       csvRows.push(row);
     });
   } else if (state.activeTab === 'custody') {
     filename = `سجل_عهدة_الشركة_${state.year}.csv`;
     csvRows.push(['=== دفعات العهدة المستلمة من الشركة ===']);
     csvRows.push(['م', 'التاريخ', 'المبلغ (ر.ق)', 'رقم السند/الشيك', 'البيان']);
+    let totalCustRecCents = 0;
     (state.data.custodyReceipts || []).forEach((r, idx) => {
+      totalCustRecCents += toCents(r.amount);
       csvRows.push([idx + 1, r.date, r.amount, r.ref || '', r.note || '']);
     });
+    csvRows.push(['إجمالي دفعات العهدة', '', fromCents(totalCustRecCents), '', '']);
     csvRows.push([]);
     csvRows.push(['=== كشوف الفواتير والتسويات المسلمة للشركة ===']);
     csvRows.push(['م', 'التاريخ', 'الفترة', 'المبلغ (ر.ق)', 'رقم الكشف', 'البيان']);
+    let totalCustSetCents = 0;
     (state.data.custodySettlements || []).forEach((s, idx) => {
+      if (s.status !== 'reversed') {
+        totalCustSetCents += toCents(s.amount);
+      }
       csvRows.push([idx + 1, s.date, s.period || '', s.amount, s.ref || '', s.note || '']);
     });
+    csvRows.push(['إجمالي التسويات المسلمة', '', '', fromCents(totalCustSetCents), '', '']);
+    csvRows.push([]);
+    csvRows.push(['صافي رصيد العهدة (دفعات - تسويات)', '', '', fromCents(totalCustRecCents - totalCustSetCents), '', '']);
   } else if (state.activeTab === 'safe') {
     const isYear = !!state.safeShowYear;
     const targetM = state.safeMonth || state.month;
@@ -3811,33 +3909,43 @@ function exportCurrentViewToExcel() {
     const startM = isYear ? 1 : targetM;
     const endM = isYear ? 12 : targetM;
     let idxW = 1;
-    let totalW = 0;
+    let totalWCents = 0;
     for (let m = startM; m <= endM; m++) {
       const days = getDaysInMonth(state.year, m);
       for (let d = 1; d <= days; d++) {
         const dk = formatDateKey(state.year, m, d);
         const rec = getDayReceived(dk);
         if (rec > 0) {
-          totalW += rec;
+          totalWCents += toCents(rec);
           const totals = getDayTotals(dk);
           csvRows.push([idxW++, dk, rec, totals.distributed, totals.remaining]);
         }
       }
     }
-    csvRows.push(['إجمالي السحوبات', '', totalW]);
+    const totalW = fromCents(totalWCents);
+    csvRows.push(['إجمالي سحوبات الفترة', '', totalW]);
     csvRows.push([]);
 
     csvRows.push(['=== 2. الفواتير المسلّمة للخزنة ===']);
-    csvRows.push(['م', 'التاريخ', 'المبلغ (ر.ق)', 'رقم الفاتورة/المرجع', 'البيان']);
+    csvRows.push(['م', 'التاريخ', 'المبلغ (ر.ق)', 'رقم الفاتورة/المرجع', 'البيان', 'الحالة']);
     const safeInvs = isYear ? getSafeInvoicesForYear(state.year) : getSafeInvoicesForMonth(state.year, targetM);
-    let totalI = 0;
+    let totalICents = 0;
     safeInvs.forEach((inv, idx) => {
-      totalI += (Number(inv.amount) || 0);
-      csvRows.push([idx + 1, inv.date, inv.amount, inv.ref || '', inv.note || '']);
+      const isRev = inv.status === 'reversed';
+      if (!isRev) {
+        totalICents += toCents(inv.amount);
+      }
+      const statusText = isRev ? `معكوسة (${inv.reversalReason || ''})` : 'نشطة';
+      csvRows.push([idx + 1, inv.date, inv.amount, inv.ref || '', inv.note || '', statusText]);
     });
-    csvRows.push(['إجمالي الفواتير المسلّمة', '', totalI]);
+    const totalI = fromCents(totalICents);
+    csvRows.push(['إجمالي فواتير الفترة النشطة', '', totalI]);
     csvRows.push([]);
-    csvRows.push(['الصافي المعلق (سحوبات - فواتير)', '', totalW - totalI]);
+    csvRows.push(['صافي الفترة المحددة (سحوبات - فواتير)', '', fromCents(totalWCents - totalICents)]);
+
+    const fin = getSafeTabFinancials(state.year, targetM, isYear);
+    csvRows.push(['الرصيد الافتتاحي المرحل من قبل هذه الفترة', '', fin.priorOpeningBalance]);
+    csvRows.push(['الصافي التراكمي الشامل المعلق مع الخزنة', '', fin.cumulativeNet]);
   } else {
     const daysCount = getDaysInMonth(state.year, state.month);
     const header = ['الرقم', 'الاسم', 'الفئة', 'السيارة/القسم'];
@@ -3851,13 +3959,13 @@ function exportCurrentViewToExcel() {
     csvRows.push(header);
 
     const recRow = ['', 'إجمالي المستلم اليومي', 'الوارد', ''];
-    let mRec = 0;
+    let mRecCents = 0;
     workDays.forEach(d => {
       const r = getDayReceived(formatDateKey(state.year, state.month, d));
-      mRec += r;
+      mRecCents += toCents(r);
       recRow.push(r);
     });
-    recRow.push(mRec, '', '');
+    recRow.push(fromCents(mRecCents), '', '');
     csvRows.push(recRow);
 
     const exportPeople = getReportablePeople(state.year);
@@ -4061,6 +4169,24 @@ function validateBackupPayload(parsed) {
   const sanitizedCustodySettlements = sanitizeTxArray(parsed.custodySettlements, 'cs');
   const sanitizedSafeInvoices = sanitizeTxArray(parsed.safeInvoices, 'si');
 
+  const sanitizeAuditArray = (arr) => {
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(item => item && typeof item === 'object').map(item => ({
+      action: typeof item.action === 'string' ? item.action : 'unknown',
+      invoiceId: item.invoiceId || (item.invoice && item.invoice.id) || '',
+      amount: Number.isFinite(Number(item.amount)) ? fromCents(toCents(item.amount)) : (item.invoice && Number.isFinite(Number(item.invoice.amount)) ? fromCents(toCents(item.invoice.amount)) : 0),
+      periodKey: typeof item.periodKey === 'string' ? item.periodKey : (item.invoice && item.invoice.periodKey ? item.invoice.periodKey : ''),
+      ref: typeof item.ref === 'string' ? item.ref.trim() : (item.invoice && typeof item.invoice.ref === 'string' ? item.invoice.ref.trim() : ''),
+      invoice: item.invoice && typeof item.invoice === 'object' ? item.invoice : null,
+      previous: item.previous && typeof item.previous === 'object' ? item.previous : null,
+      updated: item.updated && typeof item.updated === 'object' ? item.updated : null,
+      timestamp: item.timestamp || new Date().toISOString(),
+      reason: typeof item.reason === 'string' ? item.reason.trim() : ''
+    }));
+  };
+
+  const sanitizedSafeInvoicesAudit = sanitizeAuditArray(parsed.safeInvoicesAudit);
+
   return {
     schemaVersion: 5,
     people: sanitizedPeople,
@@ -4069,7 +4195,8 @@ function validateBackupPayload(parsed) {
     entries: sanitizedEntries,
     custodyReceipts: sanitizedCustodyReceipts,
     custodySettlements: sanitizedCustodySettlements,
-    safeInvoices: sanitizedSafeInvoices
+    safeInvoices: sanitizedSafeInvoices,
+    safeInvoicesAudit: sanitizedSafeInvoicesAudit
   };
 }
 
@@ -4652,7 +4779,7 @@ function bindEvents() {
           date: dateVal,
           amount: amountVal,
           period: periodVal,
-          periodKey: state.data.custodySettlements[idx].periodKey || periodKey,
+          periodKey: periodKey,
           ref: refVal,
           note: noteVal,
           status: 'active'
@@ -4734,15 +4861,28 @@ function bindEvents() {
     if (state.editingSafeInvoiceId) {
       const idx = state.data.safeInvoices.findIndex(inv => inv.id === state.editingSafeInvoiceId);
       if (idx !== -1) {
+        const oldInv = { ...state.data.safeInvoices[idx] };
         state.data.safeInvoices[idx] = {
           ...state.data.safeInvoices[idx],
           date: dateVal,
           amount: amountVal,
-          periodKey: state.data.safeInvoices[idx].periodKey || periodKey,
+          periodKey: periodKey,
           ref: refVal,
           note: noteVal,
           status: 'active'
         };
+        state.data.safeInvoicesAudit = state.data.safeInvoicesAudit || [];
+        state.data.safeInvoicesAudit.push({
+          action: 'edited',
+          invoiceId: oldInv.id,
+          amount: amountVal,
+          periodKey: periodKey,
+          ref: refVal,
+          previous: oldInv,
+          updated: { ...state.data.safeInvoices[idx] },
+          timestamp: new Date().toISOString(),
+          reason: 'تعديل بيانات وتاريخ الفاتورة من واجهة المستخدم'
+        });
       }
       state.editingSafeInvoiceId = null;
       const btnAdd = document.getElementById('btnAddSafeInvoice');

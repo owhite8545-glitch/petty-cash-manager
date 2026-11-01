@@ -1187,6 +1187,30 @@
         <div id="safeNetSummaryContent" style="font-size: 1.1rem; line-height: 2;"></div>
       </div>
 
+      <!-- Audit Trail Card for Safe Invoices -->
+      <div class="card table-card no-print" id="safeAuditTrailCard" style="margin-top: 16px; border: 1px solid #cbd5e1;">
+        <details>
+          <summary style="cursor: pointer; font-weight: 700; color: #475569; padding: 10px 4px; font-size: 1.05rem;">
+            📜 سجل التدقيق والرقابة المالية لفواتير الخزنة (التعديلات، الإلغاءات، والمحذوفات) <span id="safeAuditBadge" class="badge" style="background:#e2e8f0; color:#334155; margin-right: 8px; font-size: 0.85rem; padding: 2px 8px; border-radius: 9999px;">0</span>
+          </summary>
+          <div class="table-responsive" style="margin-top: 12px;">
+            <table class="data-table" style="font-size: 0.9rem;">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">#</th>
+                  <th style="width: 170px;">وقت الإجراء</th>
+                  <th style="width: 100px;">نوع الإجراء</th>
+                  <th style="width: 130px;">المبلغ (ر.ق)</th>
+                  <th style="width: 130px;">تاريخ الفاتورة</th>
+                  <th>السبب والتفاصيل</th>
+                </tr>
+              </thead>
+              <tbody id="safeAuditTrailBody"></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+
     </section>
 
   </main>

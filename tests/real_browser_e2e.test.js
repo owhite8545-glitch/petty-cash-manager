@@ -784,6 +784,25 @@ async function runBrowserE2E() {
       persistedPersonFound === true
     );
 
+    // Verify Tab 7 Audit Trail Persistence & UI
+    await client.eval('document.querySelector("[data-tab=\'safe\']").click();');
+    await sleep(400);
+
+    const auditCountAfterReload = await client.eval('state.data.safeInvoicesAudit?.length || 0');
+    testAssert('Audit trail safeInvoicesAudit persists across browser reload (length > 0)',
+      auditCountAfterReload > 0
+    );
+
+    const auditBadgeText = await client.eval('document.getElementById("safeAuditBadge")?.textContent || "0"');
+    testAssert('Tab 7 displays audit badge matching audit entries count',
+      parseInt(auditBadgeText, 10) === auditCountAfterReload
+    );
+
+    const auditRowsCount = await client.eval('document.querySelectorAll("#safeAuditTrailBody tr").length');
+    testAssert('Tab 7 audit trail table displays historical audit action rows',
+      auditRowsCount > 0
+    );
+
     // ------------------------------------------------------------------------
     // Step 15: Zero Browser Console Errors Verification
     // ------------------------------------------------------------------------
