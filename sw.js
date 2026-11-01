@@ -1,6 +1,6 @@
 // Service Worker for Daily Petty Cash Manager
 // Network-First with Cache Fallback and Automatic Cache Update for True Offline Support
-const CACHE_NAME = 'petty-cash-v9-hardening';
+const CACHE_NAME = 'petty-cash-v10-tab3-final';
 const STATIC_ASSETS = [
   './',
   './index.html',

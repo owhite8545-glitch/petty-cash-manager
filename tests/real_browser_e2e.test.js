@@ -211,8 +211,8 @@ async function runBrowserE2E() {
     );
 
     const tabsCount = await client.eval('document.querySelectorAll(".nav-tab").length');
-    testAssert('All 7 navigation tabs are present in live DOM',
-      tabsCount === 7,
+    testAssert('All 8 navigation tabs are present in live DOM',
+      tabsCount === 8,
       `Tabs found: ${tabsCount}`
     );
 
@@ -353,6 +353,63 @@ async function runBrowserE2E() {
     testAssert('Editing cash advance to 1,000.00 updates daily distributed KPI immediately',
       updatedKpiDist.includes('1,000')
     );
+
+    // ------------------------------------------------------------------------
+    // Step 6b: Tab 3 (Daily Cash Sheet) Bilingual & Ranked Distribution Test
+    // ------------------------------------------------------------------------
+    await client.eval('document.querySelector("[data-tab=\'dispatch\']").click();');
+    await sleep(400);
+
+    const dispatchTotalText = await client.eval('document.getElementById("dispatchKpiTotalDisbursed").textContent');
+    testAssert('Tab 3 displays total disbursed matching daily cash distributed',
+      dispatchTotalText.includes('1,000')
+    );
+
+    // Switch Tab 3 to English
+    await client.eval('document.getElementById("btnDispatchLangEn").click();');
+    await sleep(300);
+
+    const dispatchDir = await client.eval('document.getElementById("tab-dispatch").getAttribute("dir")');
+    const dispatchEngTitle = await client.eval('document.getElementById("dispatchMainTitle").textContent');
+    testAssert('Switching Tab 3 to English flips direction to LTR and updates titles',
+      dispatchDir === 'ltr' && dispatchEngTitle.includes('Daily Cash')
+    );
+
+    // Switch back to Arabic
+    await client.eval('document.getElementById("btnDispatchLangAr").click();');
+    await sleep(300);
+
+    // ------------------------------------------------------------------------
+    // Step 6c: Tab 5 (Annual & Multi-Month Summary) Live Browser Verification
+    // ------------------------------------------------------------------------
+    await client.eval('document.querySelector("[data-tab=\'annual\']").click();');
+    await sleep(400);
+
+    const annualTotalDistText = await client.eval('document.getElementById("annualTotalDistributed").textContent');
+    testAssert('Tab 5 loads without error and displays annual distributed total',
+      annualTotalDistText.includes('1,000')
+    );
+
+    // Switch Tab 5 data type to invoices
+    await client.eval(`{
+      const typeSelect = document.getElementById('annualDataType');
+      typeSelect.value = 'invoices';
+      typeSelect.dispatchEvent(new Event('change'));
+    }`);
+    await sleep(300);
+
+    const annualInvoicesVal = await client.eval('state.annualDataType');
+    testAssert('Tab 5 switches to invoices view mode seamlessly',
+      annualInvoicesVal === 'invoices'
+    );
+
+    // Switch back to cash
+    await client.eval(`{
+      const typeSelect = document.getElementById('annualDataType');
+      typeSelect.value = 'cash';
+      typeSelect.dispatchEvent(new Event('change'));
+    }`);
+    await sleep(200);
 
     // ------------------------------------------------------------------------
     // Step 7: Add Safe Invoice in Tab 7 via UI Form

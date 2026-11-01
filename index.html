@@ -85,7 +85,7 @@
         <button id="btnExportExcel" class="btn btn-outline" title="تصدير الجدول الحالي لملف إكسيل">
           <span>📊</span> تصدير Excel
         </button>
-        <button id="btnPrint" class="btn btn-outline" title="طباعة الصفحة الحالية">
+        <button id="btnPrint" class="btn-corporate-print" title="طباعة الصفحة الحالية">
           <span>🖨️</span> طباعة
         </button>
         <button id="btnUndo" class="btn btn-outline" type="button" title="التراجع عن آخر تعديل">
@@ -129,38 +129,45 @@
         <span class="tab-desc">جدول الأيام وتوتال آخر الشهر</span>
       </div>
     </button>
+    <button class="nav-tab" data-tab="dispatch">
+      <span class="tab-icon">📑</span>
+      <div>
+        <span class="tab-title">3. كشف الصرف اليومي</span>
+        <span class="tab-desc">Daily Cash Sheet - عربي وإنجليزي</span>
+      </div>
+    </button>
     <button class="nav-tab" data-tab="person">
       <span class="tab-icon">👤</span>
       <div>
-        <span class="tab-title">3. صفحة كل شخص</span>
+        <span class="tab-title">4. صفحة كل شخص</span>
         <span class="tab-desc">كشف الأيام + الفواتير + التوتال</span>
       </div>
     </button>
     <button class="nav-tab" data-tab="annual">
       <span class="tab-icon">📈</span>
       <div>
-        <span class="tab-title">4. كشف الشهور والسنة</span>
+        <span class="tab-title">5. كشف الشهور والسنة</span>
         <span class="tab-desc">تجميع يناير، فبراير، مارس...</span>
       </div>
     </button>
     <button class="nav-tab" data-tab="people">
       <span class="tab-icon">👥</span>
       <div>
-        <span class="tab-title">5. الأسماء (<span id="navPeopleCount">0</span>)</span>
+        <span class="tab-title">6. الأسماء (<span id="navPeopleCount">0</span>)</span>
         <span class="tab-desc">إدارة أسماء السائقين والستاف</span>
       </div>
     </button>
     <button class="nav-tab" data-tab="custody">
       <span class="tab-icon">💼</span>
       <div>
-        <span class="tab-title">6. عهدة الشركة والخزنة</span>
+        <span class="tab-title">7. عهدة الشركة والخزنة</span>
         <span class="tab-desc">سجل استلام العهدة والمتبقي بالدرج</span>
       </div>
     </button>
     <button class="nav-tab" data-tab="safe">
       <span class="tab-icon">🏦</span>
       <div>
-        <span class="tab-title">7. معاملاتي مع الخزنة</span>
+        <span class="tab-title">8. معاملاتي مع الخزنة</span>
         <span class="tab-desc">حساب السحوبات والفواتير مع الخزينة</span>
       </div>
     </button>
@@ -454,6 +461,206 @@
       </div>
     </section>
 
+    <!-- ==================== TAB 3: DAILY CASH DISTRIBUTION SHEET (DAILY CASH SHEET) ==================== -->
+    <section id="tab-dispatch" class="tab-section">
+      <!-- Header Card with Language Toggle and Actions -->
+      <div class="card monthly-header-card">
+        <div class="monthly-title-row" style="flex-wrap: wrap; gap: 16px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <h2 id="dispatchMainTitle" style="margin: 0;">📑 كشف الصرف اليومي (Daily Cash Sheet)</h2>
+              <!-- Language Segmented Control -->
+              <div class="dispatch-lang-switch no-print" role="group" aria-label="Language Selector">
+                <button type="button" id="btnDispatchLangAr" class="btn btn-sm btn-lang active" title="عرض باللغة العربية">
+                  🇸🇦 عربي (Arabic)
+                </button>
+                <button type="button" id="btnDispatchLangEn" class="btn btn-sm btn-lang" title="Switch to English">
+                  🇬🇧 English (إنجليزي)
+                </button>
+              </div>
+            </div>
+            <p id="dispatchSubTitle" class="text-muted" style="margin-top: 6px;">
+              كشف وتوثيق نقدية اليوم الموزعة على السائقين والموظفين - مرتب من الأكثر للأقل استلاماً
+            </p>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="monthly-controls no-print" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button id="btnPrintDispatchStatement" class="btn-corporate-print" title="طباعة كشف الصرف اليومي المعتمد">
+              🖨️ <span id="lblPrintDispatch">طباعة الكشف</span>
+            </button>
+            <button id="btnExportDispatchExcel" class="btn btn-outline" title="تصدير كشف الصرف إلى Excel / CSV">
+              📊 <span id="lblExportDispatch">تصدير إكسيل</span>
+            </button>
+            <button id="btnCopyDispatchWhatsApp" class="btn btn-outline" style="border-color: #22c55e; color: #15803d; font-weight: 700;" title="نسخ ملخص تقرير واتساب سريع">
+              📋 <span id="lblWhatsAppDispatch">نسخ للواتساب</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Date Selector Bar & Filters -->
+        <div class="dispatch-date-bar no-print" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <strong id="lblDispatchSelectDate" style="font-size: 1rem; color: var(--text-color);">📅 تاريخ اليومية:</strong>
+            <input type="date" id="dispatchDateInput" class="input-control" style="font-size: 1rem; padding: 6px 12px; width: 170px;" />
+            <button type="button" id="btnDispatchQuickToday" class="btn btn-sm btn-outline">
+              ⚡ <span id="lblDispatchToday">اليوم</span>
+            </button>
+            <button type="button" id="btnDispatchQuickYesterday" class="btn btn-sm btn-outline">
+              ⏮️ <span id="lblDispatchYesterday">الأمس</span>
+            </button>
+          </div>
+
+          <!-- Role Filter Pills -->
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="lblDispatchFilterRole" class="text-muted" style="font-weight: 600; font-size: 0.9rem;">تصفية:</span>
+            <div class="pill-group" id="dispatchRoleFilter">
+              <button type="button" class="pill active" data-role="all" id="btnRoleAll">الكل (All)</button>
+              <button type="button" class="pill" data-role="driver" id="btnRoleDrivers">السائقين (Drivers)</button>
+              <button type="button" class="pill" data-role="staff" id="btnRoleStaff">الموظفين (Staff)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI Summary Cards (Clean & Focused: Total, Beneficiaries, Top Recipient, Drawer Balance) -->
+        <div class="monthly-kpis" style="margin-top: 16px;">
+          <div class="kpi-item">
+            <span class="kpi-label" id="lblKpiTotalDisbursed">💰 إجمالي المنصرف لليوم</span>
+            <strong class="kpi-value text-green" id="dispatchKpiTotalDisbursed">0.00 ر.ق</strong>
+            <small class="kpi-sub-split" id="dispatchKpiTotalDisbursedSub">مجموع السُلف الموزعة باليد</small>
+          </div>
+          <div class="kpi-item">
+            <span class="kpi-label" id="lblKpiBeneficiaries">👥 عدد المستلمين</span>
+            <strong class="kpi-value text-purple" id="dispatchKpiBeneficiaries">0</strong>
+            <small class="kpi-sub-split" id="dispatchKpiBeneficiariesSub">سائق وموظف استلموا نقدية</small>
+          </div>
+          <div class="kpi-item">
+            <span class="kpi-label" id="lblKpiTopRecipient">🏆 أعلى مستلم نقدية</span>
+            <strong class="kpi-value text-blue" id="dispatchKpiTopRecipient">-</strong>
+            <small class="kpi-sub-split" id="dispatchKpiTopRecipientSub">صاحب أكبر مبلغ اليوم</small>
+          </div>
+          <div class="kpi-item" style="background: #f8fafc; border: 1px dashed #cbd5e1;">
+            <span class="kpi-label" id="lblKpiDrawerBalance">🏦 المتبقي في الدرج / الخزنة</span>
+            <strong class="kpi-value" id="dispatchKpiDrawerBalance" style="color: #475569;">0.00 ر.ق</strong>
+            <small class="kpi-sub-split" id="dispatchKpiDrawerBalanceSub">مطابقة النقدية باليد</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Daily Cash Distribution Table Card -->
+      <div class="card table-card dispatch-card" id="dispatchTableContainer">
+        <!-- Printable Official Corporate Header (Exclusively visible in print mode) -->
+        <div class="dispatch-corporate-header only-print" id="dispatchCorporateHeader">
+          <div class="dispatch-corp-letterhead">
+            <div class="dispatch-corp-identity">
+              <div class="dispatch-corp-logo-group">
+                <div class="dispatch-corp-symbol">🏢</div>
+                <div>
+                  <h2 id="printCorpCompanyName" class="dispatch-corp-legal-name">
+                    شركة النقليات والخدمات اللوجستية ش.م.ق
+                  </h2>
+                  <div id="printCorpDeptName" class="dispatch-corp-division">
+                    إدارة الحركة والعمليات اللوجستية — قسم الخزينة والعهد النقدية
+                  </div>
+                  <div class="dispatch-corp-legal-meta">
+                    سجل تجاري رقم: 108422 | ص.ب: 44210 الدوحة - قطر | C.R. No: 108422 Doha - Qatar
+                  </div>
+                </div>
+              </div>
+
+              <div class="dispatch-voucher-badge">
+                <h3 id="printCorpDocTitle" class="dispatch-voucher-title">
+                  سند وكشف توزيع النقدية اليومي (بيتي كاش)
+                </h3>
+              </div>
+            </div>
+
+            <!-- Official Boxed Control Metadata -->
+            <div class="dispatch-corp-meta-wrap">
+              <table class="dispatch-corp-meta-box">
+                <tr>
+                  <td><strong id="printCorpVoucherNoLbl">رقم السند:</strong></td>
+                  <td style="font-family: monospace; font-weight: 800;"><span id="printCorpVoucherNo">DCD-20261101-001</span></td>
+                </tr>
+                <tr>
+                  <td><strong id="printCorpDateLbl">تاريخ اليومية:</strong></td>
+                  <td style="font-weight: 700;"><span id="printCorpDate">2026-11-01</span></td>
+                </tr>
+                <tr>
+                  <td><strong id="printCorpCurrencyLbl">العملة:</strong></td>
+                  <td><strong>ريال قطري (QAR)</strong></td>
+                </tr>
+                <tr>
+                  <td><strong id="printCorpCopyLbl">النسخة:</strong></td>
+                  <td id="printCorpCopyVal">الأصل - قسم الحسابات</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <!-- Official Reconciliation Summary Strip for Print -->
+          <div class="dispatch-reconciliation-strip only-print">
+            <div class="dispatch-recon-cell">
+              <span class="dispatch-recon-label" id="reconLblDrawn">المسحوب من الخزنة (الوارد)</span>
+              <span class="dispatch-recon-value" id="reconValDrawn">0.00 QAR</span>
+            </div>
+            <div class="dispatch-recon-cell">
+              <span class="dispatch-recon-label" id="reconLblDisbursed">إجمالي المنصرف (الموزع)</span>
+              <span class="dispatch-recon-value text-green" id="reconValDisbursed">0.00 QAR</span>
+            </div>
+            <div class="dispatch-recon-cell">
+              <span class="dispatch-recon-label" id="reconLblReturned">الكاش المرتجع باليد</span>
+              <span class="dispatch-recon-value" id="reconValReturned">0.00 QAR</span>
+            </div>
+            <div class="dispatch-recon-cell">
+              <span class="dispatch-recon-label" id="reconLblDrawer">المتبقي الفعلي بالدرج</span>
+              <span class="dispatch-recon-value text-blue" id="reconValDrawer">0.00 QAR</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-responsive dispatch-table-responsive">
+          <table class="data-table dispatch-table-corporate" id="dispatchTable">
+            <thead id="dispatchTableHead"></thead>
+            <tbody id="dispatchTableBody"></tbody>
+            <tfoot id="dispatchTableFoot"></tfoot>
+          </table>
+        </div>
+
+        <!-- Official Tafqeet (Amount in Words) Strip -->
+        <div class="dispatch-tafqeet-strip only-print" id="dispatchTafqeetStrip">
+          <span id="dispatchTafqeetLabel" class="dispatch-tafqeet-lbl">المبلغ كتابة:</span>
+          <span id="dispatchTafqeetText" class="dispatch-tafqeet-val">فقط صفر ريال قطري لا غير</span>
+        </div>
+
+        <!-- Corporate 3-Tier Approval Sign-Off Block for Print with Official Stamp Box -->
+        <div class="dispatch-corporate-signoff only-print" id="dispatchCorporateSignoff">
+          <div class="dispatch-signoff-grid">
+            <div class="dispatch-sign-box">
+              <div class="dispatch-sign-title" id="signPreparedByTitle">إعداد / أمين الصندوق</div>
+              <div class="dispatch-sign-line"></div>
+              <span class="dispatch-sign-sub" id="signPreparedBySub">الاسم، التوقيع والتاريخ</span>
+            </div>
+            <div class="dispatch-sign-box">
+              <div class="dispatch-sign-title" id="signReviewedByTitle">تدقيق ومراجعة / المحاسب</div>
+              <div class="dispatch-sign-line"></div>
+              <span class="dispatch-sign-sub" id="signReviewedBySub">الاسم، التوقيع والتاريخ</span>
+            </div>
+            <div class="dispatch-sign-box">
+              <div class="dispatch-sign-title" id="signApprovedByTitle">اعتماد / المدير المالي</div>
+              <div class="dispatch-sign-line"></div>
+              <span class="dispatch-sign-sub" id="signApprovedBySub">الاسم، التوقيع والتاريخ</span>
+            </div>
+            <div class="dispatch-seal-box">
+              <div style="font-size: 1.2rem; margin-bottom: 2px;">🛡️</div>
+              <span id="signSealTitle">ختم الشركة الرسمي</span>
+              <span style="font-size: 0.68rem; color: #94a3b8; margin-top: 2px;">OFFICIAL SEAL</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ==================== TAB 3: INDIVIDUAL PERSON LEDGER PAGE ==================== -->
     <section id="tab-person" class="tab-section">
       <div class="person-layout">
@@ -499,7 +706,7 @@
                   <option value="month">عرض الشهر الحالي فقط</option>
                   <option value="year">عرض السنة كلها</option>
                 </select>
-                <button id="btnPrintPerson" class="btn btn-primary">
+                <button id="btnPrintPerson" class="btn-corporate-print">
                   🖨️ طباعة كشف الحساب
                 </button>
                 <button id="btnShareWhatsApp" class="btn btn-success">
@@ -812,7 +1019,7 @@
             <p class="text-muted">متابعة دفعات العهدة المستلمة من الشركة وتصفيتها بكشوف الفواتير المعتمدة (حساب عهدة الشركة مستقل تماماً عن السائقين)</p>
           </div>
           <div class="monthly-controls no-print">
-            <button id="btnPrintReplenishment" class="btn btn-primary" title="طباعة كشف تصنيف الفواتير لتقديمه للشركة">
+            <button id="btnPrintReplenishment" class="btn-corporate-print" title="طباعة كشف تصنيف الفواتير لتقديمه للشركة">
               📄 كشف تصنيف الفواتير والطلب
             </button>
           </div>
@@ -1010,7 +1217,7 @@
             <p class="text-muted">حساب مستقل يعرض ما سحبته يومياً من الخزينة مقابل ما سلّمته من فواتير — لمعرفة الصافي النهائي المعلق</p>
           </div>
           <div class="monthly-controls no-print">
-            <button id="btnPrintSafeStatement" class="btn btn-primary" title="طباعة كشف حساب معاملات الخزنة">
+            <button id="btnPrintSafeStatement" class="btn-corporate-print" title="طباعة كشف حساب معاملات الخزنة">
               🖨️ طباعة كشف الخزنة
             </button>
           </div>
@@ -1314,7 +1521,7 @@
           </div>
         </div>
         <div class="modal-btn-row no-print" style="margin-top: 14px; justify-content: flex-end;">
-          <button type="button" id="btnPrintReplenishmentNow" class="btn btn-primary">🖨️ طباعة كشف الاستعاضة</button>
+          <button type="button" id="btnPrintReplenishmentNow" class="btn-corporate-print">🖨️ طباعة كشف الاستعاضة</button>
         </div>
       </div>
     </div>
@@ -1454,7 +1661,7 @@
           </div>
         </div>
         <div class="modal-btn-row no-print" style="margin-top:14px; justify-content:flex-end;">
-          <button type="button" id="btnPrintVoucherNow" class="btn btn-primary">🖨️ طباعة السند للتوقيع</button>
+          <button type="button" id="btnPrintVoucherNow" class="btn-corporate-print">🖨️ طباعة السند للتوقيع</button>
         </div>
       </div>
     </div>

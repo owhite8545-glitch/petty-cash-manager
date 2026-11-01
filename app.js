@@ -39,6 +39,7 @@ function create60BlankSlots() {
       name: '',
       role: i <= 25 ? 'driver' : 'staff',
       meta: '',
+      nameEn: '',
       archived: false,
       archivedAt: null
     });
@@ -82,6 +83,8 @@ const state = {
   editingSafeInvoiceId: null,
   safeMonth: initM,
   safeShowYear: false,
+  dispatchLang: 'ar',
+  dispatchRoleFilter: 'all',
   data: createCleanData()
 };
 
@@ -115,6 +118,7 @@ function loadState() {
             name: p.name || '',
             role: (p.role === 'staff') ? 'staff' : 'driver',
             meta: p.meta || '',
+            nameEn: p.nameEn || '',
             archived: !!p.archived,
             archivedAt: p.archivedAt || null
           })),
@@ -1773,7 +1777,7 @@ function renderPersonSheet() {
     tbody.innerHTML = `
       <tr>
         <td colspan="7" style="text-align:center; padding: 28px; color: var(--text-muted);">
-          يرجى إضافة أسماء الأشخاص أولاً من تبويب "1. التسجيل اليومي" أو "5. الأسماء".
+          يرجى إضافة أسماء الأشخاص أولاً من تبويب "1. التسجيل اليومي" أو "6. الأشخاص".
         </td>
       </tr>
     `;
@@ -2138,6 +2142,16 @@ function renderAnnualTab() {
     mTo = tmp;
   }
 
+  const elFrom = document.getElementById('annualFromMonth');
+  const elTo = document.getElementById('annualToMonth');
+  const elType = document.getElementById('annualDataType');
+  if (elFrom) elFrom.value = String(mFrom);
+  if (elTo) elTo.value = String(mTo);
+  if (elType) elType.value = state.annualDataType || 'cash';
+
+  const annualYearEl = document.getElementById('annualYearLabel');
+  if (annualYearEl) annualYearEl.textContent = String(state.year);
+
   const monthsRange = [];
   for (let m = mFrom; m <= mTo; m++) {
     monthsRange.push(m);
@@ -2167,9 +2181,13 @@ function renderAnnualTab() {
     grandInvoicesCents += invCents;
   });
 
-  document.getElementById('annualTotalReceived').textContent = formatNumber(fromCents(grandReceivedCents));
-  document.getElementById('annualTotalDistributed').textContent = formatNumber(fromCents(grandDistributedCents));
-  document.getElementById('annualTotalInvoices').textContent = formatNumber(fromCents(grandInvoicesCents));
+  const grandReceived = fromCents(grandReceivedCents);
+  const grandDistributed = fromCents(grandDistributedCents);
+  const grandInvoices = fromCents(grandInvoicesCents);
+
+  document.getElementById('annualTotalReceived').textContent = formatNumber(grandReceived);
+  document.getElementById('annualTotalDistributed').textContent = formatNumber(grandDistributed);
+  document.getElementById('annualTotalInvoices').textContent = formatNumber(grandInvoices);
 
   const thead = document.getElementById('annualMatrixHead');
   let headHtml = `
@@ -2217,38 +2235,49 @@ function renderAnnualTab() {
 
   const annualPeople = getReportablePeople(state.year);
 
-  annualPeople.forEach(person => {
-    const dispName = getPersonDisplayName(person);
-    let pGrandCash = 0;
-    let pGrandInv = 0;
-
-    let rowCells = '';
-    monthsRange.forEach(m => {
-      const mt = getPersonMonthTotals(person.id, state.year, m);
-      pGrandCash += mt.cash;
-      pGrandInv += mt.invoice;
-      const val = isInv ? mt.invoice : mt.cash;
-      rowCells += `<td>${val > 0 ? `<strong>${formatNumber(val)}</strong>` : '-'}</td>`;
-    });
-
+  if (annualPeople.length === 0) {
+    const colSpan = monthsRange.length + 4;
     bodyHtml += `
       <tr>
-        <td class="sticky-col">
-          <a href="javascript:void(0)" data-open-person="${person.id}" style="font-weight:700; color:var(--text-main); text-decoration:none;">
-            ${person.num}. ${escapeHtml(dispName)}
-          </a>
+        <td colspan="${colSpan}" style="text-align:center; padding:30px; color:var(--text-muted);">
+          لا يوجد أشخاص أو سائقين مسجلين لهذه السنة حتى الآن
         </td>
-        <td>
-          <span class="role-badge ${person.role}">
-            ${person.role === 'driver' ? 'سائق' : 'ستاف'}
-          </span>
-        </td>
-        ${rowCells}
-        <td style="background:#f0fdf4; font-weight:800; color:var(--green);">${formatNumber(pGrandCash)}</td>
-        <td style="background:#faf5ff; font-weight:800; color:var(--purple);">${formatNumber(pGrandInv)}</td>
       </tr>
     `;
-  });
+  } else {
+    annualPeople.forEach(person => {
+      const dispName = getPersonDisplayName(person);
+      let pGrandCashCents = 0;
+      let pGrandInvCents = 0;
+
+      let rowCells = '';
+      monthsRange.forEach(m => {
+        const mt = getPersonMonthTotals(person.id, state.year, m);
+        pGrandCashCents += toCents(mt.cash);
+        pGrandInvCents += toCents(mt.invoice);
+        const val = isInv ? mt.invoice : mt.cash;
+        rowCells += `<td>${val > 0 ? `<strong>${formatNumber(val)}</strong>` : '-'}</td>`;
+      });
+
+      bodyHtml += `
+        <tr>
+          <td class="sticky-col">
+            <a href="javascript:void(0)" data-open-person="${person.id}" style="font-weight:700; color:var(--text-main); text-decoration:none;">
+              ${person.num}. ${escapeHtml(dispName)}
+            </a>
+          </td>
+          <td>
+            <span class="role-badge ${person.role}">
+              ${person.role === 'driver' ? 'سائق' : 'ستاف'}
+            </span>
+          </td>
+          ${rowCells}
+          <td style="background:#f0fdf4; font-weight:800; color:var(--green);">${formatNumber(fromCents(pGrandCashCents))}</td>
+          <td style="background:#faf5ff; font-weight:800; color:var(--purple);">${formatNumber(fromCents(pGrandInvCents))}</td>
+        </tr>
+      `;
+    });
+  }
 
   tbody.innerHTML = bodyHtml;
 
@@ -2271,14 +2300,13 @@ function renderAnnualTab() {
 
   tbody.querySelectorAll('[data-open-person]').forEach(el => {
     el.addEventListener('click', () => {
-      state.ledgerScope = 'year';
-      document.getElementById('ledgerScopeSelect').value = 'year';
+      state.personSelectedMonth = 'all';
+      switchTab('person');
       openPersonLedgerPage(el.getAttribute('data-open-person'));
     });
   });
 }
 
-// ============================================================================
 // TAB 5: People Management (إدارة الأسماء)
 // ============================================================================
 
@@ -3437,6 +3465,831 @@ function renderSafeTab() {
   }
 }
 
+
+// ============================================================================
+// English Dates & Transliteration Dictionary
+// ============================================================================
+const ENGLISH_MONTHS = [
+  '',
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+const ENGLISH_DAYS = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+];
+
+function getEnglishDayName(y, m, d) {
+  const dt = new Date(y, m - 1, d);
+  return ENGLISH_DAYS[dt.getDay()];
+}
+
+function phoneticArabicToEnglish(arWord) {
+  if (!arWord) return '';
+  const charMap = {
+    'ا': 'a', 'أ': 'a', 'إ': 'e', 'آ': 'aa', 'ء': '', 'ئ': 'e', 'ؤ': 'o',
+    'ب': 'b', 'ت': 't', 'ث': 'th', 'ج': 'j', 'ح': 'h', 'خ': 'kh',
+    'د': 'd', 'ذ': 'dh', 'ر': 'r', 'ز': 'z', 'س': 's', 'ش': 'sh',
+    'ص': 's', 'ض': 'd', 'ط': 't', 'ظ': 'z', 'ع': 'a', 'غ': 'gh',
+    'ف': 'f', 'ق': 'q', 'ك': 'k', 'ل': 'l', 'م': 'm', 'ن': 'n',
+    'ه': 'h', 'و': 'w', 'ي': 'y', 'ى': 'a', 'ة': 'a'
+  };
+  let res = '';
+  for (let i = 0; i < arWord.length; i++) {
+    const ch = arWord[i];
+    res += charMap[ch] !== undefined ? charMap[ch] : ch;
+  }
+  if (!res) return arWord;
+  return res.charAt(0).toUpperCase() + res.slice(1);
+}
+
+function transliterateArabicNameToEnglish(arabicName) {
+  if (!arabicName || typeof arabicName !== 'string') return '';
+  let str = arabicName.trim();
+  if (!str) return '';
+
+  const compoundMap = {
+    'عبد الله': 'Abdullah', 'عبدالله': 'Abdullah',
+    'عبد الرحمن': 'Abdul Rahman', 'عبدالرحمن': 'Abdul Rahman',
+    'عبد الرحيم': 'Abdul Raheem', 'عبدالرحيم': 'Abdul Raheem',
+    'عبد العزيز': 'Abdul Aziz', 'عبدالعزيز': 'Abdul Aziz',
+    'عبد السلام': 'Abdulsalam', 'عبدالسلام': 'Abdulsalam',
+    'عبد الرشيد': 'Abdul Rashid', 'عبدالرشيد': 'Abdul Rashid',
+    'عبد الكريم': 'Abdul Karim', 'عبدالكريم': 'Abdul Karim',
+    'عبد المجيد': 'Abdul Majeed', 'عبدالمجيد': 'Abdul Majeed',
+    'عبد الحميد': 'Abdul Hameed', 'عبدالحميد': 'Abdul Hameed',
+    'عبد الغفور': 'Abdul Ghafoor', 'عبدالغفور': 'Abdul Ghafoor',
+    'عبد القادر': 'Abdul Qadir', 'عبدالقادر': 'Abdul Qadir',
+    'عبد الوهاب': 'Abdul Wahab', 'عبدالوهاب': 'Abdul Wahab',
+    'عبد الحكيم': 'Abdul Hakeem', 'عبدالحكيم': 'Abdul Hakeem',
+    'عبد الستار': 'Abdul Sattar', 'عبدالستار': 'Abdul Sattar',
+    'عبد الجبار': 'Abdul Jabbar', 'عبدالجبار': 'Abdul Jabbar',
+    'عبد الغفار': 'Abdul Ghaffar', 'عبدالغفار': 'Abdul Ghaffar',
+    'عبد اللطيف': 'Abdul Latif', 'عبداللطيف': 'Abdul Latif',
+    'عبد الفتاح': 'Abdul Fattah', 'عبدالفتاح': 'Abdul Fattah',
+    'عبد الباسط': 'Abdul Basit', 'عبدالباسط': 'Abdul Basit',
+    'عبد الرؤوف': 'Abdul Raouf', 'عبدالرؤوف': 'Abdul Raouf',
+    'عبد المحسن': 'Abdul Mohsen', 'عبدالمحسن': 'Abdul Mohsen',
+    'عبد العظيم': 'Abdul Azeem', 'عبدالعظيم': 'Abdul Azeem',
+    'عبد الرازق': 'Abdul Razzaq', 'عبدالرازق': 'Abdul Razzaq',
+    'عبد الرزاق': 'Abdul Razzaq', 'عبدالرزاق': 'Abdul Razzaq',
+    'سيف الدين': 'Saifuddin', 'نور الدين': 'Nouruddin',
+    'صلاح الدين': 'Salahuddin', 'علاء الدين': 'Alauddin',
+    'جمال الدين': 'Jamaluddin', 'حسام الدين': 'Hossamuddin',
+    'عماد الدين': 'Emaduddin', 'ضياء الدين': 'Diaauddin',
+    'كمال الدين': 'Kamaluddin', 'بهاء الدين': 'Bahaauddin',
+    'شمس الدين': 'Shamsuddin'
+  };
+
+  for (const [arComp, enComp] of Object.entries(compoundMap)) {
+    const reg = new RegExp(`(^|\\s)${arComp}(\\s|$)`, 'g');
+    str = str.replace(reg, `$1${enComp}$2`);
+  }
+
+  const nameDict = {
+    'محمد': 'Mohamed', 'أحمد': 'Ahmed', 'احمد': 'Ahmed', 'محمود': 'Mahmoud', 'مصطفى': 'Mustafa',
+    'علي': 'Ali', 'حسين': 'Hussein', 'حسن': 'Hassan', 'إبراهيم': 'Ibrahim', 'ابراهيم': 'Ibrahim',
+    'يوسف': 'Youssef', 'عمر': 'Omar', 'عثمان': 'Osman', 'طارق': 'Tariq', 'بلال': 'Bilal',
+    'خالد': 'Khaled', 'سليم': 'Salim', 'سالم': 'Salem', 'فاروق': 'Farooq', 'رشيد': 'Rashid',
+    'سعيد': 'Saeed', 'كريم': 'Karim', 'جمال': 'Jamal', 'كمال': 'Kamal', 'حمزة': 'Hamza',
+    'ياسين': 'Yassin', 'أنور': 'Anwar', 'أمجد': 'Amjad', 'أشرف': 'Ashraf', 'ناصر': 'Nasser',
+    'منصور': 'Mansoor', 'صالح': 'Saleh', 'فيصل': 'Faisal', 'سلطان': 'Sultan', 'عادل': 'Adel',
+    'وليد': 'Waleed', 'سامي': 'Sami', 'زياد': 'Ziad', 'ماجد': 'Majed', 'شريف': 'Sherif',
+    'حسام': 'Hossam', 'عصام': 'Essam', 'عماد': 'Emad', 'موسى': 'Musa', 'عيسى': 'Isa',
+    'رضا': 'Reda', 'رمضان': 'Ramadan', 'شعبان': 'Shaaban', 'رجب': 'Rajab', 'بدر': 'Badr',
+    'نور': 'Nour', 'ضياء': 'Diaa', 'بشير': 'Basheer', 'نذير': 'Natheer', 'منير': 'Muneer',
+    'سمير': 'Sameer', 'أمير': 'Ameer', 'رفيق': 'Rafeeq', 'شفيق': 'Shafeeq', 'وفيق': 'Wafeeq',
+    'توفيق': 'Tawfeeq', 'جابر': 'Jaber', 'صابر': 'Saber', 'شاكر': 'Shaker', 'ماهر': 'Maher',
+    'باسم': 'Bassem', 'حاتم': 'Hatem', 'قاسم': 'Qasim', 'هاشم': 'Hashem', 'فارس': 'Fares',
+    'سيف': 'Saif', 'جهاد': 'Jihad', 'معاذ': 'Moaz', 'حميد': 'Hameed', 'مجيد': 'Majeed',
+    'وحيد': 'Waheed', 'فريد': 'Fareed', 'وجدي': 'Wajdi', 'شادي': 'Shadi', 'هادي': 'Hadi',
+    'فادي': 'Fadi', 'نادي': 'Nadi', 'رامي': 'Rami', 'سامر': 'Samer', 'تامر': 'Tamer',
+    'ياسر': 'Yasser', 'جاسر': 'Jasser', 'آسر': 'Asser', 'صلاح': 'Salah', 'فلاح': 'Falah',
+    'نجاح': 'Najah', 'صباح': 'Sabah', 'مراد': 'Murad', 'فؤاد': 'Fouad', 'زيان': 'Zayan',
+    'ريان': 'Rayan', 'إحسان': 'Ihsan', 'احسان': 'Ihsan', 'غسان': 'Ghassan', 'عفان': 'Affan',
+    'نعمان': 'Noman', 'سليمان': 'Sulaiman', 'لقمان': 'Luqman', 'سلمان': 'Salman',
+    'حمد': 'Hamad', 'حمدان': 'Hamdan', 'مبارك': 'Mubarak', 'مبروك': 'Mabrouk', 'مسعود': 'Masoud',
+    'سعود': 'Saud', 'محبوب': 'Mahboub', 'مأمون': 'Mamoun', 'هارون': 'Haroun', 'داود': 'Dawood',
+    'داوود': 'Dawood', 'إدريس': 'Idris', 'ادريس': 'Idris', 'إلياس': 'Elias', 'الياس': 'Elias',
+    'يونس': 'Younis', 'أيوب': 'Ayoub', 'ايوب': 'Ayoub', 'يعقوب': 'Yaqoub', 'إسحاق': 'Ishaq',
+    'اسحاق': 'Ishaq', 'إسماعيل': 'Ismail', 'اسماعيل': 'Ismail', 'زكريا': 'Zakaria',
+    'يحيى': 'Yahya', 'مختار': 'Mukhtar', 'أكرم': 'Akram', 'اكرم': 'Akram', 'أيمن': 'Ayman',
+    'ايمن': 'Ayman', 'أمين': 'Ameen', 'امين': 'Ameen', 'إسلام': 'Islam', 'اسلام': 'Islam',
+    'همام': 'Hammam', 'عزام': 'Azzam', 'بسام': 'Bassam', 'وسام': 'Wessam', 'هشام': 'Hisham',
+    'عاصم': 'Assem', 'حازم': 'Hazem', 'ناظم': 'Nazem', 'كاظم': 'Kazem', 'عازم': 'Azem',
+    'غانم': 'Ghanem', 'عالم': 'Alem', 'عارف': 'Aref', 'واصف': 'Wasef', 'عاطف': 'Atef',
+    'رؤوف': 'Raouf', 'لطفي': 'Lotfi', 'فتحي': 'Fathi', 'صبحي': 'Sobhi', 'شوقي': 'Shawqi',
+    'فوزي': 'Fawzi', 'رمزي': 'Ramzi', 'مجدي': 'Magdi', 'رشدي': 'Roshdi', 'مهدي': 'Mehdi',
+    'هاني': 'Hani', 'راضي': 'Radi', 'ماضي': 'Madi', 'قاضي': 'Qadi', 'راجي': 'Raji',
+    'ناجي': 'Naji', 'باهي': 'Bahi', 'زاهي': 'Zahi', 'صافي': 'Safi', 'وافي': 'Wafi',
+    'غالي': 'Ghali', 'والي': 'Wali', 'خان': 'Khan', 'ميان': 'Mian', 'شاه': 'Shah',
+    'سينغ': 'Singh', 'كومار': 'Kumar', 'باتيل': 'Patel', 'شارما': 'Sharma'
+  };
+
+  const parts = str.split(/\s+/).filter(Boolean);
+  const translated = parts.map(part => {
+    if (/^[A-Za-z\-']+$/.test(part)) return part;
+    if (nameDict[part]) return nameDict[part];
+    if (part.startsWith('ال') && part.length > 3) {
+      const sub = part.slice(2);
+      if (nameDict[sub]) return 'Al-' + nameDict[sub];
+    }
+    return phoneticArabicToEnglish(part);
+  });
+
+  return translated.join(' ');
+}
+
+function getPersonEnglishName(person) {
+  if (!person) return '';
+  if (person.nameEn && person.nameEn.trim()) {
+    return person.nameEn.trim();
+  }
+  return transliterateArabicNameToEnglish(person.name) || person.name || `Person #${person.num}`;
+}
+
+function translateDispatchNoteToEnglish(note) {
+  if (!note || typeof note !== 'string') return '-';
+  let t = note.trim();
+  if (!t) return '-';
+
+  const phrases = [
+    { ar: 'وقود وصيانة', en: 'Fuel & Maintenance' },
+    { ar: 'وقود وبترول', en: 'Fuel' },
+    { ar: 'صيانة وتصليح', en: 'Maintenance & Repair' },
+    { ar: 'صيانة كبرى', en: 'Major Maintenance' },
+    { ar: 'قطع غيار', en: 'Spare Parts' },
+    { ar: 'تغيير زيت', en: 'Oil Change' },
+    { ar: 'تبديل عجلات', en: 'Tire Replacement' },
+    { ar: 'عجلات وإطارات', en: 'Tires' },
+    { ar: 'غسيل سيارة', en: 'Car Wash' },
+    { ar: 'سلفة رحلة', en: 'Trip Advance' },
+    { ar: 'سلفة نقدية', en: 'Cash Advance' },
+    { ar: 'سلفة طارئة', en: 'Emergency Advance' },
+    { ar: 'مشتريات وقرطاسية', en: 'Stationery & Purchases' },
+    { ar: 'أدوات مكتبية', en: 'Office Supplies' },
+    { ar: 'مستلزمات مكتب', en: 'Office Materials' },
+    { ar: 'نثريات ومشتريات', en: 'Petty Purchases' },
+    { ar: 'رسوم فحص', en: 'Inspection Fees' },
+    { ar: 'تجديد ترخيص', en: 'License Renewal' },
+    { ar: 'بترول', en: 'Fuel' },
+    { ar: 'وقود', en: 'Fuel' },
+    { ar: 'صيانة', en: 'Maintenance' },
+    { ar: 'تصليح', en: 'Repair' },
+    { ar: 'سلفة', en: 'Advance' },
+    { ar: 'سلفه', en: 'Advance' },
+    { ar: 'مشتريات', en: 'Purchases' },
+    { ar: 'نثريات', en: 'Petty Expenses' },
+    { ar: 'غسيل', en: 'Car Wash' },
+    { ar: 'إطارات', en: 'Tires' },
+    { ar: 'عجلات', en: 'Tires' },
+    { ar: 'زيت', en: 'Oil' },
+    { ar: 'رسوم', en: 'Fees' }
+  ];
+
+  for (const p of phrases) {
+    t = t.replace(new RegExp(p.ar, 'gi'), p.en);
+  }
+  return t;
+}
+
+function translateDispatchMetaToEnglish(meta) {
+  if (!meta || typeof meta !== 'string') return '-';
+  let t = meta.trim();
+  if (!t) return '-';
+  t = t.replace(/(سيارة|سياره)\s*(\d+)/gi, 'Vehicle $2');
+  t = t.replace(/سيارة|سياره/gi, 'Vehicle');
+  t = t.replace(/باص/gi, 'Bus');
+  t = t.replace(/شاحنة|شاحنه/gi, 'Truck');
+  t = t.replace(/المكتب/gi, 'Office');
+  t = t.replace(/المشتريات/gi, 'Purchases');
+  t = t.replace(/الصيانة|الصيانه/gi, 'Maintenance');
+  t = t.replace(/المستودع/gi, 'Warehouse');
+  t = t.replace(/الورشة|الورشه/gi, 'Workshop');
+  t = t.replace(/الإدارة|الادارة|الاداره/gi, 'Management');
+  return t;
+}
+
+// ============================================================================
+// Tab 3: Daily Cash Distribution Sheet Business Logic
+// ============================================================================
+
+function getDailyDispatchList(dateStr, roleFilter = 'all') {
+  const dayEntries = state.data.entries[dateStr] || {};
+  const list = [];
+
+  for (const [pid, entry] of Object.entries(dayEntries)) {
+    const cash = Number(entry.cash) || 0;
+    if (cash <= 0) continue; // Beneficiaries who took cash today
+
+    const person = state.data.people.find(p => p.id === pid);
+    if (!person) continue;
+
+    if (roleFilter !== 'all' && person.role !== roleFilter) {
+      continue;
+    }
+
+    list.push({
+      person,
+      cash,
+      invoice: Number(entry.invoice) || 0,
+      returnedCash: Number(entry.returnedCash) || 0,
+      note: entry.note || '',
+      cashCents: toCents(cash)
+    });
+  }
+
+  // Strict sorting: Primary = cash amount descending. Tie-breaker = person.num ascending!
+  list.sort((a, b) => {
+    if (b.cashCents !== a.cashCents) {
+      return b.cashCents - a.cashCents;
+    }
+    return (a.person.num || 0) - (b.person.num || 0);
+  });
+
+  return list;
+}
+
+function getDailyDispatchKpis(dateStr, roleFilter = 'all') {
+  const list = getDailyDispatchList(dateStr, roleFilter);
+  let totalDisbursedCents = 0;
+  let topRecipient = null;
+
+  list.forEach(item => {
+    totalDisbursedCents += item.cashCents;
+    if (!topRecipient || item.cashCents > topRecipient.cashCents) {
+      topRecipient = item;
+    }
+  });
+
+  const totals = getDayTotals(dateStr);
+
+  return {
+    count: list.length,
+    totalDisbursed: fromCents(totalDisbursedCents),
+    topRecipient: topRecipient ? {
+      person: topRecipient.person,
+      amount: topRecipient.cash
+    } : null,
+    drawerRemaining: totals.remaining,
+    totalVaultReceived: totals.received
+  };
+}
+
+// ============================================================================
+// Corporate Tafqeet & Currency In Words Engine (Qatari Riyals - QAR)
+// ============================================================================
+
+function moneyToArabicWords(amount) {
+  const cents = Math.round(Math.abs(amount) * 100);
+  const riyals = Math.floor(cents / 100);
+  const dirhams = cents % 100;
+
+  if (riyals === 0 && dirhams === 0) return 'فقط صفر ريال قطري لا غير';
+
+  const ones = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة', 'عشرة',
+    'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر', 'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر'];
+  const tens = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
+  const hundreds = ['', 'مائة', 'مائتان', 'ثلاثمائة', 'أربعمائة', 'خمسمائة', 'ستمائة', 'سبعمائة', 'ثمانمائة', 'تسعمائة'];
+
+  function convertGroup(n) {
+    if (n === 0) return '';
+    let res = '';
+    const h = Math.floor(n / 100);
+    const rem = n % 100;
+    if (h > 0) res += hundreds[h];
+    if (rem > 0) {
+      if (res) res += ' و';
+      if (rem < 20) {
+        res += ones[rem];
+      } else {
+        const u = rem % 10;
+        const t = Math.floor(rem / 10);
+        if (u > 0) res += ones[u] + ' و';
+        res += tens[t];
+      }
+    }
+    return res;
+  }
+
+  let parts = [];
+  const millions = Math.floor(riyals / 1000000);
+  const thousands = Math.floor((riyals % 1000000) / 1000);
+  const remainingRiyals = riyals % 1000;
+
+  if (millions > 0) {
+    if (millions === 1) parts.push('مليون');
+    else if (millions === 2) parts.push('مليونان');
+    else if (millions >= 3 && millions <= 10) parts.push(convertGroup(millions) + ' ملايين');
+    else parts.push(convertGroup(millions) + ' مليون');
+  }
+
+  if (thousands > 0) {
+    if (thousands === 1) parts.push('ألف');
+    else if (thousands === 2) parts.push('ألفان');
+    else if (thousands >= 3 && thousands <= 10) parts.push(convertGroup(thousands) + ' آلاف');
+    else parts.push(convertGroup(thousands) + ' ألف');
+  }
+
+  if (remainingRiyals > 0) {
+    parts.push(convertGroup(remainingRiyals));
+  }
+
+  let text = parts.join(' و');
+  let result = 'فقط ' + (text ? text + ' ريالاً قطرياً' : '');
+
+  if (dirhams > 0) {
+    const dirhamText = convertGroup(dirhams);
+    result += (text ? ' و' : 'فقط ') + dirhamText + ' درهماً';
+  }
+
+  return result + ' لا غير';
+}
+
+function moneyToEnglishWords(amount) {
+  const cents = Math.round(Math.abs(amount) * 100);
+  const riyals = Math.floor(cents / 100);
+  const dirhams = cents % 100;
+
+  if (riyals === 0 && dirhams === 0) return 'Only Zero Qatari Riyals Only';
+
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  function convertGroup(n) {
+    if (n === 0) return '';
+    let res = '';
+    const h = Math.floor(n / 100);
+    const rem = n % 100;
+    if (h > 0) {
+      res += ones[h] + ' Hundred';
+      if (rem > 0) res += ' and ';
+    }
+    if (rem > 0) {
+      if (rem < 20) {
+        res += ones[rem];
+      } else {
+        const u = rem % 10;
+        const t = Math.floor(rem / 10);
+        res += tens[t];
+        if (u > 0) res += '-' + ones[u];
+      }
+    }
+    return res;
+  }
+
+  let parts = [];
+  const millions = Math.floor(riyals / 1000000);
+  const thousands = Math.floor((riyals % 1000000) / 1000);
+  const remaining = riyals % 1000;
+
+  if (millions > 0) parts.push(convertGroup(millions) + ' Million');
+  if (thousands > 0) parts.push(convertGroup(thousands) + ' Thousand');
+  if (remaining > 0) parts.push(convertGroup(remaining));
+
+  let text = parts.join(', ');
+  let result = 'Only ' + (text ? text + ' Qatari Riyals' : '');
+
+  if (dirhams > 0) {
+    result += (text ? ' and ' : 'Only ') + convertGroup(dirhams) + ' Dirhams';
+  }
+
+  return result + ' Only';
+}
+
+function renderDispatchTab() {
+  if (typeof document === 'undefined') return;
+  const isEn = state.dispatchLang === 'en';
+  const tabEl = document.getElementById('tab-dispatch');
+  if (tabEl) {
+    tabEl.setAttribute('dir', isEn ? 'ltr' : 'rtl');
+  }
+
+  const titleEl = document.getElementById('dispatchMainTitle');
+  const subEl = document.getElementById('dispatchSubTitle');
+  if (titleEl) {
+    titleEl.textContent = isEn 
+      ? '📑 Daily Cash Sheet (Disbursement Log)'
+      : '📑 كشف الصرف اليومي (Daily Cash Sheet)';
+  }
+  if (subEl) {
+    subEl.textContent = isEn
+      ? 'Daily cash disbursed to drivers & staff — sorted strictly from highest to lowest recipient'
+      : 'كشف وتوثيق نقدية اليوم الموزعة على السائقين والموظفين — مرتب من الأكثر للأقل استلاماً';
+  }
+
+  const btnAr = document.getElementById('btnDispatchLangAr');
+  const btnEn = document.getElementById('btnDispatchLangEn');
+  if (btnAr) btnAr.classList.toggle('active', !isEn);
+  if (btnEn) btnEn.classList.toggle('active', isEn);
+
+  const dateInput = document.getElementById('dispatchDateInput');
+  if (dateInput) {
+    dateInput.value = state.selectedDate;
+  }
+
+  document.querySelectorAll('#dispatchRoleFilter .pill').forEach(pill => {
+    pill.classList.toggle('active', pill.getAttribute('data-role') === state.dispatchRoleFilter);
+  });
+
+  const list = getDailyDispatchList(state.selectedDate, state.dispatchRoleFilter);
+  const kpis = getDailyDispatchKpis(state.selectedDate, state.dispatchRoleFilter);
+
+  const kpiTotalEl = document.getElementById('dispatchKpiTotalDisbursed');
+  const kpiCountEl = document.getElementById('dispatchKpiBeneficiaries');
+  const kpiTopEl = document.getElementById('dispatchKpiTopRecipient');
+  const kpiDrawerEl = document.getElementById('dispatchKpiDrawerBalance');
+
+  if (kpiTotalEl) {
+    kpiTotalEl.textContent = isEn ? `${formatNumber(kpis.totalDisbursed)} QAR` : `${formatNumber(kpis.totalDisbursed)} ر.ق`;
+  }
+  if (kpiCountEl) {
+    kpiCountEl.textContent = isEn ? `${kpis.count} Persons` : `${kpis.count} مستلم`;
+  }
+  if (kpiTopEl) {
+    if (kpis.topRecipient) {
+      const pName = isEn ? getPersonEnglishName(kpis.topRecipient.person) : getPersonDisplayName(kpis.topRecipient.person);
+      const amtStr = isEn ? `${formatNumber(kpis.topRecipient.amount)} QAR` : `${formatNumber(kpis.topRecipient.amount)} ر.ق`;
+      kpiTopEl.textContent = `${pName} (${amtStr})`;
+    } else {
+      kpiTopEl.textContent = isEn ? 'No disbursements' : 'لا يوجد صرف اليوم';
+    }
+  }
+  if (kpiDrawerEl) {
+    kpiDrawerEl.textContent = isEn ? `${formatNumber(kpis.drawerRemaining)} QAR` : `${formatNumber(kpis.drawerRemaining)} ر.ق`;
+  }
+
+  updateDispatchI18nLabels(isEn);
+  renderDispatchTable(list, isEn);
+}
+
+function renderDispatchTable(list, isEn) {
+  const thead = document.getElementById('dispatchTableHead');
+  const tbody = document.getElementById('dispatchTableBody');
+  const tfoot = document.getElementById('dispatchTableFoot');
+  if (!thead || !tbody || !tfoot) return;
+
+  const colgroupHtml = `
+    <colgroup>
+      <col style="width: 5%;">
+      <col style="width: 25%;">
+      <col style="width: 10%;">
+      <col style="width: 14%;">
+      <col style="width: 14%;">
+      <col style="width: 16%;">
+      <col style="width: 16%;">
+    </colgroup>
+  `;
+
+  if (isEn) {
+    thead.innerHTML = colgroupHtml + `
+      <tr>
+        <th style="text-align: center;">#</th>
+        <th style="text-align: left;">Driver / Staff Name</th>
+        <th style="text-align: center;">Role</th>
+        <th style="text-align: center;">Vehicle / Dept</th>
+        <th style="text-align: right;">Amount Issued (QAR)</th>
+        <th style="text-align: left;">Purpose & Description</th>
+        <th style="text-align: center;">Recipient Signature</th>
+      </tr>
+    `;
+  } else {
+    thead.innerHTML = colgroupHtml + `
+      <tr>
+        <th style="text-align: center;">م</th>
+        <th style="text-align: right;">اسم السائق / الموظف</th>
+        <th style="text-align: center;">الصفة</th>
+        <th style="text-align: center;">المركبة أو القسم</th>
+        <th style="text-align: right;">المبلغ المستلم (ر.ق)</th>
+        <th style="text-align: right;">البيان والغرض</th>
+        <th style="text-align: center;">توقيع الاستلام</th>
+      </tr>
+    `;
+  }
+
+  tbody.innerHTML = '';
+  if (list.length === 0) {
+    const emptyMsg = isEn
+      ? `No cash was disbursed on ${state.selectedDate}. (Use the Daily tab to register driver advances).`
+      : `لم يتم صرف أي مبالغ نقدية في تاريخ ${state.selectedDate}. (يمكن تسجيل سُلف السائقين من تبويب "التسجيل اليومي").`;
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; padding: 36px; color: var(--text-muted); font-size: 1.05rem;">
+          ${emptyMsg}
+        </td>
+      </tr>
+    `;
+  } else {
+    list.forEach((item, idx) => {
+      const tr = document.createElement('tr');
+      const p = item.person;
+      const roleBadge = p.role === 'staff'
+        ? `<span class="badge" style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.82rem;">${isEn ? 'Staff' : 'موظف'}</span>`
+        : `<span class="badge" style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.82rem;">${isEn ? 'Driver' : 'سائق'}</span>`;
+
+      let nameCellContent = '';
+      if (isEn) {
+        const enName = getPersonEnglishName(p);
+        nameCellContent = `
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div>
+              <strong style="color: #0f172a; font-size: 1rem;">${escapeHtml(enName)}</strong>
+              <small style="display: block; color: #64748b; font-size: 0.78rem;">${escapeHtml(p.name)} (#${p.num})</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline no-print" data-edit-eng-name="${p.id}" title="Edit English spelling" style="padding: 2px 7px; font-size: 0.75rem; border-color: #cbd5e1;">
+              ✏️ Edit
+            </button>
+          </div>
+        `;
+      } else {
+        nameCellContent = `
+          <div>
+            <strong style="font-size: 1.02rem; color: #0f172a;">${escapeHtml(p.name)}</strong>
+            <small style="display: block; color: var(--text-muted); font-size: 0.8rem;">رقم #${p.num}</small>
+          </div>
+        `;
+      }
+
+      const metaDisplay = isEn ? translateDispatchMetaToEnglish(p.meta) : (p.meta || '-');
+      const noteDisplay = isEn ? translateDispatchNoteToEnglish(item.note) : (item.note || '-');
+      const amtDisplay = isEn ? `${formatNumber(item.cash)} QAR` : `${formatNumber(item.cash)} ر.ق`;
+
+      tr.innerHTML = `
+        <td style="text-align: center; font-weight: 700; color: #64748b;">${idx + 1}</td>
+        <td>${nameCellContent}</td>
+        <td style="text-align: center;">${roleBadge}</td>
+        <td style="text-align: center; color: var(--text-muted); font-size: 0.88rem;">${escapeHtml(metaDisplay)}</td>
+        <td style="text-align: right; font-weight: 800; color: #15803d; font-size: 1.08rem; font-variant-numeric: tabular-nums;">${amtDisplay}</td>
+        <td style="font-size: 0.88rem; color: #334155;">${escapeHtml(noteDisplay)}</td>
+        <td style="text-align: center;">
+          <div class="only-print" style="min-height: 28px; border-bottom: 1px dashed #64748b; width: 85%; margin: 0 auto;"></div>
+          <span class="no-print text-muted" style="font-size: 0.82rem;">[ ✍️ ${isEn ? 'Signature' : 'التوقيع'} ]</span>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('[data-edit-eng-name]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pid = btn.getAttribute('data-edit-eng-name');
+        const p = state.data.people.find(item => item.id === pid);
+        if (!p) return;
+        const currentEn = getPersonEnglishName(p);
+        const newEn = prompt(`Edit English Name for "${p.name}" (#${p.num}):`, currentEn);
+        if (newEn !== null) {
+          p.nameEn = newEn.trim();
+          saveState();
+          renderDispatchTab();
+          showToast(`Updated English name for ${p.name} to "${p.nameEn}" ✓`);
+        }
+      });
+    });
+  }
+
+  const kpis = getDailyDispatchKpis(state.selectedDate, state.dispatchRoleFilter);
+  const totalLabel = isEn ? 'TOTAL DISBURSED (QAR):' : 'إجمالي المبالغ المنصرفة لليوم:';
+  const totalAmt = isEn ? `${formatNumber(kpis.totalDisbursed)} QAR` : `${formatNumber(kpis.totalDisbursed)} ر.ق`;
+  tfoot.innerHTML = `
+    <tr>
+      <td colspan="4" style="text-align: ${isEn ? 'left' : 'right'}; font-weight: 800; font-size: 0.95rem;">
+        ${totalLabel}
+      </td>
+      <td style="text-align: right; font-weight: 800; color: #15803d; font-size: 1.15rem; font-variant-numeric: tabular-nums;">
+        ${totalAmt}
+      </td>
+      <td colspan="2" style="font-size: 0.85rem; color: #64748b; text-align: center;">
+        [ ${kpis.count} ${isEn ? 'Recipients' : 'مستلم'} ]
+      </td>
+    </tr>
+  `;
+}
+
+function updateDispatchI18nLabels(isEn) {
+  const lblPrint = document.getElementById('lblPrintDispatch');
+  const lblExport = document.getElementById('lblExportDispatch');
+  const lblWhatsApp = document.getElementById('lblWhatsAppDispatch');
+  const lblDate = document.getElementById('lblDispatchSelectDate');
+  const lblToday = document.getElementById('lblDispatchToday');
+  const lblYesterday = document.getElementById('lblDispatchYesterday');
+  const lblFilter = document.getElementById('lblDispatchFilterRole');
+  const btnAll = document.getElementById('btnRoleAll');
+  const btnDrivers = document.getElementById('btnRoleDrivers');
+  const btnStaff = document.getElementById('btnRoleStaff');
+
+  const lblKpi1 = document.getElementById('lblKpiTotalDisbursed');
+  const subKpi1 = document.getElementById('dispatchKpiTotalDisbursedSub');
+  const lblKpi2 = document.getElementById('lblKpiBeneficiaries');
+  const subKpi2 = document.getElementById('dispatchKpiBeneficiariesSub');
+  const lblKpi3 = document.getElementById('lblKpiTopRecipient');
+  const subKpi3 = document.getElementById('dispatchKpiTopRecipientSub');
+  const lblKpi4 = document.getElementById('lblKpiDrawerBalance');
+  const subKpi4 = document.getElementById('dispatchKpiDrawerBalanceSub');
+
+  if (lblPrint) lblPrint.textContent = isEn ? 'Print Official Voucher' : 'طباعة السند الرسمي المعتمد';
+  if (lblExport) lblExport.textContent = isEn ? 'Export Excel (CSV)' : 'تصدير إكسيل معتمد';
+  if (lblWhatsApp) lblWhatsApp.textContent = isEn ? 'Copy WhatsApp Summary' : 'نسخ ملخص الواتساب';
+  if (lblDate) lblDate.textContent = isEn ? '📅 Sheet Date:' : '📅 تاريخ اليومية:';
+  if (lblToday) lblToday.textContent = isEn ? 'Today' : 'اليوم';
+  if (lblYesterday) lblYesterday.textContent = isEn ? 'Yesterday' : 'الأمس';
+  if (lblFilter) lblFilter.textContent = isEn ? 'Filter:' : 'تصفية:';
+  if (btnAll) btnAll.textContent = isEn ? 'All (الكل)' : 'الكل (All)';
+  if (btnDrivers) btnDrivers.textContent = isEn ? 'Drivers Only' : 'السائقين (Drivers)';
+  if (btnStaff) btnStaff.textContent = isEn ? 'Staff Only' : 'الموظفين (Staff)';
+
+  if (lblKpi1) lblKpi1.textContent = isEn ? '💰 Total Disbursed' : '💰 إجمالي المنصرف لليوم';
+  if (subKpi1) subKpi1.textContent = isEn ? 'Total cash handed out to recipients' : 'مجموع السُلف الموزعة باليد';
+  if (lblKpi2) lblKpi2.textContent = isEn ? '👥 Beneficiaries Count' : '👥 عدد المستلمين';
+  if (subKpi2) subKpi2.textContent = isEn ? 'Drivers & staff who received cash' : 'سائق وموظف استلموا نقدية';
+  if (lblKpi3) lblKpi3.textContent = isEn ? '🏆 Top Recipient' : '🏆 أعلى مستلم نقدية';
+  if (subKpi3) subKpi3.textContent = isEn ? 'Highest cash amount today' : 'صاحب أكبر مبلغ اليوم';
+  if (lblKpi4) lblKpi4.textContent = isEn ? '🏦 Physical Drawer Balance' : '🏦 المتبقي في الدرج / الخزنة';
+  if (subKpi4) subKpi4.textContent = isEn ? 'Verified cash balance in hand' : 'مطابقة النقدية باليد';
+
+  // Corporate Letterhead Elements
+  const pComp = document.getElementById('printCorpCompanyName');
+  const pDept = document.getElementById('printCorpDeptName');
+  const pTitle = document.getElementById('printCorpDocTitle');
+  const pVouchNoLbl = document.getElementById('printCorpVoucherNoLbl');
+  const pDateLbl = document.getElementById('printCorpDateLbl');
+  const pCurrLbl = document.getElementById('printCorpCurrencyLbl');
+  const pCopyLbl = document.getElementById('printCorpCopyLbl');
+  const pCopyVal = document.getElementById('printCorpCopyVal');
+
+  if (pComp) pComp.textContent = isEn ? 'LOGISTICS & TRANSPORTATION SERVICES CO. W.L.L.' : 'شركة النقليات والخدمات اللوجستية ش.م.ق';
+  if (pDept) pDept.textContent = isEn ? 'Fleet Operations & Logistics Division — Corporate Treasury & Petty Cash Dept.' : 'إدارة الحركة والعمليات اللوجستية — قسم الخزينة والعهد النقدية';
+  if (pTitle) pTitle.textContent = isEn ? 'DAILY PETTY CASH DISBURSEMENT STATEMENT & VOUCHER' : 'سند وكشف توزيع النقدية اليومي (بيتي كاش)';
+  if (pVouchNoLbl) pVouchNoLbl.textContent = isEn ? 'Voucher Ref:' : 'رقم السند:';
+  if (pDateLbl) pDateLbl.textContent = isEn ? 'Statement Date:' : 'تاريخ اليومية:';
+  if (pCurrLbl) pCurrLbl.textContent = isEn ? 'Currency:' : 'العملة:';
+  if (pCopyLbl) pCopyLbl.textContent = isEn ? 'Copy:' : 'النسخة:';
+  if (pCopyVal) pCopyVal.textContent = isEn ? 'Original - Accounts' : 'الأصل - قسم الحسابات';
+
+  const vouchVal = document.getElementById('printCorpVoucherNo');
+  const dateVal = document.getElementById('printCorpDate');
+  const { y, m, d } = parseDateParts(state.selectedDate);
+  if (vouchVal) vouchVal.textContent = `DCD-${state.selectedDate.replace(/-/g, '')}-001`;
+  if (dateVal) {
+    dateVal.textContent = isEn
+      ? `${getEnglishDayName(y, m, d)}, ${state.selectedDate}`
+      : `${getArabicDayName(y, m, d)} ${state.selectedDate}`;
+  }
+
+  // Reconciliation Block Values
+  const kpis = getDailyDispatchKpis(state.selectedDate, state.dispatchRoleFilter);
+  const recVal = getDayReceived(state.selectedDate);
+  const retVal = getDayTotals(state.selectedDate).returnedCashTotal || 0;
+
+  const rLblDrawn = document.getElementById('reconLblDrawn');
+  const rValDrawn = document.getElementById('reconValDrawn');
+  const rLblDisb = document.getElementById('reconLblDisbursed');
+  const rValDisb = document.getElementById('reconValDisbursed');
+  const rLblRet = document.getElementById('reconLblReturned');
+  const rValRet = document.getElementById('reconValReturned');
+  const rLblDraw = document.getElementById('reconLblDrawer');
+  const rValDraw = document.getElementById('reconValDrawer');
+
+  if (rLblDrawn) rLblDrawn.textContent = isEn ? 'Cash Drawn from Treasury' : 'المسحوب من الخزنة (الوارد)';
+  if (rValDrawn) rValDrawn.textContent = isEn ? `${formatNumber(recVal)} QAR` : `${formatNumber(recVal)} ر.ق`;
+
+  if (rLblDisb) rLblDisb.textContent = isEn ? 'Total Disbursed Today' : 'إجمالي المنصرف (الموزع)';
+  if (rValDisb) rValDisb.textContent = isEn ? `${formatNumber(kpis.totalDisbursed)} QAR` : `${formatNumber(kpis.totalDisbursed)} ر.ق`;
+
+  if (rLblRet) rLblRet.textContent = isEn ? 'Returned Cash in Hand' : 'الكاش المرتجع باليد';
+  if (rValRet) rValRet.textContent = isEn ? `${formatNumber(retVal)} QAR` : `${formatNumber(retVal)} ر.ق`;
+
+  if (rLblDraw) rLblDraw.textContent = isEn ? 'Actual Physical Drawer Balance' : 'المتبقي الفعلي بالدرج';
+  if (rValDraw) rValDraw.textContent = isEn ? `${formatNumber(kpis.drawerRemaining)} QAR` : `${formatNumber(kpis.drawerRemaining)} ر.ق`;
+
+  // Tafqeet (Amount in words)
+  const tafqeetText = isEn
+    ? moneyToEnglishWords(kpis.totalDisbursed)
+    : moneyToArabicWords(kpis.totalDisbursed);
+  const tafqeetEl = document.getElementById('dispatchTafqeetText');
+  const tafqeetLbl = document.getElementById('dispatchTafqeetLabel');
+  if (tafqeetEl) tafqeetEl.textContent = tafqeetText;
+  if (tafqeetLbl) tafqeetLbl.textContent = isEn ? 'Amount in Words (Fraud Prevention):' : 'المبلغ كتابة بالحروف:';
+
+  // 3-Tier Signatures
+  const sPrepT = document.getElementById('signPreparedByTitle');
+  const sPrepS = document.getElementById('signPreparedBySub');
+  const sRevT = document.getElementById('signReviewedByTitle');
+  const sRevS = document.getElementById('signReviewedBySub');
+  const sAppT = document.getElementById('signApprovedByTitle');
+  const sAppS = document.getElementById('signApprovedBySub');
+  const sSeal = document.getElementById('signSealTitle');
+
+  if (sPrepT) sPrepT.textContent = isEn ? 'Prepared By (Cash Custodian)' : 'إعداد / أمين الصندوق';
+  if (sPrepS) sPrepS.textContent = isEn ? 'Name, Signature & Date' : 'الاسم، التوقيع والتاريخ';
+  if (sRevT) sRevT.textContent = isEn ? 'Audited By (Internal Accountant)' : 'تدقيق ومراجعة / المحاسب';
+  if (sRevS) sRevS.textContent = isEn ? 'Name, Signature & Date' : 'الاسم، التوقيع والتاريخ';
+  if (sAppT) sAppT.textContent = isEn ? 'Approved By (Financial Controller)' : 'اعتماد / المدير المالي';
+  if (sAppS) sAppS.textContent = isEn ? 'Name, Signature & Date' : 'الاسم، التوقيع والتاريخ';
+  if (sSeal) sSeal.textContent = isEn ? 'OFFICIAL CORPORATE SEAL' : 'ختم الشركة الرسمي';
+}
+
+function generateDispatchWhatsAppSummary(dateStr, isEn) {
+  const list = getDailyDispatchList(dateStr, state.dispatchRoleFilter);
+  const kpis = getDailyDispatchKpis(dateStr, state.dispatchRoleFilter);
+  const { y, m, d } = parseDateParts(dateStr);
+
+  if (isEn) {
+    const dayName = getEnglishDayName(y, m, d);
+    let text = `📊 *DAILY CASH DISTRIBUTION REPORT*\n`;
+    text += `📅 Date: ${dayName}, ${dateStr}\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `💰 *Total Disbursed:* ${formatNumber(kpis.totalDisbursed)} QAR\n`;
+    text += `👥 *Beneficiaries Count:* ${kpis.count} recipients\n`;
+    if (kpis.topRecipient) {
+      text += `🏆 *Top Recipient:* ${getPersonEnglishName(kpis.topRecipient.person)} (${formatNumber(kpis.topRecipient.amount)} QAR)\n`;
+    }
+    text += `🏦 *Drawer Balance:* ${formatNumber(kpis.drawerRemaining)} QAR\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `📋 *Disbursement Breakdown (Ranked):*\n`;
+
+    if (list.length === 0) {
+      text += `_No disbursements recorded for this date._\n`;
+    } else {
+      list.forEach((item, idx) => {
+        const name = getPersonEnglishName(item.person);
+        const meta = translateDispatchMetaToEnglish(item.person.meta);
+        const note = translateDispatchNoteToEnglish(item.note);
+        const role = item.person.role === 'staff' ? '[Staff]' : '[Driver]';
+        text += `${idx + 1}. *${name}* ${role}: ${formatNumber(item.cash)} QAR`;
+        if (meta && meta !== '-') text += ` — ${meta}`;
+        if (note && note !== '-') text += ` (${note})`;
+        text += `\n`;
+      });
+    }
+
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `_Generated via Petty Cash Management System_`;
+    return text;
+  } else {
+    const dayName = getArabicDayName(y, m, d);
+    let text = `📊 *تقرير كشف الصرف والتوزيع اليومي*\n`;
+    text += `📅 التاريخ: ${dayName} ${dateStr}\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `💰 *إجمالي المنصرف:* ${formatNumber(kpis.totalDisbursed)} ر.ق\n`;
+    text += `👥 *عدد المستلمين:* ${kpis.count} مستلم\n`;
+    if (kpis.topRecipient) {
+      text += `🏆 *أعلى مستلم:* ${kpis.topRecipient.person.name} (${formatNumber(kpis.topRecipient.amount)} ر.ق)\n`;
+    }
+    text += `🏦 *النقدية المتبقية بالدرج:* ${formatNumber(kpis.drawerRemaining)} ر.ق\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `📋 *بيان توزيع النقدية (مرتب تنازلياً):*\n`;
+
+    if (list.length === 0) {
+      text += `_لا توجد مبالغ منصرفة مسجلة في هذا اليوم._\n`;
+    } else {
+      list.forEach((item, idx) => {
+        const name = item.person.name;
+        const meta = item.person.meta;
+        const note = item.note;
+        const role = item.person.role === 'staff' ? '[موظف]' : '[سائق]';
+        text += `${idx + 1}. *${name}* ${role}: ${formatNumber(item.cash)} ر.ق`;
+        if (meta) text += ` — ${meta}`;
+        if (note) text += ` (${note})`;
+        text += `\n`;
+      });
+    }
+
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `_تم الاستخراج والتوثيق عبر نظام إدارة العهدة اليومية_`;
+    return text;
+  }
+}
+
+async function copyTextToClipboard(text) {
+  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      // Fallback
+    }
+  }
+  if (typeof document !== 'undefined') {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-999999px';
+    textarea.style.top = '-999999px';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    let success = false;
+    try {
+      success = document.execCommand('copy');
+    } catch (err) {
+      success = false;
+    }
+    document.body.removeChild(textarea);
+    return success;
+  }
+  return false;
+}
+
+
 // Replenishment Statement Modal Logic
 function openReplenishmentModal() {
   const mRecList = getCustodyReceiptsForMonth(state.year, state.month);
@@ -3757,6 +4610,7 @@ function renderAll() {
   updateMonthLabels();
   if (state.activeTab === 'daily') renderDailyTab();
   if (state.activeTab === 'monthly') renderMonthlyMatrixTab();
+  if (state.activeTab === 'dispatch') renderDispatchTab();
   if (state.activeTab === 'person') renderPersonTab();
   if (state.activeTab === 'annual') renderAnnualTab();
   if (state.activeTab === 'people') renderPeopleManagementTab();
@@ -3856,6 +4710,41 @@ function exportCurrentViewToExcel() {
     csvRows.push(header);
 
     const isInv = state.annualDataType === 'invoices';
+
+    const monthSummary = {};
+    let grandReceivedCents = 0;
+    let grandDistributedCents = 0;
+    let grandInvoicesCents = 0;
+
+    monthsRange.forEach(m => {
+      const daysCount = getDaysInMonth(state.year, m);
+      let recCents = 0;
+      let distCents = 0;
+      let invCents = 0;
+      for (let d = 1; d <= daysCount; d++) {
+        const dt = getDayTotals(formatDateKey(state.year, m, d));
+        recCents += toCents(dt.received);
+        distCents += toCents(dt.distributed);
+        invCents += toCents(dt.invoices);
+      }
+      monthSummary[m] = { rec: fromCents(recCents), dist: fromCents(distCents), inv: fromCents(invCents) };
+      grandReceivedCents += recCents;
+      grandDistributedCents += distCents;
+      grandInvoicesCents += invCents;
+    });
+
+    // Summary Row 1: Received per month
+    const recRow = ['', 'توتال المستلم بالشهر', 'الوارد'];
+    monthsRange.forEach(m => recRow.push(monthSummary[m].rec));
+    recRow.push(fromCents(grandReceivedCents), '-');
+    csvRows.push(recRow);
+
+    // Summary Row 2: Distributed per month
+    const distRow = ['', 'توتال الموزع بالشهر', 'المنصرف'];
+    monthsRange.forEach(m => distRow.push(monthSummary[m].dist));
+    distRow.push(fromCents(grandDistributedCents), fromCents(grandInvoicesCents));
+    csvRows.push(distRow);
+
     const annualPeople = getReportablePeople(state.year);
     annualPeople.forEach(p => {
       const row = [p.num, getPersonDisplayName(p), p.role === 'driver' ? 'سائق' : 'ستاف'];
@@ -3870,6 +4759,14 @@ function exportCurrentViewToExcel() {
       row.push(fromCents(pCashCents), fromCents(pInvCents));
       csvRows.push(row);
     });
+
+    // Grand Totals Footer Row
+    const footRow = ['', 'التوتال العام للشهور', 'الكل'];
+    monthsRange.forEach(m => {
+      footRow.push(isInv ? monthSummary[m].inv : monthSummary[m].dist);
+    });
+    footRow.push(fromCents(grandDistributedCents), fromCents(grandInvoicesCents));
+    csvRows.push(footRow);
   } else if (state.activeTab === 'custody') {
     filename = `سجل_عهدة_الشركة_${state.year}.csv`;
     csvRows.push(['=== دفعات العهدة المستلمة من الشركة ===']);
@@ -3893,6 +4790,64 @@ function exportCurrentViewToExcel() {
     csvRows.push(['إجمالي التسويات المسلمة', '', '', fromCents(totalCustSetCents), '', '']);
     csvRows.push([]);
     csvRows.push(['صافي رصيد العهدة (دفعات - تسويات)', '', '', fromCents(totalCustRecCents - totalCustSetCents), '', '']);
+  } else if (state.activeTab === 'dispatch') {
+    const isEn = state.dispatchLang === 'en';
+    filename = isEn ? `Daily_Cash_Distribution_${state.selectedDate}.csv` : `كشف_الصرف_اليومي_${state.selectedDate}.csv`;
+    const list = getDailyDispatchList(state.selectedDate, state.dispatchRoleFilter);
+    const kpis = getDailyDispatchKpis(state.selectedDate, state.dispatchRoleFilter);
+
+    if (isEn) {
+      csvRows.push(['=== DAILY CASH DISTRIBUTION STATEMENT ===']);
+      csvRows.push(['Date', state.selectedDate]);
+      csvRows.push(['Total Disbursed (QAR)', fromCents(toCents(kpis.totalDisbursed))]);
+      csvRows.push(['Recipients Count', kpis.count]);
+      csvRows.push(['Drawer Balance Remaining', fromCents(toCents(kpis.drawerRemaining))]);
+      csvRows.push([]);
+      csvRows.push(['#', 'Recipient Name', 'Role', 'Vehicle/Dept', 'Amount Issued (QAR)', 'Purpose/Description', 'Signature']);
+      let totalCents = 0;
+      list.forEach((item, idx) => {
+        totalCents += item.cashCents;
+        const name = getPersonEnglishName(item.person);
+        const role = item.person.role === 'staff' ? 'Staff' : 'Driver';
+        const meta = translateDispatchMetaToEnglish(item.person.meta);
+        const note = translateDispatchNoteToEnglish(item.note);
+        csvRows.push([
+          idx + 1,
+          formatCsvCell(name),
+          formatCsvCell(role),
+          formatCsvCell(meta),
+          fromCents(item.cashCents),
+          formatCsvCell(note),
+          ''
+        ]);
+      });
+      csvRows.push([]);
+      csvRows.push(['TOTAL DISBURSED (QAR)', '', '', '', fromCents(totalCents), '', '']);
+    } else {
+      csvRows.push(['=== كشف وسند توزيع النقدية اليومي ===']);
+      csvRows.push(['التاريخ', state.selectedDate]);
+      csvRows.push(['إجمالي المنصرف (ر.ق)', fromCents(toCents(kpis.totalDisbursed))]);
+      csvRows.push(['عدد المستلمين', kpis.count]);
+      csvRows.push(['المتبقي بالدرج/الخزنة', fromCents(toCents(kpis.drawerRemaining))]);
+      csvRows.push([]);
+      csvRows.push(['م', 'اسم المستلم', 'الصفة', 'السيارة أو القسم', 'المبلغ المستلم (ر.ق)', 'البيان والغرض', 'توقيع الاستلام']);
+      let totalCents = 0;
+      list.forEach((item, idx) => {
+        totalCents += item.cashCents;
+        const role = item.person.role === 'staff' ? 'موظف' : 'سائق';
+        csvRows.push([
+          idx + 1,
+          formatCsvCell(item.person.name),
+          formatCsvCell(role),
+          formatCsvCell(item.person.meta || ''),
+          fromCents(item.cashCents),
+          formatCsvCell(item.note || ''),
+          ''
+        ]);
+      });
+      csvRows.push([]);
+      csvRows.push(['إجمالي المبالغ المنصرفة (ر.ق)', '', '', '', fromCents(totalCents), '', '']);
+    }
   } else if (state.activeTab === 'safe') {
     const isYear = !!state.safeShowYear;
     const targetM = state.safeMonth || state.month;
@@ -3996,10 +4951,37 @@ function printReportWithHeader() {
   document.body.classList.remove('printing-voucher');
   const subEl = document.getElementById('printHeaderSubtitle');
   const dateEl = document.getElementById('printHeaderDate');
+
+  if (state.activeTab === 'dispatch') {
+    document.body.classList.add('printing-dispatch');
+    if (state.dispatchLang === 'en') {
+      document.body.classList.add('printing-lang-en');
+      document.body.classList.remove('printing-lang-ar');
+    } else {
+      document.body.classList.add('printing-lang-ar');
+      document.body.classList.remove('printing-lang-en');
+    }
+  } else {
+    document.body.classList.remove('printing-dispatch', 'printing-lang-en', 'printing-lang-ar');
+    if (state.activeTab === 'monthly') {
+      document.body.classList.add('printing-landscape');
+    } else {
+      document.body.classList.remove('printing-landscape');
+    }
+  }
+
   if (subEl) {
     if (state.activeTab === 'daily') {
       const { y, m, d } = parseDateParts(state.selectedDate);
       subEl.textContent = `كشف التسجيل والتوزيع اليومي — ${getArabicDayName(y, m, d)} ${d} ${ARABIC_MONTHS[m]} ${y}`;
+    } else if (state.activeTab === 'dispatch') {
+      const isEn = state.dispatchLang === 'en';
+      const { y, m, d } = parseDateParts(state.selectedDate);
+      if (isEn) {
+        subEl.textContent = `Daily Cash Distribution Sheet — ${getEnglishDayName(y, m, d)}, ${d} ${ENGLISH_MONTHS[m]} ${y}`;
+      } else {
+        subEl.textContent = `كشف وسند الصرف اليومي - عهدة النقدية (QAR) — ${getArabicDayName(y, m, d)} ${d} ${ARABIC_MONTHS[m]} ${y}`;
+      }
     } else if (state.activeTab === 'monthly') {
       subEl.textContent = `كشف الشهر الشامل — ${ARABIC_MONTHS[state.month]} ${state.year}`;
     } else if (state.activeTab === 'person') {
@@ -4024,6 +5006,9 @@ function printReportWithHeader() {
     dateEl.textContent = `تاريخ الطباعة: ${todayStr}`;
   }
   window.print();
+  setTimeout(() => {
+    document.body.classList.remove('printing-dispatch', 'printing-lang-en', 'printing-lang-ar', 'printing-landscape');
+  }, 1000);
 }
 
 function printVoucherOnly() {
@@ -4072,6 +5057,7 @@ function validateBackupPayload(parsed) {
       num: Number.isFinite(Number(p.num)) && Number(p.num) > 0 ? Number(p.num) : (idx + 1),
       name: typeof p.name === 'string' ? p.name.trim() : '',
       role: p.role === 'staff' ? 'staff' : 'driver',
+      nameEn: typeof p.nameEn === 'string' ? p.nameEn.trim() : '',
       meta: typeof p.meta === 'string' ? p.meta.trim() : '',
       archived: !!p.archived,
       archivedAt: p.archivedAt || null
@@ -4831,6 +5817,73 @@ function bindEvents() {
     showToast('تم إلغاء تعديل كشف التصفية');
   });
 
+  // Tab 3: Daily Cash Distribution Sheet Controls (كشف الصرف اليومي)
+  document.getElementById('btnDispatchLangAr')?.addEventListener('click', () => {
+    state.dispatchLang = 'ar';
+    renderDispatchTab();
+  });
+  document.getElementById('btnDispatchLangEn')?.addEventListener('click', () => {
+    state.dispatchLang = 'en';
+    renderDispatchTab();
+  });
+
+  document.getElementById('dispatchDateInput')?.addEventListener('change', (e) => {
+    const v = e.target.value;
+    if (v && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      state.selectedDate = v;
+      const { y, m } = parseDateParts(v);
+      state.year = y;
+      state.month = m;
+      renderAll();
+    }
+  });
+
+  document.getElementById('btnDispatchQuickToday')?.addEventListener('click', () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    const d = now.getDate();
+    state.selectedDate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    state.year = y;
+    state.month = m;
+    renderAll();
+  });
+
+  document.getElementById('btnDispatchQuickYesterday')?.addEventListener('click', () => {
+    const { y, m, d } = parseDateParts(state.selectedDate);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() - 1);
+    const prevY = dt.getFullYear();
+    const prevM = dt.getMonth() + 1;
+    const prevD = dt.getDate();
+    state.selectedDate = `${prevY}-${String(prevM).padStart(2, '0')}-${String(prevD).padStart(2, '0')}`;
+    state.year = prevY;
+    state.month = prevM;
+    renderAll();
+  });
+
+  document.querySelectorAll('#dispatchRoleFilter .pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('#dispatchRoleFilter .pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      state.dispatchRoleFilter = pill.getAttribute('data-role') || 'all';
+      renderDispatchTab();
+    });
+  });
+
+  document.getElementById('btnPrintDispatchStatement')?.addEventListener('click', printReportWithHeader);
+  document.getElementById('btnExportDispatchExcel')?.addEventListener('click', exportCurrentViewToExcel);
+  document.getElementById('btnCopyDispatchWhatsApp')?.addEventListener('click', async () => {
+    const isEn = state.dispatchLang === 'en';
+    const text = generateDispatchWhatsAppSummary(state.selectedDate, isEn);
+    const success = await copyTextToClipboard(text);
+    if (success) {
+      showToast(isEn ? 'Copied WhatsApp summary to clipboard! 📋' : 'تم نسخ ملخص الواتساب بنجاح! 📋');
+    } else {
+      prompt(isEn ? 'Copy WhatsApp summary:' : 'انسخ ملخص الواتساب:', text);
+    }
+  });
+
   // Tab 7: Safe Transactions Controls (معاملاتي مع الخزنة)
   document.getElementById('safeMonthSelect')?.addEventListener('change', (e) => {
     state.safeMonth = Number(e.target.value);
@@ -5202,6 +6255,13 @@ if (typeof module !== 'undefined' && module.exports) {
     loadState,
     saveState,
     createCleanData,
-    formatCsvCell
+        formatCsvCell,
+    getDailyDispatchList,
+    getDailyDispatchKpis,
+    transliterateArabicNameToEnglish,
+    getPersonEnglishName,
+    translateDispatchNoteToEnglish,
+    translateDispatchMetaToEnglish,
+    generateDispatchWhatsAppSummary
   };
 }
