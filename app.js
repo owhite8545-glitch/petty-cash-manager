@@ -2946,9 +2946,12 @@ function getSafeTabFinancials(targetYear, targetMonth, isYearScope) {
     }
   }
 
-  const periodInvoicesList = isYearScope 
-    ? getSafeInvoicesForYear(targetYear)
-    : getSafeInvoicesForMonth(targetYear, targetMonth);
+  const prefix = isYearScope 
+    ? `${targetYear}-` 
+    : `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
+
+  const allPeriodInvoicesList = (state.data.safeInvoices || []).filter(r => r && r.date && r.date.startsWith(prefix));
+  const periodInvoicesList = allPeriodInvoicesList.filter(r => r.status !== 'reversed');
 
   let periodInvoiceCents = 0;
   periodInvoicesList.forEach(inv => {
@@ -3025,6 +3028,7 @@ function getSafeTabFinancials(targetYear, targetMonth, isYearScope) {
     },
     withdrawalsList,
     periodInvoicesList,
+    allPeriodInvoicesList,
     periodStartDate,
     periodEndDate
   };
@@ -3207,7 +3211,7 @@ function renderSafeTab() {
   const tbodyInvoices = document.getElementById('safeInvoicesBody');
   if (tbodyInvoices) {
     tbodyInvoices.innerHTML = '';
-    const sortedInvoices = [...fin.periodInvoicesList].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const sortedInvoices = [...(fin.allPeriodInvoicesList || fin.periodInvoicesList)].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     if (sortedInvoices.length === 0) {
       tbodyInvoices.innerHTML = `
@@ -3219,22 +3223,42 @@ function renderSafeTab() {
       `;
     } else {
       sortedInvoices.forEach((inv, idx) => {
+        const isRev = inv.status === 'reversed';
         const tr = document.createElement('tr');
+        if (isRev) {
+          tr.style.background = '#fef2f2';
+        }
+
+        const amtDisplay = isRev
+          ? `<del style="color: var(--text-muted); font-size: 0.95rem;">${formatNumber(inv.amount)} ر.ق</del> <span class="badge" style="background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:4px; font-size:0.75rem; margin-right:4px;">معكوسة ↩️</span>`
+          : `<span style="font-weight: 800; color: var(--purple); font-size: 1.05rem;">${formatNumber(inv.amount)} ر.ق</span>`;
+
+        const noteDisplay = isRev
+          ? `<div>${escapeHtml(inv.note) || '-'}</div><div style="font-size:0.78rem; color:#b91c1c; margin-top:3px;">⚠️ عُكست: ${escapeHtml(inv.reversalReason || '')} (${inv.reversedAt ? inv.reversedAt.slice(0, 10) : ''})</div>`
+          : (escapeHtml(inv.note) || '-');
+
+        const actionsDisplay = isRev
+          ? `<button type="button" class="btn btn-sm btn-outline text-danger" data-del-safe-inv="${inv.id}" title="حذف نهائي من السجل">🗑️</button>`
+          : `
+            <button type="button" class="btn btn-sm btn-outline" data-edit-safe-inv="${inv.id}" title="تعديل">✏️</button>
+            <button type="button" class="btn btn-sm btn-outline text-warning" data-rev-safe-inv="${inv.id}" title="عكس الفاتورة مع التوثيق">↩️</button>
+            <button type="button" class="btn btn-sm btn-outline text-danger" data-del-safe-inv="${inv.id}" title="حذف">🗑️</button>
+          `;
+
         tr.innerHTML = `
           <td><strong>${idx + 1}</strong></td>
           <td><strong>${inv.date}</strong></td>
-          <td style="font-weight: 800; color: var(--purple); font-size: 1.05rem;">${formatNumber(inv.amount)} ر.ق</td>
+          <td>${amtDisplay}</td>
           <td>${escapeHtml(inv.ref) || '-'}</td>
-          <td>${escapeHtml(inv.note) || '-'}</td>
+          <td>${noteDisplay}</td>
           <td class="no-print">
-            <button type="button" class="btn btn-sm btn-outline" data-edit-safe-inv="${inv.id}" title="تعديل">✏️</button>
-            <button type="button" class="btn btn-sm btn-outline text-danger" data-del-safe-inv="${inv.id}" title="حذف">🗑️</button>
+            ${actionsDisplay}
           </td>
         `;
         tbodyInvoices.appendChild(tr);
       });
 
-      // Bind Edit / Delete buttons
+      // Bind Edit / Reverse / Delete buttons
       tbodyInvoices.querySelectorAll('[data-edit-safe-inv]').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-edit-safe-inv');
@@ -3256,6 +3280,17 @@ function renderSafeTab() {
 
             document.getElementById('safeInvoiceAmount').focus();
             showToast('وضع تعديل الفاتورة: عدّل المبالغ ثم اضغط حفظ');
+          }
+        });
+      });
+
+      tbodyInvoices.querySelectorAll('[data-rev-safe-inv]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-rev-safe-inv');
+          const reason = prompt('يرجى كتابة سبب عكس أو إلغاء هذه الفاتورة المسجلة للخزنة:', 'إلغاء فاتورة تسوية بطلب الإدارة');
+          if (reason !== null && reason.trim() !== '') {
+            reverseSafeInvoice(id, reason.trim());
+            showToast('تم عكس الفاتورة وحفظها في سجل التدقيق بنجاح ↩️');
           }
         });
       });

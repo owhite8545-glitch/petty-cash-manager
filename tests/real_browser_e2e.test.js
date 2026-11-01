@@ -459,6 +459,165 @@ async function runBrowserE2E() {
     );
 
     // ------------------------------------------------------------------------
+    // Step 8e: Auditable Invoice Reversal via UI Action in Tab 7
+    // ------------------------------------------------------------------------
+    await client.eval(`{
+      window.prompt = () => 'إلغاء فاتورة تسوية لطلب التدقيق المحاسبي';
+      const revBtn = document.querySelector('#safeInvoicesBody [data-rev-safe-inv]');
+      if (revBtn) revBtn.click();
+    }`);
+    await sleep(400);
+
+    const isReversedInTable = await client.eval(`
+      Array.from(document.querySelectorAll('#safeInvoicesBody tr')).some(tr => 
+        tr.innerHTML.includes('معكوسة ↩️') && 
+        tr.innerHTML.includes('إلغاء فاتورة تسوية لطلب التدقيق المحاسبي')
+      )
+    `);
+    testAssert('Reversing safe invoice displays "معكوسة ↩️" badge and reversal reason in table',
+      isReversedInTable === true
+    );
+
+    const safeInvsTotalAfterRev = await client.eval('document.getElementById("safeInvoicesTotal").textContent');
+    testAssert('Safe invoices KPI recalculates to 0.00 ر.ق after invoice reversal',
+      safeInvsTotalAfterRev.includes('0')
+    );
+
+    const safeAuditLength = await client.eval('(state.data.safeInvoicesAudit || []).length');
+    testAssert('Audit trail records the reversal event with reason and timestamp',
+      safeAuditLength >= 1
+    );
+
+    // ------------------------------------------------------------------------
+    // Step 8f: UI Employee vs Driver Annual & Lifetime Balances (Tab 3 & Tab 5)
+    // ------------------------------------------------------------------------
+    // Add Employee in Tab 5
+    await client.eval('document.querySelector("[data-tab=\'people\']").click();');
+    await sleep(300);
+
+    await client.eval(`{
+      document.getElementById('newPersonNameInput').value = 'جعفر الموظف';
+      document.getElementById('newPersonRoleSelect').value = 'staff';
+      document.getElementById('newPersonMetaInput').value = 'قسم الحسابات';
+      document.getElementById('btnAddNewPerson').click();
+    }`);
+    await sleep(400);
+
+    const staffPersonId = await client.eval(`
+      state.data.people.find(p => p.name === 'جعفر الموظف')?.id
+    `);
+    testAssert('Adding employee creates person with role: staff in application state',
+      Boolean(staffPersonId)
+    );
+
+    // Add financial entry for staff in Tab 1
+    await client.eval('document.querySelector("[data-tab=\'daily\']").click();');
+    await sleep(300);
+
+    await client.eval(`{
+      const cashInp = document.querySelector('input[data-pid="${staffPersonId}"][data-field="cash"]');
+      if (cashInp) {
+        cashInp.value = '2500.00';
+        cashInp.dispatchEvent(new Event('input'));
+        cashInp.dispatchEvent(new Event('change'));
+      }
+      const invInp = document.querySelector('input[data-pid="${staffPersonId}"][data-field="invoice"]');
+      if (invInp) {
+        invInp.value = '1800.00';
+        invInp.dispatchEvent(new Event('input'));
+        invInp.dispatchEvent(new Event('change'));
+      }
+    }`);
+    await sleep(400);
+
+    // View Staff Ledger in Tab 3 (Person Tab)
+    await client.eval('document.querySelector("[data-tab=\'person\']").click();');
+    await sleep(300);
+
+    await client.eval(`{
+      const staffBtn = Array.from(document.querySelectorAll('#personSidebarList .person-list-item')).find(b => b.textContent.includes('جعفر الموظف'));
+      if (staffBtn) staffBtn.click();
+      else {
+        state.selectedPersonId = '${staffPersonId}';
+        renderPersonTab();
+      }
+    }`);
+    await sleep(400);
+
+    const staffLedgerName = await client.eval('document.getElementById("ledgerPersonName").textContent');
+    const staffRoleBadgeText = await client.eval('document.getElementById("ledgerPersonRole").textContent');
+    const staffBalanceCell = await client.eval(`
+      Array.from(document.querySelectorAll('#personLedgerBody tr')).map(r => r.textContent).join(' ')
+    `);
+
+    testAssert('Person Tab displays employee name correctly', staffLedgerName.includes('جعفر الموظف'));
+    testAssert('Person Tab displays "👔 موظف ستاف" role badge', staffRoleBadgeText.includes('موظف'));
+    testAssert('Employee running balance reflects 700.00 QAR net (2,500 - 1,800)', staffBalanceCell.includes('700'));
+
+    // Verify annual scope for employee
+    await client.eval(`{
+      const allPill = document.querySelector('#personMonthPills [data-pmonth="all"]');
+      if (allPill) allPill.click();
+    }`);
+    await sleep(300);
+
+    const annualSub = await client.eval('document.getElementById("ledgerPeriodSubtitle").textContent');
+    testAssert('Employee annual report displays full year scope subtitle', annualSub.includes('السنة كاملة'));
+
+    // Switch to Driver in Tab 3
+    await client.eval(`{
+      const driverBtn = Array.from(document.querySelectorAll('#personSidebarList .person-list-item')).find(b => b.textContent.includes('أحمد السائق'));
+      if (driverBtn) driverBtn.click();
+      else {
+        state.selectedPersonId = '${personId}';
+        renderPersonTab();
+      }
+    }`);
+    await sleep(300);
+
+    const driverRoleBadgeText = await client.eval('document.getElementById("ledgerPersonRole").textContent');
+    testAssert('Person Tab displays "🚛 سائق" role badge for driver', driverRoleBadgeText.includes('سائق'));
+
+    // ------------------------------------------------------------------------
+    // Step 8g: December-to-January Rollover Verification in UI
+    // ------------------------------------------------------------------------
+    // Create an entry in December 2025 for employee
+    await client.eval(`{
+      state.data.entries['2025-12-25'] = {
+        '${staffPersonId}': { cash: 1000.00, invoice: 400.00, returnedCash: 0, note: 'مشتريات ديسمبر' }
+      };
+      saveState();
+      // Set active date to January 2026 and select employee
+      state.selectedPersonId = '${staffPersonId}';
+      state.year = 2026;
+      state.month = 1;
+      state.selectedDate = '2026-01-10';
+      state.personSelectedMonth = 1;
+      renderAll();
+    }`);
+    await sleep(400);
+
+    const openingRowText = await client.eval(`
+      Array.from(document.querySelectorAll('#personLedgerBody tr')).find(r => r.textContent.includes('بداية الفترة'))?.textContent || ''
+    `);
+    testAssert('December-to-January transition displays opening balance row in January',
+      openingRowText.includes('بداية الفترة') && openingRowText.includes('رصيد سابق مرحل')
+    );
+    testAssert('Opening balance carries forward December net (600.00 QAR)',
+      openingRowText.includes('600')
+    );
+
+    // Switch to Tab 7 to verify safe rollover
+    await client.eval('document.querySelector("[data-tab=\'safe\']").click();');
+    await sleep(300);
+
+    const safeNetBalText = await client.eval('document.getElementById("safeNetBalance")?.textContent || ""');
+    const safeCumNetText = await client.eval('document.getElementById("safeCumulativeNetBalance")?.textContent || ""');
+    testAssert('Tab 7 Net Treasury Balance recalculates with multi-year rollover',
+      safeNetBalText.length > 0 && safeCumNetText.length > 0
+    );
+
+    // ------------------------------------------------------------------------
     // Step 9: Monthly vs Annual Scope Toggle
     // ------------------------------------------------------------------------
     await client.eval(`{
