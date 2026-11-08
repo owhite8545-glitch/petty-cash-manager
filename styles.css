@@ -1840,7 +1840,8 @@ body.senior-friendly .day-pill .d-name {
   }
 
   /* Tab 3 has its own official corporate letterhead, so suppress the generic header */
-  body.printing-dispatch .print-report-header {
+  body.printing-dispatch .print-report-header,
+  body.printing-tanker .print-report-header {
     display: none !important;
   }
 
@@ -3437,4 +3438,65 @@ body.eye-comfort .backup-reminder-banner p {
 }
 .dispatch-corporate-signoff {
   page-break-inside: avoid;
+}
+
+/* ============================================================================
+   Tab 9: Tanker Fuel & Project Allocation Styles
+   ============================================================================ */
+
+.project-breakdown-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.9rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease;
+}
+
+.project-breakdown-pill:hover {
+  transform: translateY(-1px);
+}
+
+.project-breakdown-pill strong {
+  color: var(--text-color, #0f172a);
+}
+
+.project-breakdown-pill .pill-val {
+  color: #0284c7;
+  font-weight: 800;
+}
+
+.project-breakdown-pill .pill-sub {
+  color: #16a34a;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+body.dark-mode .project-breakdown-pill {
+  background: #18243b !important;
+  border-color: #334155 !important;
+}
+
+body.eye-comfort .project-breakdown-pill {
+  background: #fdfbf7 !important;
+  border-color: #e2d7c5 !important;
+}
+
+@media print {
+  body.printing-tanker .print-report-header {
+    display: none !important;
+  }
+
+  body.printing-tanker #tab-tanker,
+  body.printing-tanker #tab-tanker .dispatch-card {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
 }

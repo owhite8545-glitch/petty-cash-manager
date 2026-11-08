@@ -211,8 +211,8 @@ async function runBrowserE2E() {
     );
 
     const tabsCount = await client.eval('document.querySelectorAll(".nav-tab").length');
-    testAssert('All 8 navigation tabs are present in live DOM',
-      tabsCount === 8,
+    testAssert('All 9 navigation tabs are present in live DOM',
+      tabsCount === 9,
       `Tabs found: ${tabsCount}`
     );
 
@@ -863,6 +863,72 @@ async function runBrowserE2E() {
     // ------------------------------------------------------------------------
     // Step 15: Zero Browser Console Errors Verification
     // ------------------------------------------------------------------------
+        // ------------------------------------------------------------------------
+    // Step 15: Tab 9 (Tanker Diesel & Project Fuel Allocation) End-to-End Workflow
+    // ------------------------------------------------------------------------
+    console.log('   ⛽ Testing Tab 9 (Tanker Diesel & Project Allocation) UI & Workflow...');
+    await client.eval('document.querySelector("[data-tab=\'tanker\']").click();');
+    await sleep(400);
+
+    const isTabTankerActive = await client.eval('document.getElementById("tab-tanker").classList.contains("active")');
+    testAssert('Navigating to Tab 9 activates tab-tanker section', isTabTankerActive === true);
+
+    // Open modal
+    await client.eval('document.getElementById("btnOpenTankerModal").click();');
+    await sleep(300);
+
+    const isTankerModalActive = await client.eval('document.getElementById("tankerDeliveryModal").classList.contains("active")');
+    testAssert('Clicking add tanker delivery opens #tankerDeliveryModal', isTankerModalActive === true);
+
+    // Fill form and save
+    await client.eval(`
+      document.getElementById('tankerDateInput').value = '2026-11-08';
+      document.getElementById('tankerProjectInput').value = 'مشروع لوسيل';
+      document.getElementById('tankerLitersInput').value = '500';
+      document.getElementById('tankerPricePerLiterInput').value = '2.100';
+      document.getElementById('tankerAmountInput').value = '1050.00';
+      document.getElementById('tankerInvoiceNoInput').value = 'WOQ-4402';
+      document.getElementById('tankerReceiverInput').value = 'م/ أحمد حسن';
+      document.getElementById('tankerSupplierInput').value = 'شركة وقود (WOQOD)';
+      document.getElementById('tankerNotesInput').value = 'تفريغ مولد الموقع رقم 1';
+      document.getElementById('btnSaveTankerDelivery').click();
+    `);
+    await sleep(400);
+
+    const tankerRowsCount = await client.eval('document.querySelectorAll("#tankerTableBody tr").length');
+    testAssert('Submitting tanker form adds new delivery row to table (length > 0)', tankerRowsCount === 1);
+
+    const totalLitersKpi = await client.eval('document.getElementById("kpiTankerTotalLiters")?.textContent');
+    testAssert('Tanker KPI displays exact total liters (500 لتر)', totalLitersKpi.includes('500'));
+
+    const totalAmountKpi = await client.eval('document.getElementById("kpiTankerTotalAmount")?.textContent');
+    testAssert('Tanker KPI displays exact total amount (1,050.00 ر.ق)', totalAmountKpi.includes('1,050'));
+
+    const breakdownPillsCount = await client.eval('document.querySelectorAll("#tankerProjectsBreakdownList .project-breakdown-pill").length');
+    testAssert('Project breakdown shows visual distribution pill for Lusail project', breakdownPillsCount === 1);
+
+    // Test print statement trigger
+    await client.eval(`{
+      window._tankerPrintCalled = false;
+      window.print = () => { window._tankerPrintCalled = true; };
+      document.getElementById('btnPrintTankerStatement').click();
+    }`);
+    await sleep(300);
+    const tankerPrintCalled = await client.eval('window._tankerPrintCalled');
+    testAssert('Clicking print tanker sheet triggers corporate window.print()', tankerPrintCalled === true);
+
+    // Capture Tab 9 Corporate Print Preview while in printing-tanker state
+    await client.send('Emulation.setEmulatedMedia', { media: 'print' });
+    await sleep(400);
+    const tankerPrintScreenshotData = await client.send('Page.captureScreenshot', { format: 'png' });
+    const tankerPrintScreenshotPath = path.join(__dirname, '..', 'browser_e2e_verified_tab9_print.png');
+    fs.writeFileSync(tankerPrintScreenshotPath, Buffer.from(tankerPrintScreenshotData.data, 'base64'));
+    console.log(`   📸 Live browser Tab 9 Print Sheet screenshot captured: ${tankerPrintScreenshotPath}`);
+    await client.send('Emulation.setEmulatedMedia', { media: '' });
+    await client.eval('window.dispatchEvent(new Event("afterprint"));');
+    await sleep(200);
+
+    
     console.log(`\n[Quality Check] Verifying browser runtime health (Console Errors: ${client.consoleErrors.length})`);
     if (client.consoleErrors.length > 0) {
       throw new Error(`Uncaught browser console errors detected:\n${client.consoleErrors.join('\n')}`);

@@ -174,6 +174,13 @@
         <span class="tab-desc">حساب السحوبات والفواتير مع الخزينة</span>
       </div>
     </button>
+    <button class="nav-tab" data-tab="tanker">
+      <span class="tab-icon">⛽</span>
+      <div>
+        <span class="tab-title">9. سولار التانكر والمشاريع</span>
+        <span class="tab-desc">تفريغ الديزل وفواتير المشاريع</span>
+      </div>
+    </button>
   </nav>
 
   <!-- Main Content Container -->
@@ -1423,6 +1430,230 @@
 
     </section>
 
+      <!-- ==================== TAB 9: TANKER DIESEL & PROJECT ALLOCATION ==================== -->
+    <section id="tab-tanker" class="tab-section">
+      <!-- Header Card with Actions -->
+      <div class="card monthly-header-card no-print">
+        <div class="monthly-title-row" style="flex-wrap: wrap; gap: 16px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <h2 style="margin: 0;">⛽ سولار التانكر وتوزيع المشاريع</h2>
+              <span class="badge" style="background: #0284c7; color: #fff; font-size: 0.85rem; padding: 4px 10px;">ديزل المحروقات والمواقع</span>
+            </div>
+            <p class="text-muted" style="margin-top: 6px;">
+              تفريغ ديزل المحروقات من التانكر، سداد فواتير المورد، وتوزيع استهلاك كل موقع ومشروع باللتر والمبلغ (ر.ق)
+            </p>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="monthly-controls no-print" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" id="btnOpenTankerModal" class="btn btn-primary" title="تسجيل تفريغ ديزل جديد">
+              ➕ تسجيل تفريغ تانكر جديد
+            </button>
+            <button type="button" id="btnPrintTankerStatement" class="btn-corporate-print" title="طباعة كشف تفريغ وتوزيع السولار">
+              🖨️ طباعة كشف السولار
+            </button>
+            <button type="button" id="btnExportTankerExcel" class="btn btn-outline" title="تصدير كشف السولار إلى Excel / CSV">
+              📊 تصدير إكسيل
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="monthly-kpis" style="margin-top: 16px;">
+          <div class="kpi-card">
+            <span class="kpi-lbl">⛽ إجمالي اللترات المفرغة</span>
+            <span class="kpi-val text-blue" id="kpiTankerTotalLiters">0.00 لتر</span>
+            <span class="kpi-sub">مجموع كميات الديزل المستلمة</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-lbl">💰 إجمالي المدفوع للتانكر</span>
+            <span class="kpi-val text-green" id="kpiTankerTotalAmount">0.00 ر.ق</span>
+            <span class="kpi-sub">إجمالي قيمة فواتير التوريد</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-lbl">🏷️ متوسط سعر اللتر</span>
+            <span class="kpi-val" id="kpiTankerAvgPrice">0.00 ر.ق/لتر</span>
+            <span class="kpi-sub">المتوسط المرجح للتكلفة</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-lbl">🏗️ المشاريع المستفيدة</span>
+            <span class="kpi-val" id="kpiTankerProjectsCount">0</span>
+            <span class="kpi-sub">مواقع العمل المفرغ بها</span>
+          </div>
+        </div>
+
+        <!-- Projects Allocation Breakdown Pill Bar -->
+        <div id="tankerProjectsBreakdownWrap" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <strong style="font-size: 0.95rem; color: var(--text-color);">📊 ملخص توزيع الاستهلاك على المشاريع:</strong>
+            <span id="tankerBreakdownSummaryText" class="text-muted" style="font-size: 0.85rem;"></span>
+          </div>
+          <div id="tankerProjectsBreakdownList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+        </div>
+
+        <!-- Filter & Search Bar -->
+        <div class="dispatch-date-bar no-print" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <label for="tankerProjectFilter" style="font-weight: 700; color: var(--text-color);">المشروع:</label>
+            <select id="tankerProjectFilter" class="select-control" style="font-size: 0.95rem; padding: 6px 12px; min-width: 170px;">
+              <option value="all">كل المشاريع (All Projects)</option>
+            </select>
+
+            <label for="tankerPeriodFilter" style="font-weight: 700; color: var(--text-color); margin-inline-start: 8px;">الفترة:</label>
+            <select id="tankerPeriodFilter" class="select-control" style="font-size: 0.95rem; padding: 6px 12px;">
+              <option value="current">الشهر الحالي المحدد</option>
+              <option value="year">كامل السنة الحالية</option>
+              <option value="all">كل الأوقات (سجل شامل)</option>
+            </select>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="text" id="tankerSearchInput" class="input-control" placeholder="ابحث بالمشروع، رقم الفاتورة، المستلم..." style="font-size: 0.95rem; padding: 6px 14px; width: 260px;" />
+            <button type="button" id="btnClearTankerSearch" class="btn btn-outline btn-sm" title="مسح البحث">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Tanker Deliveries Table Card -->
+      <div class="card table-card dispatch-card" id="tankerTableContainer">
+        <!-- Printable Official Corporate Header (Exclusively visible in print mode) -->
+        <div class="dispatch-corporate-header only-print" id="tankerCorporateHeader">
+          <div class="dispatch-corp-letterhead">
+            <div class="dispatch-corp-identity">
+              <div class="dispatch-corp-logo-group">
+                <img src="assets/heliopolis-logo-transparent.png" alt="HELIOPOLIS ELECTRIC COMPANY" class="dispatch-corp-logo-img" />
+                <div>
+                  <h2 class="dispatch-corp-legal-name">
+                    شركة هليوبوليس للكهرباء (HELIOPOLIS ELECTRIC COMPANY)
+                  </h2>
+                  <div class="dispatch-corp-division">
+                    إدارة المشاريع والخدمات اللوجستية — قسم المحروقات والديزل
+                  </div>
+                  <div class="dispatch-corp-legal-meta">
+                    الموقع الرسمي: heliopoliselectric.ae | هاتف أبوظبي: 26412641 (971+) | الدوحة: 44634054 (974+)
+                  </div>
+                </div>
+              </div>
+
+              <div class="dispatch-voucher-badge">
+                <h3 class="dispatch-voucher-title">
+                  كشف تفريغ وتوزيع السولار على المشاريع (DIESEL DISBURSEMENT SHEET)
+                </h3>
+              </div>
+            </div>
+
+            <!-- Boxed Control Metadata -->
+            <div class="dispatch-corp-meta-wrap">
+              <table class="dispatch-corp-meta-box">
+                <tr>
+                  <td><strong>رقم السند:</strong></td>
+                  <td style="font-family: monospace; font-weight: 800;"><span id="printTankerVoucherNo">DSL-20261108-001</span></td>
+                </tr>
+                <tr>
+                  <td><strong>تاريخ الكشف:</strong></td>
+                  <td style="font-weight: 700;"><span id="printTankerDate"></span></td>
+                </tr>
+                <tr>
+                  <td><strong>العملة:</strong></td>
+                  <td><strong>ريال قطري (QAR)</strong></td>
+                </tr>
+                <tr>
+                  <td><strong>النسخة:</strong></td>
+                  <td>الأصل - قسم الحسابات والمشاريع</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <!-- Official Reconciliation Summary Strip for Print -->
+          <div class="dispatch-reconciliation-strip only-print">
+            <div class="dispatch-recon-cell">
+              <span class="dispatch-recon-label">إجمالي كمية الديزل</span>
+              <span class="dispatch-recon-value text-blue" id="printReconTankerLiters">0.00 لتر</span>
+            </div>
+            <div class="dispatch-recon-cell">
+              <span class="dispatch-recon-label">إجمالي تكلفة السولار</span>
+              <span class="dispatch-recon-value text-green" id="printReconTankerAmount">0.00 QAR</span>
+            </div>
+            <div class="dispatch-recon-cell">
+              <span class="dispatch-recon-label">متوسط سعر اللتر</span>
+              <span class="dispatch-recon-value" id="printReconTankerAvgPrice">0.00 QAR</span>
+            </div>
+            <div class="dispatch-recon-cell">
+              <span class="dispatch-recon-label">عدد المواقع المفرغ بها</span>
+              <span class="dispatch-recon-value text-blue" id="printReconTankerProjectsCount">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-responsive dispatch-table-responsive">
+          <table class="data-table dispatch-table-corporate" id="tankerTable">
+            <colgroup>
+              <col style="width: 4%;">
+              <col style="width: 10%;">
+              <col style="width: 16%;">
+              <col style="width: 10%;">
+              <col style="width: 9%;">
+              <col style="width: 12%;">
+              <col style="width: 10%;">
+              <col style="width: 12%;">
+              <col style="width: 9%;">
+              <col style="width: 8%;" class="no-print">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>التاريخ</th>
+                <th>اسم المشروع / الموقع</th>
+                <th>الكمية (لتر)</th>
+                <th>سعر اللتر</th>
+                <th>إجمالي الفاتورة</th>
+                <th>رقم الفاتورة</th>
+                <th>المستلم بالموقع</th>
+                <th>المورد / التانكر</th>
+                <th class="no-print">الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="tankerTableBody"></tbody>
+            <tfoot id="tankerTableFoot"></tfoot>
+          </table>
+        </div>
+
+        <!-- Official Tafqeet (Amount in Words) Strip -->
+        <div class="dispatch-tafqeet-strip only-print" id="tankerTafqeetStrip">
+          <span class="dispatch-tafqeet-lbl">إجمالي الفواتير كتابة بالحروف:</span>
+          <span id="printTankerTafqeetText" class="dispatch-tafqeet-val">فقط صفر ريال قطري لا غير</span>
+        </div>
+
+        <!-- Corporate 3-Tier Approval Sign-Off Block for Print with Official Stamp Box -->
+        <div class="dispatch-corporate-signoff only-print" id="tankerCorporateSignoff">
+          <div class="dispatch-signoff-grid">
+            <div class="dispatch-sign-box">
+              <div class="dispatch-sign-title">مسؤول استلام الموقع</div>
+              <div class="dispatch-sign-line"></div>
+              <span class="dispatch-sign-sub">الاسم، التوقيع والتاريخ</span>
+            </div>
+            <div class="dispatch-sign-box">
+              <div class="dispatch-sign-title">تدقيق الحسابات / المحاسب</div>
+              <div class="dispatch-sign-line"></div>
+              <span class="dispatch-sign-sub">الاسم، التوقيع والتاريخ</span>
+            </div>
+            <div class="dispatch-sign-box">
+              <div class="dispatch-sign-title">اعتماد الإدارة / المدير المالي</div>
+              <div class="dispatch-sign-line"></div>
+              <span class="dispatch-sign-sub">الاسم، التوقيع والتاريخ</span>
+            </div>
+            <div class="dispatch-seal-box">
+              <div style="font-size: 1.15rem; font-weight: 900; letter-spacing: 1.5px; color: #0f172a; margin-bottom: 2px;">HEC</div>
+              <span style="font-size: 0.72rem; font-weight: 700; color: #0f172a;">HELIOPOLIS ELECTRIC</span>
+              <span style="font-size: 0.62rem; color: #64748b; margin-top: 2px;">خاتم الاعتماد الرسمي</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- ==================== MODAL: MOVE OR COPY DAY'S DISTRIBUTION ==================== -->
@@ -1695,6 +1926,80 @@
             ↩️ التراجع عن آخر استرجاع واستعادة بيانات ما قبل الاسترجاع
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: ADD / EDIT TANKER DELIVERY ==================== -->
+  <div id="tankerDeliveryModal" class="modal-overlay hidden no-print" role="dialog" aria-modal="true" aria-label="نافذة تسجيل تفريغ تانكر سولار">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 id="tankerModalTitle">⛽ تسجيل تفريغ تانكر سولار جديد</h3>
+        <button type="button" id="btnCloseTankerModal" class="btn-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="tankerDeliveryForm">
+          <input type="hidden" id="tankerDeliveryId" value="" />
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label for="tankerDateInput">📅 تاريخ التوريد <span class="text-danger">*</span></label>
+              <input type="date" id="tankerDateInput" class="input-control" required />
+            </div>
+            <div class="form-group">
+              <label for="tankerProjectInput">🏗️ المشروع / الموقع <span class="text-danger">*</span></label>
+              <input type="text" id="tankerProjectInput" class="input-control" list="tankerProjectsDatalist" placeholder="مثلاً: مشروع لوسيل" required />
+              <datalist id="tankerProjectsDatalist"></datalist>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 12px; margin-top: 10px;">
+            <div class="form-group">
+              <label for="tankerLitersInput">⛽ الكمية (لتر) <span class="text-danger">*</span></label>
+              <input type="number" id="tankerLitersInput" class="input-control" step="0.01" min="0.01" placeholder="500" required />
+            </div>
+            <div class="form-group">
+              <label for="tankerPricePerLiterInput">سعر اللتر (ر.ق)</label>
+              <input type="number" id="tankerPricePerLiterInput" class="input-control" step="0.001" min="0" placeholder="2.100" />
+            </div>
+            <div class="form-group">
+              <label for="tankerAmountInput">💰 إجمالي الفاتورة (ر.ق) <span class="text-danger">*</span></label>
+              <input type="number" id="tankerAmountInput" class="input-control" step="0.01" min="0" placeholder="1050.00" required />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
+            <div class="form-group">
+              <label for="tankerInvoiceNoInput">🧾 رقم الفاتورة / البون</label>
+              <input type="text" id="tankerInvoiceNoInput" class="input-control" placeholder="مثلاً: INV-4402" />
+            </div>
+            <div class="form-group">
+              <label for="tankerReceiverInput">👷 المستلم بالموقع <span class="text-danger">*</span></label>
+              <input type="text" id="tankerReceiverInput" class="input-control" list="tankerReceiversDatalist" placeholder="اسم المهندس أو المشرف" required />
+              <datalist id="tankerReceiversDatalist"></datalist>
+            </div>
+          </div>
+
+          <div style="margin-top: 10px;">
+            <div class="form-group">
+              <label for="tankerSupplierInput">🚚 اسم المورد / التانكر</label>
+              <input type="text" id="tankerSupplierInput" class="input-control" list="tankerSuppliersDatalist" placeholder="مثلاً: شركة وقود / تانكر رقم..." />
+              <datalist id="tankerSuppliersDatalist"></datalist>
+            </div>
+          </div>
+
+          <div style="margin-top: 10px;">
+            <div class="form-group">
+              <label for="tankerNotesInput">📝 ملاحظات إضافية</label>
+              <input type="text" id="tankerNotesInput" class="input-control" placeholder="مثلاً: تفريغ مولد الموقع الرئيسي رقم 2" />
+            </div>
+          </div>
+
+          <div class="modal-btn-row" style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" id="btnCancelTankerModal" class="btn btn-outline">إلغاء</button>
+            <button type="button" id="btnSaveTankerDelivery" class="btn btn-primary">💾 حفظ التوريد</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

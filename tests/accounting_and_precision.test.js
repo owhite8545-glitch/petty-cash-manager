@@ -633,11 +633,12 @@ async function runAccountingAndWorkflowTests() {
   const swCode = fs.readFileSync(swPath, 'utf8');
 
   const swDeletedCaches = [];
+  const currentSwCacheName = (swCode.match(/const CACHE_NAME = ['"]([^'"]+)['"]/) || [])[1] || 'petty-cash-v12-tanker';
   const fakeCaches = {
     keys: async () => [
       'petty-cash-v8-old',
       'petty-cash-v7-legacy',
-      'petty-cash-v9-hardening', // current cache
+      currentSwCacheName, // current cache
       'other-app-cache',        // unrelated
       'user-browser-data'        // unrelated
     ],
@@ -674,7 +675,7 @@ async function runAccountingAndWorkflowTests() {
     swDeletedCaches.includes('petty-cash-v8-old') && swDeletedCaches.includes('petty-cash-v7-legacy')
   );
   testAssert('Service worker preserved current cache (petty-cash-v9-hardening)',
-    !swDeletedCaches.includes('petty-cash-v9-hardening')
+    !swDeletedCaches.includes(currentSwCacheName)
   );
   testAssert('Service worker preserved unrelated origin caches (other-app-cache, user-browser-data)',
     !swDeletedCaches.includes('other-app-cache') && !swDeletedCaches.includes('user-browser-data')
