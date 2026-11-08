@@ -4861,7 +4861,7 @@ function openTankerModal(deliveryId = null) {
   if (deliveryId) {
     const d = state.data.tankerDeliveries.find(item => item.id === deliveryId);
     if (!d) return;
-    if (title) title.textContent = '✏️ تعديل بون توريد ديزل / سولار';
+    if (title) title.textContent = 'تعديل بون توريد ديزل / سولار';
     if (idInput) idInput.value = d.id;
     if (dateInput) dateInput.value = d.date;
     if (prjInput) prjInput.value = d.project;
@@ -4873,7 +4873,7 @@ function openTankerModal(deliveryId = null) {
     if (supplierInput) supplierInput.value = d.supplier || '';
     if (notesInput) notesInput.value = d.notes || '';
   } else {
-    if (title) title.textContent = '⛽ تسجيل تفريغ تانكر سولار جديد';
+    if (title) title.textContent = 'تسجيل تفريغ تانكر سولار جديد';
     if (idInput) idInput.value = '';
     if (dateInput) dateInput.value = state.selectedDate || `${state.year}-${String(state.month).padStart(2, '0')}-01`;
     if (prjInput) prjInput.value = '';
@@ -6510,6 +6510,9 @@ function bindEvents() {
   document.getElementById('btnOpenTankerModal')?.addEventListener('click', () => openTankerModal());
   document.getElementById('btnCloseTankerModal')?.addEventListener('click', closeTankerModal);
   document.getElementById('btnCancelTankerModal')?.addEventListener('click', closeTankerModal);
+  document.getElementById('tankerDeliveryModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'tankerDeliveryModal') closeTankerModal();
+  });
   document.getElementById('btnSaveTankerDelivery')?.addEventListener('click', handleSaveTankerDelivery);
   document.getElementById('btnPrintTankerStatement')?.addEventListener('click', printTankerReport);
   document.getElementById('btnExportTankerExcel')?.addEventListener('click', exportTankerCsv);

@@ -3500,3 +3500,246 @@ body.eye-comfort .project-breakdown-pill {
     border: none !important;
   }
 }
+
+/* ============================================================================
+   Tanker Delivery Modal Styles (Clean, Symmetrical, Senior-Friendly)
+   ============================================================================ */
+
+.tanker-modal-card {
+  max-width: 660px !important;
+  width: 95% !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18) !important;
+  background: #ffffff !important;
+}
+
+.tanker-modal-header {
+  padding: 14px 20px !important;
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%) !important;
+  color: #ffffff !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.tanker-modal-title-group {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.tanker-modal-icon-badge {
+  font-size: 1.6rem !important;
+  line-height: 1 !important;
+}
+
+.tanker-modal-title {
+  margin: 0 !important;
+  font-size: 1.15rem !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+}
+
+.tanker-modal-subtitle {
+  margin: 2px 0 0 0 !important;
+  font-size: 0.8rem !important;
+  color: #bfdbfe !important;
+}
+
+.tanker-modal-body {
+  padding: 16px 20px !important;
+}
+
+.tanker-form {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+
+.tanker-form-section {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  padding: 12px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.tanker-section-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  padding-bottom: 6px !important;
+}
+
+.tanker-section-num {
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 50% !important;
+  background: #2563eb !important;
+  color: #ffffff !important;
+  font-size: 0.75rem !important;
+  font-weight: 800 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.tanker-section-title {
+  font-size: 0.88rem !important;
+  font-weight: 800 !important;
+  color: #1e293b !important;
+}
+
+.tanker-grid-2 {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 10px !important;
+}
+
+.tanker-field-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  width: 100% !important;
+}
+
+.tanker-label {
+  font-size: 0.86rem !important;
+  font-weight: 700 !important;
+  color: #334155 !important;
+}
+
+.tanker-input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: 42px !important;
+  font-size: 0.95rem !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 7px !important;
+  padding: 6px 10px !important;
+  background: #ffffff !important;
+}
+
+.tanker-input:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+  outline: none !important;
+}
+
+.tanker-unit-wrap {
+  position: relative !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.tanker-unit-wrap .tanker-input {
+  padding-left: 48px !important;
+}
+
+.tanker-unit-tag {
+  position: absolute !important;
+  left: 8px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+  background: #f1f5f9 !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  border: 1px solid #e2e8f0 !important;
+  pointer-events: none !important;
+}
+
+.tanker-total-box {
+  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%) !important;
+  border: 1.5px solid #93c5fd !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.tanker-total-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.tanker-total-label {
+  font-size: 0.9rem !important;
+  font-weight: 800 !important;
+  color: #1e3a8a !important;
+}
+
+.tanker-auto-badge {
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+  color: #1e40af !important;
+  background: #dbeafe !important;
+  border: 1px solid #bfdbfe !important;
+  padding: 2px 8px !important;
+  border-radius: 999px !important;
+}
+
+.tanker-total-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.tanker-total-num {
+  flex: 1 !important;
+  min-height: 44px !important;
+  font-size: 1.25rem !important;
+  font-weight: 800 !important;
+  font-variant-numeric: tabular-nums !important;
+  color: #1e3a8a !important;
+  background: #ffffff !important;
+  border: 2px solid #2563eb !important;
+  border-radius: 7px !important;
+  padding: 6px 12px !important;
+}
+
+.tanker-total-curr {
+  font-size: 0.88rem !important;
+  font-weight: 800 !important;
+  color: #1e3a8a !important;
+  background: #e0e7ff !important;
+  border: 1px solid #c7d2fe !important;
+  padding: 8px 12px !important;
+  border-radius: 7px !important;
+  white-space: nowrap !important;
+}
+
+.tanker-actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding-top: 10px !important;
+  border-top: 1px solid #e2e8f0 !important;
+}
+
+.tanker-btn-save {
+  min-height: 42px !important;
+  padding: 8px 24px !important;
+  font-size: 0.98rem !important;
+  font-weight: 800 !important;
+}
+
+.tanker-btn-cancel {
+  min-height: 42px !important;
+  padding: 8px 18px !important;
+  font-size: 0.92rem !important;
+}
+
+@media (max-width: 640px) {
+  .tanker-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+}

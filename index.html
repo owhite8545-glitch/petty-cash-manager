@@ -1932,72 +1932,134 @@
 
   <!-- ==================== MODAL: ADD / EDIT TANKER DELIVERY ==================== -->
   <div id="tankerDeliveryModal" class="modal-overlay hidden no-print" role="dialog" aria-modal="true" aria-label="نافذة تسجيل تفريغ تانكر سولار">
-    <div class="modal-card" style="max-width: 600px;">
-      <div class="modal-header">
-        <h3 id="tankerModalTitle">⛽ تسجيل تفريغ تانكر سولار جديد</h3>
-        <button type="button" id="btnCloseTankerModal" class="btn-close">✕</button>
+    <div class="modal-card tanker-modal-card">
+      <div class="tanker-modal-header">
+        <div class="tanker-modal-title-group">
+          <div class="tanker-modal-icon-badge">⛽</div>
+          <div>
+            <h3 id="tankerModalTitle" class="tanker-modal-title">تسجيل تفريغ تانكر سولار جديد</h3>
+            <p class="tanker-modal-subtitle">إثبات بون التوريد وتوزيع تكلفة الديزل على مشاريع الشركة</p>
+          </div>
+        </div>
+        <button type="button" id="btnCloseTankerModal" class="btn-close" aria-label="إغلاق">✕</button>
       </div>
-      <div class="modal-body">
-        <form id="tankerDeliveryForm">
+
+      <div class="tanker-modal-body">
+        <form id="tankerDeliveryForm" class="tanker-form">
           <input type="hidden" id="tankerDeliveryId" value="" />
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div class="form-group">
-              <label for="tankerDateInput">📅 تاريخ التوريد <span class="text-danger">*</span></label>
-              <input type="date" id="tankerDateInput" class="input-control" required />
+          <!-- SECTION 1: بيانات التوريد والموقع -->
+          <div class="tanker-form-section">
+            <div class="tanker-section-header">
+              <span class="tanker-section-num">1</span>
+              <span class="tanker-section-title">بيانات التوريد والموقع المستلم</span>
             </div>
-            <div class="form-group">
-              <label for="tankerProjectInput">🏗️ المشروع / الموقع <span class="text-danger">*</span></label>
-              <input type="text" id="tankerProjectInput" class="input-control" list="tankerProjectsDatalist" placeholder="مثلاً: مشروع لوسيل" required />
-              <datalist id="tankerProjectsDatalist"></datalist>
+            <div class="tanker-grid-2">
+              <div class="tanker-field-group">
+                <label for="tankerDateInput" class="tanker-label">
+                  تاريخ التوريد <span class="text-danger">*</span>
+                </label>
+                <input type="date" id="tankerDateInput" class="input-control tanker-input" required />
+              </div>
+
+              <div class="tanker-field-group">
+                <label for="tankerProjectInput" class="tanker-label">
+                  المشروع / الموقع <span class="text-danger">*</span>
+                </label>
+                <input type="text" id="tankerProjectInput" class="input-control tanker-input" list="tankerProjectsDatalist" placeholder="اختر أو اكتب اسم المشروع (مثلاً: مشروع لوسيل)" required />
+                <datalist id="tankerProjectsDatalist"></datalist>
+              </div>
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 12px; margin-top: 10px;">
-            <div class="form-group">
-              <label for="tankerLitersInput">⛽ الكمية (لتر) <span class="text-danger">*</span></label>
-              <input type="number" id="tankerLitersInput" class="input-control" step="0.01" min="0.01" placeholder="500" required />
+          <!-- SECTION 2: الكمية والمحاسبة المالية -->
+          <div class="tanker-form-section">
+            <div class="tanker-section-header">
+              <span class="tanker-section-num">2</span>
+              <span class="tanker-section-title">الكمية والمحاسبة المالية</span>
             </div>
-            <div class="form-group">
-              <label for="tankerPricePerLiterInput">سعر اللتر (ر.ق)</label>
-              <input type="number" id="tankerPricePerLiterInput" class="input-control" step="0.001" min="0" placeholder="2.100" />
+
+            <div class="tanker-grid-2">
+              <div class="tanker-field-group">
+                <label for="tankerLitersInput" class="tanker-label">
+                  الكمية الموردة (باللتر) <span class="text-danger">*</span>
+                </label>
+                <div class="tanker-unit-wrap">
+                  <input type="number" id="tankerLitersInput" class="input-control tanker-input font-bold" step="0.01" min="0.01" placeholder="مثلاً: 500" required />
+                  <span class="tanker-unit-tag">لتر</span>
+                </div>
+              </div>
+
+              <div class="tanker-field-group">
+                <label for="tankerPricePerLiterInput" class="tanker-label">
+                  سعر اللتر الواحد (ر.ق)
+                </label>
+                <div class="tanker-unit-wrap">
+                  <input type="number" id="tankerPricePerLiterInput" class="input-control tanker-input font-bold" step="0.001" min="0" placeholder="2.100" />
+                  <span class="tanker-unit-tag">ر.ق</span>
+                </div>
+              </div>
             </div>
-            <div class="form-group">
-              <label for="tankerAmountInput">💰 إجمالي الفاتورة (ر.ق) <span class="text-danger">*</span></label>
-              <input type="number" id="tankerAmountInput" class="input-control" step="0.01" min="0" placeholder="1050.00" required />
+
+            <!-- بطاقة إبراز الإجمالي التلقائي -->
+            <div class="tanker-total-box">
+              <div class="tanker-total-header">
+                <label for="tankerAmountInput" class="tanker-total-label">إجمالي قيمة الفاتورة المستحقة <span class="text-danger">*</span></label>
+                <span class="tanker-auto-badge">يحسب تلقائياً: الكمية × السعر</span>
+              </div>
+              <div class="tanker-total-row">
+                <input type="number" id="tankerAmountInput" class="input-control tanker-total-num" step="0.01" min="0" placeholder="0.00" required />
+                <span class="tanker-total-curr">ريال قطري (ر.ق)</span>
+              </div>
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
-            <div class="form-group">
-              <label for="tankerInvoiceNoInput">🧾 رقم الفاتورة / البون</label>
-              <input type="text" id="tankerInvoiceNoInput" class="input-control" placeholder="مثلاً: INV-4402" />
+          <!-- SECTION 3: التوثيق والتسليم -->
+          <div class="tanker-form-section">
+            <div class="tanker-section-header">
+              <span class="tanker-section-num">3</span>
+              <span class="tanker-section-title">بيانات الاستلام والتوثيق</span>
             </div>
-            <div class="form-group">
-              <label for="tankerReceiverInput">👷 المستلم بالموقع <span class="text-danger">*</span></label>
-              <input type="text" id="tankerReceiverInput" class="input-control" list="tankerReceiversDatalist" placeholder="اسم المهندس أو المشرف" required />
-              <datalist id="tankerReceiversDatalist"></datalist>
+
+            <div class="tanker-grid-2">
+              <div class="tanker-field-group">
+                <label for="tankerInvoiceNoInput" class="tanker-label">
+                  رقم الفاتورة / البون
+                </label>
+                <input type="text" id="tankerInvoiceNoInput" class="input-control tanker-input" placeholder="مثلاً: INV-4402" />
+              </div>
+
+              <div class="tanker-field-group">
+                <label for="tankerReceiverInput" class="tanker-label">
+                  المستلم بالموقع <span class="text-danger">*</span>
+                </label>
+                <input type="text" id="tankerReceiverInput" class="input-control tanker-input" list="tankerReceiversDatalist" placeholder="اسم المهندس أو المشرف المستلم" required />
+                <datalist id="tankerReceiversDatalist"></datalist>
+              </div>
+            </div>
+
+            <div class="tanker-grid-2" style="margin-top: 8px;">
+              <div class="tanker-field-group">
+                <label for="tankerSupplierInput" class="tanker-label">
+                  اسم شركة التوريد / التانكر
+                </label>
+                <input type="text" id="tankerSupplierInput" class="input-control tanker-input" list="tankerSuppliersDatalist" placeholder="مثلاً: شركة وقود (WOQOD)" />
+                <datalist id="tankerSuppliersDatalist"></datalist>
+              </div>
+
+              <div class="tanker-field-group">
+                <label for="tankerNotesInput" class="tanker-label">
+                  ملاحظات تفريغ إضافية
+                </label>
+                <input type="text" id="tankerNotesInput" class="input-control tanker-input" placeholder="مثلاً: تفريغ مولد الموقع الرئيسي رقم 2" />
+              </div>
             </div>
           </div>
 
-          <div style="margin-top: 10px;">
-            <div class="form-group">
-              <label for="tankerSupplierInput">🚚 اسم المورد / التانكر</label>
-              <input type="text" id="tankerSupplierInput" class="input-control" list="tankerSuppliersDatalist" placeholder="مثلاً: شركة وقود / تانكر رقم..." />
-              <datalist id="tankerSuppliersDatalist"></datalist>
-            </div>
-          </div>
-
-          <div style="margin-top: 10px;">
-            <div class="form-group">
-              <label for="tankerNotesInput">📝 ملاحظات إضافية</label>
-              <input type="text" id="tankerNotesInput" class="input-control" placeholder="مثلاً: تفريغ مولد الموقع الرئيسي رقم 2" />
-            </div>
-          </div>
-
-          <div class="modal-btn-row" style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
-            <button type="button" id="btnCancelTankerModal" class="btn btn-outline">إلغاء</button>
-            <button type="button" id="btnSaveTankerDelivery" class="btn btn-primary">💾 حفظ التوريد</button>
+          <!-- ACTIONS FOOTER -->
+          <div class="modal-btn-row tanker-actions">
+            <button type="button" id="btnCancelTankerModal" class="btn btn-outline tanker-btn-cancel">إلغاء وتراجع</button>
+            <button type="button" id="btnSaveTankerDelivery" class="btn btn-primary tanker-btn-save">💾 حفظ بون التوريد</button>
           </div>
         </form>
       </div>
