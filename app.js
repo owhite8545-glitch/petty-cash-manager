@@ -2400,12 +2400,11 @@ function renderPeopleManagementTab() {
 
     const tr = document.createElement('tr');
     if (p.archived) {
-      tr.style.opacity = '0.82';
-      tr.style.backgroundColor = 'rgba(241, 245, 249, 0.7)';
+      tr.classList.add('archived-row');
     }
 
     const archiveBadgeHtml = p.archived
-      ? `<span class="role-badge" style="background:#fee2e2; color:#991b1b; font-weight:800; font-size:0.75rem; margin-right:4px;">📦 مؤرشف</span>`
+      ? `<span class="role-badge badge-archived">📦 مؤرشف</span>`
       : '';
 
     let actionButtonsHtml = '';
@@ -3381,23 +3380,24 @@ function renderSafeTab() {
   // Render Net Balance Summary Card Content
   const sumContentEl = document.getElementById('safeNetSummaryContent');
   if (sumContentEl) {
+    const netClass = fin.cumulativeNet > 0 ? 'text-amber' : (fin.cumulativeNet < 0 ? 'text-blue' : 'text-green');
     let summaryHtml = `
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
-        <div style="padding: 10px 14px; background: rgba(255,255,255,0.7); border-radius: 8px; border: 1px solid #fed7aa;">
-          <span style="display: block; font-size: 0.88rem; color: #78350f;">📥 سحوبات ${scopeText}:</span>
-          <strong style="font-size: 1.25rem; color: var(--green);">${formatNumber(fin.periodWithdrawn)} ر.ق</strong>
+      <div class="safe-net-grid">
+        <div class="safe-net-card">
+          <span class="safe-net-lbl">📥 سحوبات ${scopeText}:</span>
+          <strong class="safe-net-val text-green">${formatNumber(fin.periodWithdrawn)} ر.ق</strong>
         </div>
-        <div style="padding: 10px 14px; background: rgba(255,255,255,0.7); border-radius: 8px; border: 1px solid #fed7aa;">
-          <span style="display: block; font-size: 0.88rem; color: #78350f;">📤 فواتير ${scopeText}:</span>
-          <strong style="font-size: 1.25rem; color: var(--purple);">${formatNumber(fin.periodInvoices)} ر.ق</strong>
+        <div class="safe-net-card">
+          <span class="safe-net-lbl">📤 فواتير ${scopeText}:</span>
+          <strong class="safe-net-val text-purple">${formatNumber(fin.periodInvoices)} ر.ق</strong>
         </div>
-        <div style="padding: 10px 14px; background: rgba(255,255,255,0.7); border-radius: 8px; border: 1px solid #fed7aa;">
-          <span style="display: block; font-size: 0.88rem; color: #78350f;">⏳ مرحّل من قبل هذه الفترة:</span>
-          <strong style="font-size: 1.25rem; color: #64748b;">${fin.priorOpeningBalance > 0 ? '+' : ''}${formatNumber(fin.priorOpeningBalance)} ر.ق</strong>
+        <div class="safe-net-card">
+          <span class="safe-net-lbl">⏳ مرحّل من قبل هذه الفترة:</span>
+          <strong class="safe-net-val text-muted">${fin.priorOpeningBalance > 0 ? '+' : ''}${formatNumber(fin.priorOpeningBalance)} ر.ق</strong>
         </div>
-        <div style="padding: 10px 14px; background: rgba(255,255,255,0.85); border-radius: 8px; border: 2px solid ${fin.cumulativeNet > 0 ? '#f59e0b' : '#3b82f6'};">
-          <span style="display: block; font-size: 0.88rem; color: #1e3a8a; font-weight: 700;">⚖️ الصافي التراكمي الشامل المعلق:</span>
-          <strong style="font-size: 1.3rem; ${fin.cumulativeNet > 0 ? 'color: #b45309;' : (fin.cumulativeNet < 0 ? 'color: #1d4ed8;' : 'color: #15803d;')}">
+        <div class="safe-net-card safe-net-card-highlight">
+          <span class="safe-net-lbl safe-net-lbl-highlight">⚖️ الصافي التراكمي الشامل المعلق:</span>
+          <strong class="safe-net-val ${netClass}">
             ${formatNumber(Math.abs(fin.cumulativeNet))} ر.ق
           </strong>
         </div>
@@ -3406,20 +3406,20 @@ function renderSafeTab() {
 
     if (Math.abs(fin.cumulativeNet) < 0.001) {
       summaryHtml += `
-        <div style="padding: 12px; background: #ecfdf5; border-radius: 8px; border: 1px solid #a7f3d0; color: #065f46; font-weight: 700;">
+        <div class="safe-net-message safe-net-msg-settled">
           ✅ ممتاز! حسابك مع الخزينة خالص ومصفى تماماً حتى نهاية ${scopeText}. الفواتير المسلّمة غطّت بالكامل جميع ما سحبته كاش عبر كافة الشهور.
         </div>
       `;
     } else if (fin.cumulativeNet > 0) {
       summaryHtml += `
-        <div style="padding: 12px; background: #fff7ed; border-radius: 8px; border: 1px solid #fdba74; color: #9a3412; font-weight: 700;">
-          ⚠️ موقف الحساب التراكمي: أنت سحبت كاش أكثر مما سلّمت فواتير. المتبقي بذمتك لتقديمه للخزينة حتى تاريخ ${scopeText} (سواء فواتير متبقية أو رد كاش) هو: <span style="font-size: 1.25rem; font-weight: 800;">${formatNumber(fin.cumulativeNet)} ر.ق</span>.
+        <div class="safe-net-message safe-net-msg-owed">
+          ⚠️ موقف الحساب التراكمي: أنت سحبت كاش أكثر مما سلّمت فواتير. المتبقي بذمتك لتقديمه للخزينة حتى تاريخ ${scopeText} (سواء فواتير متبقية أو رد كاش) هو: <span class="safe-net-msg-highlight">${formatNumber(fin.cumulativeNet)} ر.ق</span>.
         </div>
       `;
     } else {
       summaryHtml += `
-        <div style="padding: 12px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe; color: #1e40af; font-weight: 700;">
-          ℹ️ موقف الحساب التراكمي: الفواتير التي سلّمتها تتجاوز إجمالي ما سحبته كاش. لك رصيد مستحق لدى الخزنة أو استعاضة حتى تاريخ ${scopeText} بقيمة: <span style="font-size: 1.25rem; font-weight: 800;">${formatNumber(Math.abs(fin.cumulativeNet))} ر.ق</span>.
+        <div class="safe-net-message safe-net-msg-credit">
+          ℹ️ موقف الحساب التراكمي: الفواتير التي سلّمتها تتجاوز إجمالي ما سحبته كاش. لك رصيد مستحق لدى الخزنة أو استعاضة حتى تاريخ ${scopeText} بقيمة: <span class="safe-net-msg-highlight">${formatNumber(Math.abs(fin.cumulativeNet))} ر.ق</span>.
         </div>
       `;
     }
@@ -4398,10 +4398,10 @@ function openReplenishmentModal() {
   }
 
   const trTot = document.createElement('tr');
-  trTot.style.background = '#f1f5f9';
+  trTot.className = 'totals-row rep-totals-row';
   trTot.innerHTML = `
     <td><strong>إجمالي الفواتير المطلوب استعاضتها</strong></td>
-    <td style="font-weight: 800; color: var(--purple); font-size: 1.1rem;">${formatNumber(monthInvoices)} ر.ق</td>
+    <td class="rep-total-invoices-val">${formatNumber(monthInvoices)} ر.ق</td>
     <td><strong>100%</strong></td>
   `;
   tbody.appendChild(trTot);

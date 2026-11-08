@@ -549,9 +549,9 @@
             <strong class="kpi-value text-blue" id="dispatchKpiTopRecipient">-</strong>
             <small class="kpi-sub-split" id="dispatchKpiTopRecipientSub">صاحب أكبر مبلغ اليوم</small>
           </div>
-          <div class="kpi-item" style="background: #f8fafc; border: 1px dashed #cbd5e1;">
+          <div class="kpi-item kpi-drawer-balance">
             <span class="kpi-label" id="lblKpiDrawerBalance">🏦 المتبقي في الدرج / الخزنة</span>
-            <strong class="kpi-value" id="dispatchKpiDrawerBalance" style="color: #475569;">0.00 ر.ق</strong>
+            <strong class="kpi-value" id="dispatchKpiDrawerBalance">0.00 ر.ق</strong>
             <small class="kpi-sub-split" id="dispatchKpiDrawerBalanceSub">مطابقة النقدية باليد</small>
           </div>
         </div>
@@ -1052,10 +1052,10 @@
             <strong class="kpi-value" id="custodyCompanyBalance">0</strong>
             <small class="kpi-sub-split" id="custodyCompanyStatus">المستلم من الشركة ناقص المسلم لها</small>
           </div>
-          <div class="kpi-item" style="border: 2px dashed #3b82f6; background: #eff6ff;">
-            <span class="kpi-label" style="color: #1e40af;">🗄️ النقدية الفعلية بدرج الكاش (الخزنة)</span>
+          <div class="kpi-item kpi-drawer-actual">
+            <span class="kpi-label">🗄️ النقدية الفعلية بدرج الكاش (الخزنة)</span>
             <strong class="kpi-value text-blue" id="custodyDrawerCash">0</strong>
-            <small class="kpi-sub-split" style="color: #2563eb;" id="custodyDrawerCashSub">الكاش الورقي الفعلي في اليد</small>
+            <small class="kpi-sub-split" id="custodyDrawerCashSub">الكاش الورقي الفعلي في اليد</small>
           </div>
         </div>
       </div>
@@ -1247,9 +1247,9 @@
               <strong class="kpi-value text-purple" id="safeInvoicesTotal">0</strong>
               <small class="kpi-sub-split" id="safeInvoicesSub">فواتير قدمتها للخزنة لتغطية سحوبات الفترة</small>
             </div>
-            <div class="kpi-item" style="border: 2px dashed #f59e0b; background: #fffbeb;">
-              <span class="kpi-label" style="color: #92400e;">⚖️ صافي حركة هذه الفترة</span>
-              <strong class="kpi-value" id="safeNetBalance">0</strong>
+            <div class="kpi-item kpi-period-net">
+              <span class="kpi-label">⚖️ صافي حركة هذه الفترة</span>
+              <strong class="kpi-value text-amber" id="safeNetBalance">0</strong>
               <small class="kpi-sub-split" id="safeNetStatus">سحوبات الفترة ناقص فواتيرها</small>
             </div>
           </div>
@@ -1258,7 +1258,7 @@
         <div>
           <h4 style="font-size: 0.95rem; color: #1e40af; margin: 12px 0 8px 0;">🏛️ 2. الرصيد التراكمي الشامل (حتى نهاية هذه الفترة):</h4>
           <div class="monthly-kpis">
-            <div class="kpi-item" style="background: #f8fafc;">
+            <div class="kpi-item">
               <span class="kpi-label">⏳ رصيد افتتاحي مرحّل من قبل</span>
               <strong class="kpi-value text-muted" id="safePriorOpeningBalance">0</strong>
               <small class="kpi-sub-split">معلق من شهور وسنوات سابقة</small>
@@ -1273,8 +1273,8 @@
               <strong class="kpi-value text-purple" id="safeCumulativeInvoicesTotal">0</strong>
               <small class="kpi-sub-split">كل الفواتير المسلّمة تاريخياً</small>
             </div>
-            <div class="kpi-item" style="border: 2px solid #3b82f6; background: #eff6ff;">
-              <span class="kpi-label" style="color: #1e40af;">⚖️ الصافي التراكمي المعلق بذمتنا</span>
+            <div class="kpi-item kpi-cumulative-net">
+              <span class="kpi-label">⚖️ الصافي التراكمي المعلق بذمتنا</span>
               <strong class="kpi-value text-blue" id="safeCumulativeNetBalance">0</strong>
               <small class="kpi-sub-split" id="safeCumulativeNetStatus">الموقف الشامل الحقيقي مع الخزنة</small>
             </div>
@@ -1399,8 +1399,8 @@
       </div>
 
       <!-- Net Balance Summary Card -->
-      <div class="card" id="safeNetSummaryCard" style="border: 2px solid #f59e0b; background: #fffbeb;">
-        <h3 style="margin-bottom: 12px; color: #92400e;">⚖️ ملخص الحساب الصافي مع الخزنة:</h3>
+      <div class="card" id="safeNetSummaryCard">
+        <h3 class="safe-net-title" style="margin-bottom: 12px;">⚖️ ملخص الحساب الصافي مع الخزنة:</h3>
         <div id="safeNetSummaryContent" style="font-size: 1.1rem; line-height: 2;"></div>
       </div>
 
@@ -1461,25 +1461,25 @@
 
         <!-- KPI Cards -->
         <div class="monthly-kpis" style="margin-top: 16px;">
-          <div class="kpi-card">
-            <span class="kpi-lbl">⛽ إجمالي اللترات المفرغة</span>
-            <span class="kpi-val text-blue" id="kpiTankerTotalLiters">0.00 لتر</span>
-            <span class="kpi-sub">مجموع كميات الديزل المستلمة</span>
+          <div class="kpi-card kpi-item">
+            <span class="kpi-lbl kpi-label">⛽ إجمالي اللترات المفرغة</span>
+            <span class="kpi-val kpi-value text-blue" id="kpiTankerTotalLiters">0.00 لتر</span>
+            <span class="kpi-sub kpi-sub-split">مجموع كميات الديزل المستلمة</span>
           </div>
-          <div class="kpi-card">
-            <span class="kpi-lbl">💰 إجمالي المدفوع للتانكر</span>
-            <span class="kpi-val text-green" id="kpiTankerTotalAmount">0.00 ر.ق</span>
-            <span class="kpi-sub">إجمالي قيمة فواتير التوريد</span>
+          <div class="kpi-card kpi-item">
+            <span class="kpi-lbl kpi-label">💰 إجمالي المدفوع للتانكر</span>
+            <span class="kpi-val kpi-value text-green" id="kpiTankerTotalAmount">0.00 ر.ق</span>
+            <span class="kpi-sub kpi-sub-split">إجمالي قيمة فواتير التوريد</span>
           </div>
-          <div class="kpi-card">
-            <span class="kpi-lbl">🏷️ متوسط سعر اللتر</span>
-            <span class="kpi-val" id="kpiTankerAvgPrice">0.00 ر.ق/لتر</span>
-            <span class="kpi-sub">المتوسط المرجح للتكلفة</span>
+          <div class="kpi-card kpi-item">
+            <span class="kpi-lbl kpi-label">🏷️ متوسط سعر اللتر</span>
+            <span class="kpi-val kpi-value" id="kpiTankerAvgPrice">0.00 ر.ق/لتر</span>
+            <span class="kpi-sub kpi-sub-split">المتوسط المرجح للتكلفة</span>
           </div>
-          <div class="kpi-card">
-            <span class="kpi-lbl">🏗️ المشاريع المستفيدة</span>
-            <span class="kpi-val" id="kpiTankerProjectsCount">0</span>
-            <span class="kpi-sub">مواقع العمل المفرغ بها</span>
+          <div class="kpi-card kpi-item">
+            <span class="kpi-lbl kpi-label">🏗️ المشاريع المستفيدة</span>
+            <span class="kpi-val kpi-value" id="kpiTankerProjectsCount">0</span>
+            <span class="kpi-sub kpi-sub-split">مواقع العمل المفرغ بها</span>
           </div>
         </div>
 
@@ -1669,7 +1669,7 @@
         </p>
         <div class="field-group" style="margin-bottom: 14px;">
           <label>اليوم الحالي المسجل فيه بالخطأ:</label>
-          <input type="text" id="moveDistSourceDateDisplay" class="input-control" readonly aria-label="تاريخ اليوم المصدر" style="background: #f1f5f9; font-weight: 800;" />
+          <input type="text" id="moveDistSourceDateDisplay" class="input-control" readonly aria-label="تاريخ اليوم المصدر" style="font-weight: 800;" />
         </div>
         <div class="field-group" style="margin-bottom: 14px;">
           <label>🎯 اختر اليوم المراد نقل أو نسخ التوزيعة إليه:</label>
@@ -1715,22 +1715,22 @@
           <table class="voucher-table" style="margin-bottom: 16px;">
             <tr>
               <th>إجمالي العهدة المستلمة:</th>
-              <td id="repTotalReceived" style="font-weight: 800; color: #15803d;">0 ر.ق</td>
+              <td id="repTotalReceived" class="rep-val-green">0 ر.ق</td>
               <th>إجمالي المنصرف للسائقين:</th>
-              <td id="repTotalDistributed" style="font-weight: 800; color: #1d4ed8;">0 ر.ق</td>
+              <td id="repTotalDistributed" class="rep-val-blue">0 ر.ق</td>
             </tr>
             <tr>
               <th>إجمالي الفواتير المقدمة:</th>
-              <td id="repTotalInvoices" style="font-weight: 800; color: #6d28d9;">0 ر.ق</td>
+              <td id="repTotalInvoices" class="rep-val-purple">0 ر.ق</td>
               <th>الكاش المتبقي بالخزنة:</th>
-              <td id="repCashRemaining" style="font-weight: 800; color: #0f172a;">0 ر.ق</td>
+              <td id="repCashRemaining" class="rep-val-main">0 ر.ق</td>
             </tr>
           </table>
 
           <h4 style="margin: 14px 0 8px; color: var(--primary);">ملخص بنود المصروفات والفواتير:</h4>
           <table class="voucher-table">
             <thead>
-              <tr style="background: #f8fafc;">
+              <tr class="rep-head-row">
                 <th>البند / نوع المصروف</th>
                 <th>قيمة الفواتير المقدمة (ر.ق)</th>
                 <th>النسبة من الإجمالي</th>
@@ -1868,15 +1868,15 @@
             </tr>
             <tr>
               <th>💵 إجمالي المبالغ المستلمة:</th>
-              <td id="vTotalCash" style="font-weight:800; color:#15803d;">0 ر.ق</td>
+              <td id="vTotalCash" class="v-val-green">0 ر.ق</td>
               <th>🧾 إجمالي الفواتير المقدمة:</th>
-              <td id="vTotalInv" style="font-weight:800; color:#6d28d9;">0 ر.ق</td>
+              <td id="vTotalInv" class="v-val-purple">0 ر.ق</td>
             </tr>
             <tr>
               <th>↩️ إجمالي الكاش المرتجع باليد:</th>
-              <td id="vTotalRet" style="font-weight:800; color:#0284c7;">0 ر.ق</td>
+              <td id="vTotalRet" class="v-val-blue">0 ر.ق</td>
               <th>⚖️ الصافي / المتبقي في العهدة:</th>
-              <td id="vNetStatus" style="font-weight:800;">0 ر.ق</td>
+              <td id="vNetStatus" class="v-val-bold">0 ر.ق</td>
             </tr>
           </table>
           <div class="voucher-signatures">

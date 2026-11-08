@@ -1498,6 +1498,164 @@ input[type="number"] {
   border: 1px solid #bae6fd;
 }
 
+/* Special KPI Card Variants (Replaces old inline styles) */
+.kpi-drawer-balance {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+}
+.kpi-drawer-actual {
+  border: 2px dashed #3b82f6;
+  background: #eff6ff;
+}
+.kpi-drawer-actual .kpi-label {
+  color: #1e40af;
+}
+.kpi-drawer-actual .kpi-sub-split {
+  color: #2563eb;
+}
+.kpi-period-net {
+  border: 2px dashed #f59e0b;
+  background: #fffbeb;
+}
+.kpi-period-net .kpi-label {
+  color: #92400e;
+}
+.kpi-cumulative-net {
+  border: 2px solid #3b82f6;
+  background: #eff6ff;
+}
+.kpi-cumulative-net .kpi-label {
+  color: #1e40af;
+}
+
+/* Safe Net Summary Card Styles (Tab 8) */
+#safeNetSummaryCard {
+  border: 2px solid #f59e0b;
+  background: #fffbeb;
+}
+.safe-net-title {
+  color: #92400e;
+  margin-bottom: 12px;
+}
+.safe-net-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.safe-net-card {
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  border: 1px solid #fed7aa;
+}
+.safe-net-lbl {
+  display: block;
+  font-size: 0.88rem;
+  color: #78350f;
+  margin-bottom: 2px;
+}
+.safe-net-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+.safe-net-card-highlight {
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #3b82f6;
+}
+.safe-net-lbl-highlight {
+  color: #1e3a8a;
+  font-weight: 700;
+}
+.safe-net-message {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.safe-net-msg-settled {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+.safe-net-msg-owed {
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+}
+.safe-net-msg-credit {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+.safe-net-msg-highlight {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+/* Replenishment & Voucher modal text colors */
+.rep-val-green, .v-val-green {
+  font-weight: 800;
+  color: #15803d;
+}
+.rep-val-blue, .v-val-blue {
+  font-weight: 800;
+  color: #1d4ed8;
+}
+.rep-val-purple, .v-val-purple {
+  font-weight: 800;
+  color: #6d28d9;
+}
+.rep-val-main, .v-val-bold {
+  font-weight: 800;
+  color: #0f172a;
+}
+.rep-head-row {
+  background: #f8fafc;
+}
+.rep-totals-row td {
+  background: #f1f5f9;
+}
+.rep-total-invoices-val {
+  font-weight: 800;
+  color: var(--purple);
+  font-size: 1.1rem;
+}
+
+/* Table Quick Action Chips & Rows */
+.fill-settle-chip {
+  position: absolute;
+  left: 6px;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.fill-settle-chip:hover {
+  background: #dbeafe;
+}
+.sub-hint-line {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.archived-row {
+  opacity: 0.82;
+  background-color: rgba(241, 245, 249, 0.7);
+}
+.badge-archived {
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 800;
+  font-size: 0.75rem;
+  margin-right: 4px;
+}
+
 /* Fleet & Petty Cash Custodian Specific Styles */
 .meta-badge {
   display: inline-block;
@@ -2745,6 +2903,22 @@ body.dark-mode {
   color: var(--text-main);
 }
 
+/* Form input placeholders & select options in dark mode */
+body.dark-mode ::placeholder,
+body.dark-mode .input-control::placeholder,
+body.dark-mode .receipt-big-input::placeholder,
+body.dark-mode .cell-input::placeholder,
+body.dark-mode .bulk-textarea::placeholder,
+body.dark-mode .tanker-input::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+body.dark-mode select option {
+  background-color: #151f32 !important;
+  color: #f1f5f9 !important;
+}
+
 /* Header in dark mode */
 body.dark-mode .app-header {
   background: linear-gradient(135deg, #070d17 0%, #0d2825 100%);
@@ -2782,7 +2956,9 @@ body.dark-mode .card,
 body.dark-mode .person-sidebar,
 body.dark-mode .modal-card,
 body.dark-mode .bulk-paste-box,
-body.dark-mode .summary-box {
+body.dark-mode .summary-box,
+body.dark-mode .quick-person-bar-card,
+body.dark-mode .person-quick-entry {
   background-color: #151f32 !important;
   border-color: #273549 !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
@@ -2802,6 +2978,15 @@ body.dark-mode .balance-box.matched {
 body.dark-mode .balance-box.over {
   background: rgba(239, 68, 68, 0.14) !important;
   border-right-color: #ef4444 !important;
+}
+
+body.dark-mode .summary-sub,
+body.dark-mode .summary-status {
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode .sub-hint-line {
+  color: #94a3b8 !important;
 }
 
 /* Form inputs & textareas (including big receipt input) */
@@ -2885,6 +3070,20 @@ body.dark-mode .matrix-table tbody tr:hover td {
   background-color: #1b2840 !important;
 }
 
+body.dark-mode .data-table tbody tr.active-row td {
+  background-color: #162438 !important;
+}
+
+body.dark-mode .archived-row td {
+  background-color: rgba(30, 41, 59, 0.7) !important;
+}
+
+body.dark-mode .badge-archived {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #fca5a5 !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+}
+
 /* Cash and invoice specific columns in tables */
 body.dark-mode .col-cash-head {
   background: #064e3b !important;
@@ -2953,6 +3152,21 @@ body.dark-mode .cell-input:focus {
   box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3);
 }
 
+body.dark-mode .cell-input.cash-input:focus {
+  background: #0d1e18 !important;
+  border-color: #10b981 !important;
+}
+
+body.dark-mode .cell-input.inv-input:focus {
+  background: #1a0f2b !important;
+  border-color: #a855f7 !important;
+}
+
+body.dark-mode .cell-input.ret-input:focus {
+  background: #0c1929 !important;
+  border-color: #0ea5e9 !important;
+}
+
 body.dark-mode .cell-input-cash {
   color: #4ade80;
   font-weight: 800;
@@ -2968,15 +3182,68 @@ body.dark-mode .cell-input-returned {
   font-weight: 800;
 }
 
-body.dark-mode .cell-input.has-val-ret {
-  background: rgba(14, 165, 233, 0.2);
-  border-color: #0ea5e9;
-  color: #7dd3fc;
+body.dark-mode .cell-input.has-val-cash {
+  background: rgba(16, 185, 129, 0.22) !important;
+  border-color: #10b981 !important;
+  color: #4ade80 !important;
+  font-weight: 800;
 }
 
-body.dark-mode .p-total-card.ret-card {
-  background: rgba(14, 165, 233, 0.12);
-  border-color: rgba(56, 189, 248, 0.4);
+body.dark-mode .cell-input.has-val-inv {
+  background: rgba(168, 85, 247, 0.22) !important;
+  border-color: #a855f7 !important;
+  color: #c084fc !important;
+  font-weight: 800;
+}
+
+body.dark-mode .cell-input.has-val-ret {
+  background: rgba(14, 165, 233, 0.22) !important;
+  border-color: #0ea5e9 !important;
+  color: #7dd3fc !important;
+  font-weight: 800;
+}
+
+body.dark-mode .fill-settle-chip {
+  background: rgba(56, 189, 248, 0.2) !important;
+  border-color: #0284c7 !important;
+  color: #7dd3fc !important;
+}
+
+body.dark-mode .fill-rem-chip {
+  background: rgba(16, 185, 129, 0.2) !important;
+  border-color: #059669 !important;
+  color: #4ade80 !important;
+}
+
+body.dark-mode .inline-name-input:hover,
+body.dark-mode .inline-name-input:focus {
+  background: #0d1522 !important;
+  color: #f8fafc !important;
+  border-color: #2dd4bf !important;
+}
+
+body.dark-mode .last-receipt-badge {
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .last-receipt-badge.recent-high {
+  background: rgba(245, 158, 11, 0.16) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+body.dark-mode .hint-badge {
+  background: #111e33 !important;
+  color: #7dd3fc !important;
+  border-color: #0369a1 !important;
+}
+
+body.dark-mode .meta-badge {
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+  border-color: #334155 !important;
 }
 
 /* Totals rows & sticky columns */
@@ -2994,6 +3261,12 @@ body.dark-mode .friday-banner {
   color: #fcd34d !important;
 }
 
+body.dark-mode .friday-col {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #fca5a5 !important;
+  border-color: #451a24 !important;
+}
+
 body.dark-mode .matrix-received-row td {
   background: rgba(16, 185, 129, 0.18) !important;
   color: #4ade80 !important;
@@ -3003,6 +3276,20 @@ body.dark-mode .matrix-received-row td {
 body.dark-mode .matrix-distributed-row td {
   background: rgba(56, 189, 248, 0.16) !important;
   color: #38bdf8 !important;
+}
+
+body.dark-mode .matrix-cell-editable:hover {
+  background: #1e2c45 !important;
+}
+
+body.dark-mode .matrix-val-cash {
+  color: #4ade80 !important;
+  font-weight: 800;
+}
+
+body.dark-mode .matrix-val-inv {
+  color: #c084fc !important;
+  font-weight: 800;
 }
 
 body.dark-mode .sticky-col {
@@ -3031,36 +3318,214 @@ body.dark-mode .day-pill.active {
   color: #ffffff;
 }
 
+body.dark-mode .day-pill.has-data {
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-color: #059669 !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .day-pill.has-data .d-num {
+  color: #4ade80 !important;
+}
+
+body.dark-mode .day-pill.has-data .d-name {
+  color: #a7f3d0 !important;
+}
+
+body.dark-mode .day-pill.is-friday,
 body.dark-mode .day-pill.friday {
-  background: #161c28;
-  color: #64748b;
-  border-color: #262c38;
+  background: #1c1424 !important;
+  color: #f87171 !important;
+  border-color: #5c1d2e !important;
+}
+
+body.dark-mode .day-pill.is-friday .d-name,
+body.dark-mode .day-pill.friday .d-name,
+body.dark-mode .day-pill.is-friday .d-num,
+body.dark-mode .day-pill.friday .d-num {
+  color: #f87171 !important;
 }
 
 /* Summary cards & KPIs */
 body.dark-mode .daily-kpi-card,
 body.dark-mode .kpi-item,
+body.dark-mode .kpi-card,
 body.dark-mode .p-total-card {
-  background: #151f32;
-  border-color: #273549;
+  background: #151f32 !important;
+  border-color: #273549 !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .kpi-lbl,
+body.dark-mode .kpi-label {
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode .kpi-sub,
+body.dark-mode .kpi-sub-split {
+  color: #94a3b8 !important;
+}
+
+/* Special Tab 3, 7, 8 KPI Card Variants */
+body.dark-mode .kpi-drawer-balance {
+  background: #151f32 !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode #dispatchKpiDrawerBalance {
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .kpi-drawer-actual {
+  background: #151f32 !important;
+  border: 2px dashed #0284c7 !important;
+}
+
+body.dark-mode .kpi-drawer-actual .kpi-label,
+body.dark-mode .kpi-drawer-actual .kpi-sub-split {
+  color: #7dd3fc !important;
+}
+
+body.dark-mode .kpi-period-net {
+  background: #151f32 !important;
+  border: 2px dashed #d97706 !important;
+}
+
+body.dark-mode .kpi-period-net .kpi-label,
+body.dark-mode .kpi-period-net .kpi-sub-split {
+  color: #fcd34d !important;
+}
+
+body.dark-mode .kpi-cumulative-net {
+  background: #151f32 !important;
+  border: 2px solid #0284c7 !important;
+}
+
+body.dark-mode .kpi-cumulative-net .kpi-label,
+body.dark-mode .kpi-cumulative-net .kpi-sub-split {
+  color: #7dd3fc !important;
+}
+
+body.dark-mode #safeNetSummaryCard {
+  background: #151f32 !important;
+  border: 2px solid #d97706 !important;
+}
+
+body.dark-mode .safe-net-title {
+  color: #fbbf24 !important;
+}
+
+body.dark-mode .safe-net-card {
+  background: #111a2b !important;
+  border: 1px solid #273549 !important;
+}
+
+body.dark-mode .safe-net-lbl {
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode .safe-net-card-highlight {
+  background: #0e1c2e !important;
+  border: 2px solid #0284c7 !important;
+}
+
+body.dark-mode .safe-net-lbl-highlight {
+  color: #38bdf8 !important;
+}
+
+body.dark-mode .safe-net-message {
+  border-radius: 8px;
+}
+
+body.dark-mode .safe-net-msg-settled {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: #059669 !important;
+  color: #6ee7b7 !important;
+}
+
+body.dark-mode .safe-net-msg-owed {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: #d97706 !important;
+  color: #fde68a !important;
+}
+
+body.dark-mode .safe-net-msg-credit {
+  background: rgba(56, 189, 248, 0.15) !important;
+  border-color: #0284c7 !important;
+  color: #7dd3fc !important;
+}
+
+body.dark-mode .safe-net-msg-highlight {
+  color: #ffffff !important;
+}
+
+/* Person Tab Totals Cards */
+body.dark-mode .p-total-card {
+  background: #151f32 !important;
+  border: 1.5px solid #273549 !important;
 }
 
 body.dark-mode .p-total-card.cash-card {
-  border-top-color: #10b981;
+  background: rgba(16, 185, 129, 0.1) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
 }
 
 body.dark-mode .p-total-card.invoice-card {
-  border-top-color: #a855f7;
+  background: rgba(168, 85, 247, 0.1) !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+}
+
+body.dark-mode .p-total-card.ret-card {
+  background: rgba(14, 165, 233, 0.1) !important;
+  border-color: rgba(14, 165, 233, 0.4) !important;
 }
 
 body.dark-mode .p-total-card.net-card {
-  border-top-color: #0ea5e9;
+  background: rgba(56, 189, 248, 0.1) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+}
+
+body.dark-mode .p-total-label {
+  color: #cbd5e1 !important;
+}
+
+/* Tab 3 Dispatch Language Switch in Dark Mode */
+body.dark-mode .dispatch-lang-switch {
+  background: #111a2b !important;
+  border-color: #273549 !important;
+}
+
+body.dark-mode .dispatch-lang-switch .btn-lang {
+  color: #94a3b8 !important;
+}
+
+body.dark-mode .dispatch-lang-switch .btn-lang.active {
+  background: #0284c7 !important;
+  color: #ffffff !important;
 }
 
 /* Person Tab Sidebar & Month Strip */
 body.dark-mode .person-sidebar {
   background: #151f32;
   border-color: #273549;
+}
+
+body.dark-mode .mini-pill {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode .mini-pill:hover {
+  background: #273549 !important;
+  color: #f8fafc !important;
+}
+
+body.dark-mode .mini-pill.active {
+  background: #0f766e !important;
+  border-color: #2dd4bf !important;
+  color: #ffffff !important;
 }
 
 body.dark-mode .person-sidebar-item {
@@ -3083,25 +3548,22 @@ body.dark-mode .person-month-strip {
 }
 
 body.dark-mode .p-pill {
-  background: #182337;
-  border-color: #2d3d54;
-  color: #cbd5e1;
+  background: #182337 !important;
+  border-color: #2d3d54 !important;
+  color: #e2e8f0 !important;
 }
 
 body.dark-mode .p-pill:hover {
-  background: #202e48;
-  color: #f1f5f9;
+  background: #202e48 !important;
+  color: #f1f5f9 !important;
+  border-color: #38bdf8 !important;
 }
 
 body.dark-mode .p-pill.active {
-  background: #1d4ed8;
-  border-color: #60a5fa;
-  color: #fff;
-}
-
-body.dark-mode .person-quick-entry {
-  background: #101826;
-  border-color: #273549;
+  background: #0284c7 !important;
+  border-color: #38bdf8 !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4) !important;
 }
 
 body.dark-mode .quick-invoice-tags .tag-chip,
@@ -3119,20 +3581,33 @@ body.dark-mode .tag-chip:hover {
 
 /* Modals in Dark Mode */
 body.dark-mode .modal-card {
-  background: #151f32;
-  border-color: #3b4e68;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
-  color: #f1f5f9;
+  background: #151f32 !important;
+  border: 1px solid #3b4e68 !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6) !important;
+  color: #f1f5f9 !important;
 }
 
 body.dark-mode .modal-header {
-  border-bottom-color: #273549;
+  border-bottom-color: #273549 !important;
+}
+
+body.dark-mode .modal-body {
+  background: #151f32 !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .modal-card hr {
+  border-color: #273549 !important;
 }
 
 body.dark-mode .voucher-box {
   background: #0d1522;
   border-color: #273549;
   color: #f1f5f9;
+}
+
+body.dark-mode .voucher-top {
+  border-bottom-color: #273549 !important;
 }
 
 body.dark-mode .voucher-table th {
@@ -3146,6 +3621,176 @@ body.dark-mode .voucher-table td {
   color: #f1f5f9;
 }
 
+body.dark-mode .rep-val-green,
+body.dark-mode .v-val-green {
+  color: #4ade80 !important;
+}
+
+body.dark-mode .rep-val-blue,
+body.dark-mode .v-val-blue {
+  color: #38bdf8 !important;
+}
+
+body.dark-mode .rep-val-purple,
+body.dark-mode .v-val-purple {
+  color: #c084fc !important;
+}
+
+body.dark-mode .rep-val-main,
+body.dark-mode .v-val-bold {
+  color: #f8fafc !important;
+}
+
+body.dark-mode .rep-head-row th {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .rep-totals-row td {
+  background: #111a2b !important;
+  color: #ffffff !important;
+  border-top: 2px solid #334155 !important;
+}
+
+body.dark-mode .rep-total-invoices-val {
+  color: #c084fc !important;
+}
+
+body.dark-mode .voucher-currency-badge {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: #059669 !important;
+  color: #4ade80 !important;
+}
+
+/* Tanker Delivery Modal in Dark Mode (Clean, High Contrast) */
+body.dark-mode .tanker-modal-card {
+  background: #151f32 !important;
+  border: 1px solid #334155 !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6) !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .tanker-modal-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+body.dark-mode .tanker-modal-title {
+  color: #f8fafc !important;
+}
+
+body.dark-mode .tanker-modal-subtitle {
+  color: #94a3b8 !important;
+}
+
+body.dark-mode .tanker-modal-body {
+  background: #151f32 !important;
+}
+
+body.dark-mode .tanker-form-section {
+  background: #101928 !important;
+  border: 1px solid #273549 !important;
+}
+
+body.dark-mode .tanker-section-header {
+  border-bottom-color: #273549 !important;
+}
+
+body.dark-mode .tanker-section-num {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+body.dark-mode .tanker-section-title {
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .tanker-label {
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode .tanker-input {
+  background: #0a101d !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .tanker-input:focus {
+  background: #0d1524 !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25) !important;
+}
+
+body.dark-mode .tanker-unit-tag {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #94a3b8 !important;
+}
+
+body.dark-mode .tanker-total-box {
+  background: linear-gradient(135deg, #0b1c2e 0%, #062b1f 100%) !important;
+  border: 1.5px solid #0284c7 !important;
+}
+
+body.dark-mode .tanker-total-label {
+  color: #38bdf8 !important;
+}
+
+body.dark-mode .tanker-auto-badge {
+  background: rgba(56, 189, 248, 0.18) !important;
+  border-color: #0284c7 !important;
+  color: #7dd3fc !important;
+}
+
+body.dark-mode .tanker-total-num {
+  background: #08111d !important;
+  color: #4ade80 !important;
+  border-color: #059669 !important;
+}
+
+body.dark-mode .tanker-total-curr {
+  background: #13243a !important;
+  color: #7dd3fc !important;
+  border-color: #1e3a8a !important;
+}
+
+body.dark-mode .tanker-actions {
+  border-top-color: #273549 !important;
+}
+
+body.dark-mode .tanker-btn-cancel {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode .tanker-btn-cancel:hover {
+  background: #334155 !important;
+  color: #ffffff !important;
+}
+
+/* Tab 9 Tanker Breakdown Pills & Containers in Dark Mode */
+body.dark-mode .project-breakdown-pill {
+  background: #151f32 !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .project-breakdown-pill strong {
+  color: #f8fafc !important;
+}
+
+body.dark-mode .project-breakdown-pill .pill-val {
+  color: #38bdf8 !important;
+  font-weight: 800;
+}
+
+body.dark-mode .project-breakdown-pill .pill-sub {
+  color: #4ade80 !important;
+  font-weight: 800;
+}
+
 /* Buttons in dark mode */
 body.dark-mode .btn-outline {
   background: #151f32 !important;
@@ -3157,6 +3802,17 @@ body.dark-mode .btn-outline:hover {
   background: #1e293b !important;
   color: #fff !important;
   border-color: #64748b !important;
+}
+
+body.dark-mode .btn-danger-outline {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+body.dark-mode .btn-danger-outline:hover {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: #fca5a5 !important;
 }
 
 body.dark-mode .btn-secondary {
@@ -3197,7 +3853,7 @@ body.dark-mode .settlement-badge.idle {
 body.dark-mode .filter-pills .pill {
   background: #111a2b;
   border-color: #273549;
-  color: #94a3b8;
+  color: #cbd5e1;
 }
 
 body.dark-mode .filter-pills .pill:hover {
@@ -3742,4 +4398,134 @@ body.eye-comfort .project-breakdown-pill {
   .tanker-grid-2 {
     grid-template-columns: 1fr !important;
   }
+}
+
+/* ============================================================================
+   Tanker Delivery Modal & Tab 9 in Dark Mode (High Contrast & Seamless Slate)
+   ============================================================================ */
+
+body.dark-mode .tanker-modal-card {
+  background: #151f32 !important;
+  border: 1.5px solid #3b4e68 !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7) !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .tanker-modal-header {
+  background: linear-gradient(135deg, #070d17 0%, #0d2825 100%) !important;
+  border-bottom: 1px solid #273549 !important;
+}
+
+body.dark-mode .tanker-modal-title {
+  color: #f8fafc !important;
+}
+
+body.dark-mode .tanker-modal-subtitle {
+  color: #94a3b8 !important;
+}
+
+body.dark-mode .tanker-modal-body {
+  background: #151f32 !important;
+}
+
+body.dark-mode .tanker-form-section {
+  background: #0d1522 !important;
+  border: 1px solid #273549 !important;
+}
+
+body.dark-mode .tanker-section-header {
+  border-bottom-color: #273549 !important;
+}
+
+body.dark-mode .tanker-section-num {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+body.dark-mode .tanker-section-title {
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .tanker-label {
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode .tanker-input {
+  background: #08101a !important;
+  color: #f8fafc !important;
+  border-color: #3b4e68 !important;
+}
+
+body.dark-mode .tanker-input:focus {
+  background: #0d1829 !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25) !important;
+}
+
+body.dark-mode .tanker-unit-tag {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #94a3b8 !important;
+}
+
+body.dark-mode .tanker-total-box {
+  background: linear-gradient(135deg, #0b1a2e 0%, #072b22 100%) !important;
+  border: 1.5px solid #0284c7 !important;
+}
+
+body.dark-mode .tanker-total-label {
+  color: #38bdf8 !important;
+}
+
+body.dark-mode .tanker-auto-badge {
+  background: rgba(56, 189, 248, 0.18) !important;
+  border-color: #0284c7 !important;
+  color: #7dd3fc !important;
+}
+
+body.dark-mode .tanker-total-num {
+  background: #060e18 !important;
+  color: #4ade80 !important;
+  border-color: #059669 !important;
+}
+
+body.dark-mode .tanker-total-curr {
+  background: #13243a !important;
+  color: #7dd3fc !important;
+  border-color: #1e3a8a !important;
+}
+
+body.dark-mode .tanker-actions {
+  border-top-color: #273549 !important;
+}
+
+body.dark-mode .tanker-btn-cancel {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode .tanker-btn-cancel:hover {
+  background: #334155 !important;
+  color: #ffffff !important;
+}
+
+body.dark-mode .project-breakdown-pill {
+  background: #151f32 !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .project-breakdown-pill strong {
+  color: #f8fafc !important;
+}
+
+body.dark-mode .project-breakdown-pill .pill-val {
+  color: #38bdf8 !important;
+  font-weight: 800;
+}
+
+body.dark-mode .project-breakdown-pill .pill-sub {
+  color: #4ade80 !important;
+  font-weight: 800;
 }
