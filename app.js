@@ -90,7 +90,7 @@ const state = {
   tankerLang: 'ar',
   tankerSearch: '',
   tankerProjectFilter: 'all',
-  tankerPeriodFilter: 'current',
+  tankerPeriodFilter: 'all',
   editingTankerDeliveryId: null,
   data: createCleanData()
 };
@@ -135,7 +135,11 @@ function loadState() {
           custodyReceipts: Array.isArray(parsed.custodyReceipts) ? parsed.custodyReceipts : [],
           custodySettlements: Array.isArray(parsed.custodySettlements) ? parsed.custodySettlements : [],
           safeInvoices: Array.isArray(parsed.safeInvoices) ? parsed.safeInvoices : [],
-          safeInvoicesAudit: Array.isArray(parsed.safeInvoicesAudit) ? parsed.safeInvoicesAudit : []
+          safeInvoicesAudit: Array.isArray(parsed.safeInvoicesAudit) ? parsed.safeInvoicesAudit : [],
+          tankerDeliveries: Array.isArray(parsed.tankerDeliveries) ? parsed.tankerDeliveries : [],
+          projectsList: Array.isArray(parsed.projectsList) && parsed.projectsList.length > 0
+            ? parsed.projectsList
+            : ['مشروع لوسيل', 'موقع الدوحة الجديدة', 'مشروع الخور', 'مشروع الوكرة', 'مشروع الريان']
         };
       }
     }
@@ -4716,13 +4720,16 @@ function addTankerDelivery(data = {}) {
     throw new Error('يرجى إدخال كمية لترات صحيحة أكبر من الصفر');
   }
 
-  const rawAmount = Number(data.amount);
+  let pricePerLiter = Number(data.pricePerLiter);
+  let rawAmount = (data.amount !== undefined && data.amount !== null && data.amount !== '')
+    ? Number(data.amount)
+    : (Number.isFinite(liters) && liters > 0 ? (Number.isFinite(pricePerLiter) && pricePerLiter > 0 ? liters * pricePerLiter : liters * 2.100) : NaN);
+
   if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
     throw new Error('يرجى إدخال إجمالي مبلغ الفاتورة بشكل صحيح أكبر من الصفر');
   }
   const amount = fromCents(toCents(rawAmount));
 
-  let pricePerLiter = Number(data.pricePerLiter);
   if (!Number.isFinite(pricePerLiter) || pricePerLiter <= 0) {
     pricePerLiter = Number((amount / liters).toFixed(3));
   } else {
@@ -4731,7 +4738,7 @@ function addTankerDelivery(data = {}) {
 
   const date = (typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.date))
     ? data.date
-    : (state.selectedDate || `${state.year}-${String(state.month).padStart(2, '0')}-01`);
+    : new Date().toISOString().split('T')[0];
 
   const delivery = {
     id: 'tank_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
@@ -4789,9 +4796,10 @@ function updateTankerDelivery(id, data = {}) {
   let amountChanged = false;
   if (data.amount !== undefined) {
     const a = Number(data.amount);
-    if (!Number.isFinite(a) || a <= 0) throw new Error('يرجى إدخال إجمالي مبلغ الفاتورة بشكل صحيح أكبر من الصفر');
-    item.amount = fromCents(toCents(a));
-    amountChanged = true;
+    if (Number.isFinite(a) && a > 0) {
+      item.amount = fromCents(toCents(a));
+      amountChanged = true;
+    }
   }
 
   if (data.pricePerLiter !== undefined && Number.isFinite(Number(data.pricePerLiter)) && Number(data.pricePerLiter) > 0) {
@@ -4860,9 +4868,9 @@ function openTankerModal(deliveryId = null) {
   updateTankerDatalists();
 
   if (deliveryId) {
-    const d = state.data.tankerDeliveries.find(item => item.id === deliveryId);
+    const d = (state.data?.tankerDeliveries || []).find(item => item.id === deliveryId);
     if (!d) return;
-    if (title) title.textContent = 'تعديل بون توريد ديزل / سولار';
+    if (title) title.textContent = state.tankerLang === 'en' ? 'Edit Tanker Diesel Voucher' : 'تعديل بون توريد ديزل / سولار';
     if (idInput) idInput.value = d.id;
     if (dateInput) dateInput.value = d.date;
     if (prjInput) prjInput.value = d.project;
@@ -4874,9 +4882,11 @@ function openTankerModal(deliveryId = null) {
     if (supplierInput) supplierInput.value = d.supplier || '';
     if (notesInput) notesInput.value = d.notes || '';
   } else {
-    if (title) title.textContent = 'تسجيل تفريغ تانكر سولار جديد';
+    state.editingTankerDeliveryId = null;
+    if (title) title.textContent = state.tankerLang === 'en' ? 'Log New Tanker Delivery' : 'تسجيل تفريغ تانكر سولار جديد';
     if (idInput) idInput.value = '';
-    if (dateInput) dateInput.value = state.selectedDate || `${state.year}-${String(state.month).padStart(2, '0')}-01`;
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (dateInput) dateInput.value = todayStr;
     if (prjInput) prjInput.value = '';
     if (litersInput) litersInput.value = '';
     if (priceInput) priceInput.value = '2.100';
@@ -4901,6 +4911,8 @@ function closeTankerModal() {
     modal.classList.remove('active');
   }
   state.editingTankerDeliveryId = null;
+  const idInput = document.getElementById('tankerDeliveryId');
+  if (idInput) idInput.value = '';
 }
 
 function handleSaveTankerDelivery() {
@@ -4915,12 +4927,27 @@ function handleSaveTankerDelivery() {
   const supplierInput = document.getElementById('tankerSupplierInput');
   const notesInput = document.getElementById('tankerNotesInput');
 
+  let litersVal = parseFloat(litersInput?.value);
+  let priceVal = parseFloat(priceInput?.value);
+  let amountVal = parseFloat(amountInput?.value);
+
+  // Auto-calculate amount if missing but liters are positive
+  if ((!Number.isFinite(amountVal) || amountVal <= 0) && Number.isFinite(litersVal) && litersVal > 0) {
+    if (Number.isFinite(priceVal) && priceVal > 0) {
+      amountVal = Number((litersVal * priceVal).toFixed(2));
+    } else {
+      priceVal = 2.100;
+      amountVal = Number((litersVal * 2.100).toFixed(2));
+    }
+    if (amountInput) amountInput.value = amountVal.toFixed(2);
+  }
+
   const deliveryData = {
-    date: dateInput?.value || state.selectedDate,
+    date: dateInput?.value || new Date().toISOString().split('T')[0],
     project: prjInput?.value.trim() || '',
-    liters: parseFloat(litersInput?.value),
-    pricePerLiter: parseFloat(priceInput?.value) || 0,
-    amount: parseFloat(amountInput?.value),
+    liters: litersVal,
+    pricePerLiter: priceVal || 0,
+    amount: amountVal,
     invoiceNo: invoiceInput?.value.trim() || '',
     receiver: receiverInput?.value.trim() || '',
     supplier: supplierInput?.value.trim() || '',
@@ -4928,13 +4955,27 @@ function handleSaveTankerDelivery() {
   };
 
   try {
-    if (state.editingTankerDeliveryId) {
-      updateTankerDelivery(state.editingTankerDeliveryId, deliveryData);
-      showToast('تم تحديث بيانات بون الديزل بنجاح ⛽');
+    const editId = state.editingTankerDeliveryId || (idInput?.value ? idInput.value : null);
+    if (editId) {
+      updateTankerDelivery(editId, deliveryData);
+      showToast(state.tankerLang === 'en' ? 'Diesel voucher updated successfully ⛽' : 'تم تحديث بيانات بون الديزل بنجاح ⛽');
     } else {
       addTankerDelivery(deliveryData);
-      showToast('تم تسجيل تفريغ الديزل بنجاح ⛽');
+      showToast(state.tankerLang === 'en' ? 'Diesel delivery logged successfully ⛽' : 'تم تسجيل تفريغ الديزل بنجاح ⛽');
     }
+
+    // Crucial: Reset filters so the user 100% sees their newly added voucher in the table!
+    state.tankerProjectFilter = 'all';
+    state.tankerPeriodFilter = 'all';
+    state.tankerSearch = '';
+
+    const prjFilterSelect = document.getElementById('tankerProjectFilter');
+    if (prjFilterSelect) prjFilterSelect.value = 'all';
+    const perFilterSelect = document.getElementById('tankerPeriodFilter');
+    if (perFilterSelect) perFilterSelect.value = 'all';
+    const searchInput = document.getElementById('tankerSearchInput');
+    if (searchInput) searchInput.value = '';
+
     closeTankerModal();
     renderTankerTab();
   } catch (err) {
@@ -4976,11 +5017,34 @@ function renderTankerTab() {
   if (lblPrint) lblPrint.textContent = isEn ? 'Print Diesel Statement' : 'طباعة كشف السولار';
   if (lblExport) lblExport.textContent = isEn ? 'Export Excel (CSV)' : 'تصدير إكسيل';
 
+  const allDeliveries = (state.data && Array.isArray(state.data.tankerDeliveries)) ? state.data.tankerDeliveries : [];
   const deliveries = getTankerDeliveries({
     periodFilter: state.tankerPeriodFilter,
     projectFilter: state.tankerProjectFilter,
     search: state.tankerSearch
   });
+
+  // Filter notice banner handling
+  const noticeBanner = document.getElementById('tankerActiveFilterNotice');
+  const noticeText = document.getElementById('tankerActiveFilterNoticeText');
+  const noticeBtn = document.getElementById('btnResetTankerFilters');
+  const isFiltered = (state.tankerPeriodFilter !== 'all' || state.tankerProjectFilter !== 'all' || (state.tankerSearch && state.tankerSearch.trim() !== ''));
+
+  if (noticeBanner) {
+    if (isFiltered && deliveries.length < allDeliveries.length) {
+      noticeBanner.classList.remove('hidden');
+      if (noticeText) {
+        noticeText.textContent = isEn
+          ? `🔍 Filter active: Showing ${deliveries.length} of ${allDeliveries.length} vouchers.`
+          : `🔍 يتم عرض بونات مفلترة حالياً: ${deliveries.length} من أصل ${allDeliveries.length} بون مسجل.`;
+      }
+      if (noticeBtn) {
+        noticeBtn.textContent = isEn ? 'Show All Vouchers (Reset Filter)' : 'إظهار كافة البونات (عرض الكل)';
+      }
+    } else {
+      noticeBanner.classList.add('hidden');
+    }
+  }
 
   const kpis = calculateTankerKpis(deliveries);
 
@@ -6755,6 +6819,18 @@ function bindEvents() {
   });
   document.getElementById('btnClearTankerSearch')?.addEventListener('click', () => {
     state.tankerSearch = '';
+    const inp = document.getElementById('tankerSearchInput');
+    if (inp) inp.value = '';
+    renderTankerTab();
+  });
+  document.getElementById('btnResetTankerFilters')?.addEventListener('click', () => {
+    state.tankerProjectFilter = 'all';
+    state.tankerPeriodFilter = 'all';
+    state.tankerSearch = '';
+    const prj = document.getElementById('tankerProjectFilter');
+    if (prj) prj.value = 'all';
+    const per = document.getElementById('tankerPeriodFilter');
+    if (per) per.value = 'all';
     const inp = document.getElementById('tankerSearchInput');
     if (inp) inp.value = '';
     renderTankerTab();

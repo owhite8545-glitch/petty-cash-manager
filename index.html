@@ -1511,9 +1511,9 @@
 
             <label for="tankerPeriodFilter" id="lblTankerFilterPeriod" style="font-weight: 700; color: var(--text-color); margin-inline-start: 8px;">الفترة:</label>
             <select id="tankerPeriodFilter" class="select-control" style="font-size: 0.95rem; padding: 6px 12px;">
+              <option value="all" id="optPeriodAll" selected>كل الأوقات (سجل شامل)</option>
               <option value="current" id="optPeriodCurrent">الشهر الحالي المحدد</option>
               <option value="year" id="optPeriodYear">كامل السنة الحالية</option>
-              <option value="all" id="optPeriodAll">كل الأوقات (سجل شامل)</option>
             </select>
           </div>
 
@@ -1521,6 +1521,12 @@
             <input type="text" id="tankerSearchInput" class="input-control" placeholder="ابحث بالمشروع، رقم الفاتورة، المستلم..." style="font-size: 0.95rem; padding: 6px 14px; width: 260px;" />
             <button type="button" id="btnClearTankerSearch" class="btn btn-outline btn-sm" title="مسح البحث">✕</button>
           </div>
+        </div>
+
+        <!-- Filter Warning / Reset Banner when records are filtered out -->
+        <div id="tankerActiveFilterNotice" class="hidden no-print" style="margin-top: 10px; padding: 8px 14px; border-radius: 8px; background: rgba(59, 130, 246, 0.12); border: 1px solid #3b82f6; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+          <span id="tankerActiveFilterNoticeText" style="font-size: 0.88rem; font-weight: 600; color: var(--text-color);">🔍 يتم عرض بونات مفلترة حالياً.</span>
+          <button type="button" id="btnResetTankerFilters" class="btn btn-sm btn-primary" style="padding: 3px 10px; font-size: 0.8rem;">إظهار كافة البونات (عرض الكل)</button>
         </div>
       </div>
 
@@ -2027,9 +2033,9 @@
 
               <div class="tanker-field-group">
                 <label for="tankerReceiverInput" class="tanker-label">
-                  المستلم بالموقع <span class="text-danger">*</span>
+                  المستلم بالموقع
                 </label>
-                <input type="text" id="tankerReceiverInput" class="input-control tanker-input" list="tankerReceiversDatalist" placeholder="اسم المهندس أو المشرف المستلم" required />
+                <input type="text" id="tankerReceiverInput" class="input-control tanker-input" list="tankerReceiversDatalist" placeholder="اسم المهندس أو المشرف المستلم (اختياري)" />
                 <datalist id="tankerReceiversDatalist"></datalist>
               </div>
             </div>

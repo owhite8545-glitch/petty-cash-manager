@@ -7,6 +7,16 @@
 const assert = require('assert');
 const app = require('../app.js');
 
+const storage = {};
+if (typeof global.localStorage === 'undefined') {
+  global.localStorage = {
+    getItem: (k) => storage[k] || null,
+    setItem: (k, v) => { storage[k] = String(v); },
+    removeItem: (k) => { delete storage[k]; },
+    clear: () => { Object.keys(storage).forEach(k => delete storage[k]); }
+  };
+}
+
 const {
   state,
   toCents,
@@ -18,7 +28,9 @@ const {
   calculateTankerKpis,
   addTankerDelivery,
   updateTankerDelivery,
-  deleteTankerDelivery
+  deleteTankerDelivery,
+  saveState,
+  loadState
 } = app;
 
 console.log('================================================================');
@@ -318,6 +330,84 @@ test('Duplicate tanker delivery IDs in backup are deduplicated automatically', (
   const validated = validateBackupPayload(payloadWithDuplicates);
   assert.strictEqual(validated.tankerDeliveries.length, 1, 'Duplicate ID must be skipped');
   assert.strictEqual(validated.tankerDeliveries[0].project, 'مشروع 1');
+});
+
+console.log('\n📌 CATEGORY 7: Real-World Resilience & 3rd Voucher Visibility (Father Scenario)');
+
+test('Entering 3 vouchers across different months all appear when periodFilter is "all"', () => {
+  state.data = createCleanData();
+  state.tankerPeriodFilter = 'all';
+  state.tankerProjectFilter = 'all';
+  state.tankerSearch = '';
+
+  // Voucher 1: November
+  addTankerDelivery({
+    date: '2026-11-01',
+    project: 'مشروع لوسيل',
+    liters: 500,
+    pricePerLiter: 2.10,
+    amount: 1050,
+    invoiceNo: 'INV-101'
+  });
+
+  // Voucher 2: November
+  addTankerDelivery({
+    date: '2026-11-05',
+    project: 'موقع الدوحة الجديدة',
+    liters: 300,
+    pricePerLiter: 2.10,
+    amount: 630,
+    invoiceNo: 'INV-102'
+  });
+
+  // Voucher 3: October (Different month or late voucher)
+  addTankerDelivery({
+    date: '2026-10-28',
+    project: 'مشروع الخور',
+    liters: 400,
+    pricePerLiter: 2.10,
+    amount: 840,
+    invoiceNo: 'INV-103'
+  });
+
+  const allVouchers = getTankerDeliveries({ periodFilter: 'all' });
+  assert.strictEqual(allVouchers.length, 3, 'All 3 vouchers must be returned under "all" filter');
+
+  const kpis = calculateTankerKpis(allVouchers);
+  assert.strictEqual(kpis.count, 3, 'KPI count must be 3 vouchers');
+  assert.strictEqual(kpis.totalLiters, 1200);
+  assert.strictEqual(kpis.totalAmount, 2520.00);
+});
+
+test('Tanker deliveries persist 100% across saveState and loadState (browser reload)', () => {
+  saveState();
+
+  // Simulate complete page reload: clear in-memory state
+  state.data = createCleanData();
+  assert.strictEqual(state.data.tankerDeliveries.length, 0);
+
+  // Reload state from storage
+  loadState();
+
+  assert.ok(Array.isArray(state.data.tankerDeliveries), 'tankerDeliveries must be an array');
+  assert.strictEqual(state.data.tankerDeliveries.length, 3, 'All 3 vouchers must survive browser reload');
+  assert.strictEqual(state.data.tankerDeliveries[0].invoiceNo, 'INV-101');
+  assert.strictEqual(state.data.tankerDeliveries[1].invoiceNo, 'INV-102');
+  assert.strictEqual(state.data.tankerDeliveries[2].invoiceNo, 'INV-103');
+  assert.ok(state.data.projectsList.includes('مشروع الخور'), 'Projects list must be preserved');
+});
+
+test('addTankerDelivery auto-calculates amount when amount is omitted but liters is provided', () => {
+  const delivery = addTankerDelivery({
+    date: '2026-11-09',
+    project: 'مشروع الريان',
+    liters: 250,
+    pricePerLiter: 2.100
+  });
+
+  assert.ok(delivery.id, 'Delivery should be created');
+  assert.strictEqual(delivery.amount, 525.00, 'Amount must be auto-calculated (250 * 2.100)');
+  assert.strictEqual(delivery.pricePerLiter, 2.100);
 });
 
 console.log('\n================================================================');
