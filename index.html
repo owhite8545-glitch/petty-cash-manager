@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#1e3a8a" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=20261101a" />
+  <link rel="stylesheet" href="styles.css?v=20261109_v3" />
 </head>
 <body class="senior-friendly">
   <!-- Official Print-Only Header (Appears on Paper/PDF when printing any report) -->
@@ -1459,6 +1459,9 @@
             <button type="button" id="btnOpenTankerModal" class="btn btn-primary" title="تسجيل تفريغ ديزل جديد">
               ➕ <span id="lblOpenTankerModal">تسجيل تفريغ تانكر جديد</span>
             </button>
+            <button type="button" id="btnManageTankerProjects" class="btn btn-outline" title="إدارة دليل ومواقع المشاريع">
+              🏗️ <span id="lblManageTankerProjects">دليل المشاريع</span>
+            </button>
             <button type="button" id="btnPrintTankerStatement" class="btn-corporate-print" title="طباعة كشف تفريغ وتوزيع السولار">
               🖨️ <span id="lblPrintTankerStatement">طباعة كشف السولار</span>
             </button>
@@ -2068,9 +2071,44 @@
     </div>
   </div>
 
+  <!-- Tanker Projects Directory Modal -->
+  <div id="tankerProjectsModal" class="modal-overlay hidden" role="dialog" aria-labelledby="tankerProjectsModalTitle" aria-modal="true">
+    <div class="modal-box" style="max-width: 600px; width: 95%;">
+      <div class="modal-header">
+        <h3 id="tankerProjectsModalTitle">🏗️ دليل المشاريع ومواقع العمل</h3>
+        <button type="button" id="btnCloseTankerProjectsModal" class="modal-close-btn" aria-label="إغلاق">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px;">
+        <p class="text-muted" style="margin-bottom: 14px; font-size: 0.9rem;">
+          إدارة قائمة المشاريع والمواقع المعتمدة في النظام. المشاريع المسجلة هنا تظهر فوراً في قائمة الاختيار السريع عند تسجيل بونات السولار.
+        </p>
+
+        <!-- Form to Add New Project -->
+        <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+          <input type="text" id="newTankerProjectInput" class="input-control" placeholder="اكتب اسم المشروع الجديد (مثال: مشروع اللؤلؤة)..." style="flex: 1; min-width: 220px;" />
+          <button type="button" id="btnAddTankerProjectSubmit" class="btn btn-primary" style="white-space: nowrap;">➕ إضافة المشروع</button>
+        </div>
+
+        <!-- Registered Projects List -->
+        <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <strong style="color: var(--text-color); font-size: 0.95rem;">المشاريع المسجلة في النظام:</strong>
+            <span id="tankerProjectsTotalBadge" class="badge" style="background: var(--bg-hover); color: var(--text-color); font-size: 0.82rem; border: 1px solid var(--border-color);">5 مشاريع</span>
+          </div>
+          <div id="tankerProjectsListContainer" style="max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-btn-row" style="margin-top: 12px;">
+        <button type="button" id="btnDoneTankerProjectsModal" class="btn btn-primary">تم وحفظ</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div id="toastContainer" class="toast-container no-print"></div>
 
-  <script src="app.js?v=20261101a"></script>
+  <script src="app.js?v=20261109_v3"></script>
 </body>
 </html>

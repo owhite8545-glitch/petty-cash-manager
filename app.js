@@ -118,6 +118,44 @@ function loadState() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.people)) {
+        const defaultProjects = ['مشروع لوسيل', 'موقع الدوحة الجديدة', 'مشروع الخور', 'مشروع الوكرة', 'مشروع الريان'];
+        const loadedProjects = Array.isArray(parsed.projectsList) && parsed.projectsList.length > 0
+          ? parsed.projectsList
+          : defaultProjects;
+        const projectSet = new Set([...defaultProjects, ...loadedProjects]);
+        const loadedDeliveries = Array.isArray(parsed.tankerDeliveries) ? parsed.tankerDeliveries : [];
+        loadedDeliveries.forEach(d => {
+          if (d && d.project && typeof d.project === 'string' && d.project.trim()) {
+            projectSet.add(d.project.trim());
+          }
+        });
+
+        let finalDeliveries = loadedDeliveries;
+        let finalProjects = Array.from(projectSet);
+
+        // Emergency backup recovery if empty
+        if (typeof localStorage !== 'undefined') {
+          if (finalDeliveries.length === 0) {
+            try {
+              const bk = localStorage.getItem('petty_cash_tanker_deliveries_backup');
+              if (bk) {
+                const pbk = JSON.parse(bk);
+                if (Array.isArray(pbk) && pbk.length > 0) finalDeliveries = pbk;
+              }
+            } catch (e) {}
+          }
+          try {
+            const pbkProjects = localStorage.getItem('petty_cash_projects_backup');
+            if (pbkProjects) {
+              const prjListBk = JSON.parse(pbkProjects);
+              if (Array.isArray(prjListBk) && prjListBk.length > 0) {
+                prjListBk.forEach(p => projectSet.add(p));
+                finalProjects = Array.from(projectSet);
+              }
+            }
+          } catch (e) {}
+        }
+
         state.data = {
           people: parsed.people.map((p, idx) => ({
             id: String(p.id || ('p_' + idx)),
@@ -136,10 +174,8 @@ function loadState() {
           custodySettlements: Array.isArray(parsed.custodySettlements) ? parsed.custodySettlements : [],
           safeInvoices: Array.isArray(parsed.safeInvoices) ? parsed.safeInvoices : [],
           safeInvoicesAudit: Array.isArray(parsed.safeInvoicesAudit) ? parsed.safeInvoicesAudit : [],
-          tankerDeliveries: Array.isArray(parsed.tankerDeliveries) ? parsed.tankerDeliveries : [],
-          projectsList: Array.isArray(parsed.projectsList) && parsed.projectsList.length > 0
-            ? parsed.projectsList
-            : ['مشروع لوسيل', 'موقع الدوحة الجديدة', 'مشروع الخور', 'مشروع الوكرة', 'مشروع الريان']
+          tankerDeliveries: finalDeliveries,
+          projectsList: finalProjects
         };
       }
     }
@@ -185,6 +221,14 @@ function saveState(skipUndo = false) {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(STORAGE_KEY, currentJson);
       localStorage.setItem('petty_cash_last_modified', Date.now().toString());
+
+      // Dual-layer emergency backup for Tanker & Projects
+      if (state.data && Array.isArray(state.data.tankerDeliveries)) {
+        localStorage.setItem('petty_cash_tanker_deliveries_backup', JSON.stringify(state.data.tankerDeliveries));
+      }
+      if (state.data && Array.isArray(state.data.projectsList)) {
+        localStorage.setItem('petty_cash_projects_backup', JSON.stringify(state.data.projectsList));
+      }
     }
     checkBackupReminder();
   } catch (err) {
@@ -4832,6 +4876,7 @@ function deleteTankerDelivery(id) {
 }
 
 function updateTankerDatalists() {
+  if (typeof document === 'undefined') return;
   const prjDatalist = document.getElementById('tankerProjectsDatalist');
   const recDatalist = document.getElementById('tankerReceiversDatalist');
   const supDatalist = document.getElementById('tankerSuppliersDatalist');
@@ -4848,6 +4893,118 @@ function updateTankerDatalists() {
   if (prjDatalist) prjDatalist.innerHTML = projects.map(p => `<option value="${escapeHtml(p)}"></option>`).join('');
   if (recDatalist) recDatalist.innerHTML = receivers.map(r => `<option value="${escapeHtml(r)}"></option>`).join('');
   if (supDatalist) supDatalist.innerHTML = suppliers.map(s => `<option value="${escapeHtml(s)}"></option>`).join('');
+}
+
+function addProjectToMasterList(projectName) {
+  if (!projectName || typeof projectName !== 'string') throw new Error('يرجى إدخال اسم المشروع أو الموقع أولاً');
+  const clean = projectName.trim();
+  if (!clean) throw new Error('يرجى إدخال اسم المشروع أو الموقع أولاً');
+  if (!state.data) state.data = createCleanData();
+  if (!Array.isArray(state.data.projectsList)) {
+    state.data.projectsList = ['مشروع لوسيل', 'موقع الدوحة الجديدة', 'مشروع الخور', 'مشروع الوكرة', 'مشروع الريان'];
+  }
+  if (state.data.projectsList.some(p => p.toLowerCase() === clean.toLowerCase())) {
+    throw new Error('هذا المشروع مسجل بالفعل في الدليل');
+  }
+  state.data.projectsList.push(clean);
+  if (typeof saveState === 'function') {
+    saveState();
+  }
+  updateTankerDatalists();
+  renderTankerTab();
+  renderProjectsDirectoryList();
+  return clean;
+}
+
+function removeProjectFromMasterList(projectName) {
+  if (!state.data || !Array.isArray(state.data.projectsList)) return false;
+  const deliveries = state.data.tankerDeliveries || [];
+  const hasDeliveries = deliveries.some(d => d.project === projectName);
+  if (hasDeliveries) {
+    throw new Error('لا يمكن حذف هذا المشروع لوجود بونات تفريغ ديزل مسجلة عليه');
+  }
+  state.data.projectsList = state.data.projectsList.filter(p => p !== projectName);
+  if (typeof saveState === 'function') {
+    saveState();
+  }
+  updateTankerDatalists();
+  renderTankerTab();
+  renderProjectsDirectoryList();
+  return true;
+}
+
+function openTankerProjectsModal() {
+  if (typeof document === 'undefined') return;
+  const modal = document.getElementById('tankerProjectsModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    renderProjectsDirectoryList();
+    const inp = document.getElementById('newTankerProjectInput');
+    if (inp) {
+      inp.value = '';
+      inp.focus();
+    }
+  }
+}
+
+function closeTankerProjectsModal() {
+  if (typeof document === 'undefined') return;
+  const modal = document.getElementById('tankerProjectsModal');
+  if (modal) modal.classList.add('hidden');
+  updateTankerDatalists();
+  renderTankerTab();
+}
+
+function renderProjectsDirectoryList() {
+  if (typeof document === 'undefined') return;
+  const container = document.getElementById('tankerProjectsListContainer');
+  const badge = document.getElementById('tankerProjectsTotalBadge');
+  if (!container) return;
+
+  const isEn = state.tankerLang === 'en';
+  const deliveries = state.data?.tankerDeliveries || [];
+  const projects = Array.from(new Set([
+    ...(state.data?.projectsList || [])
+  ])).filter(Boolean).sort();
+
+  if (badge) {
+    badge.textContent = isEn ? `${projects.length} Sites` : `${projects.length} مشاريع`;
+  }
+
+  if (projects.length === 0) {
+    container.innerHTML = `<div class="text-muted" style="text-align: center; padding: 18px;">${isEn ? 'No projects registered in directory.' : 'لا توجد مشاريع مسجلة في الدليل حالياً.'}</div>`;
+    return;
+  }
+
+  container.innerHTML = projects.map(p => {
+    const projectDeliveries = deliveries.filter(d => d.project === p);
+    const count = projectDeliveries.length;
+    const totalLiters = projectDeliveries.reduce((acc, d) => acc + (Number(d.liters) || 0), 0);
+    const totalAmount = fromCents(projectDeliveries.reduce((acc, d) => acc + toCents(d.amount || 0), 0));
+    const canDelete = count === 0;
+
+    return `
+      <div class="card" style="margin: 0; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: 8px;">
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-weight: 700; color: var(--text-color); font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
+            <span>🏗️</span>
+            <span>${escapeHtml(p)}</span>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 3px;">
+            ${count > 0
+              ? `<span>⛽ <strong>${count}</strong> ${isEn ? 'Vouchers' : 'بون تفريغ'}</span> • <span>${formatNumber(totalLiters)} ${isEn ? 'L' : 'لتر'}</span> • <span>${formatNumber(totalAmount, true)} ${isEn ? 'QAR' : 'ر.ق'}</span>`
+              : `<span class="text-muted">${isEn ? 'Available site (No deliveries logged yet)' : 'مشروع متاح بالدليل (لم يُسجل عليه تفريغ بعد)'}</span>`}
+          </div>
+        </div>
+        <div>
+          ${canDelete
+            ? `<button type="button" class="btn btn-sm btn-outline btn-delete-project" data-project="${escapeHtml(p)}" style="color: var(--danger-color); padding: 4px 10px; font-size: 0.8rem;" title="${isEn ? 'Delete Project' : 'حذف المشروع'}">🗑️ ${isEn ? 'Delete' : 'حذف'}</button>`
+            : `<span class="badge" style="background: rgba(34, 197, 94, 0.15); color: var(--success-color); font-size: 0.78rem;">${isEn ? 'Active & Supplied' : 'نشط ومستفيد'}</span>`
+          }
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function openTankerModal(deliveryId = null) {
@@ -5011,9 +5168,11 @@ function renderTankerTab() {
 
   // Update Action Button Labels
   const lblAdd = document.getElementById('lblOpenTankerModal');
+  const lblManagePrj = document.getElementById('lblManageTankerProjects');
   const lblPrint = document.getElementById('lblPrintTankerStatement');
   const lblExport = document.getElementById('lblExportTankerExcel');
   if (lblAdd) lblAdd.textContent = isEn ? 'Log Diesel Delivery' : 'تسجيل تفريغ تانكر جديد';
+  if (lblManagePrj) lblManagePrj.textContent = isEn ? 'Projects Directory' : 'دليل المشاريع';
   if (lblPrint) lblPrint.textContent = isEn ? 'Print Diesel Statement' : 'طباعة كشف السولار';
   if (lblExport) lblExport.textContent = isEn ? 'Export Excel (CSV)' : 'تصدير إكسيل';
 
@@ -5073,9 +5232,22 @@ function renderTankerTab() {
   const lblProjects = document.getElementById('lblKpiTankerProjects');
   const subProjects = document.getElementById('subKpiTankerProjects');
   const elProjectsCount = document.getElementById('kpiTankerProjectsCount');
+  const totalMasterProjects = Array.from(new Set([
+    ...(state.data?.projectsList || []),
+    ...(state.data?.tankerDeliveries || []).map(d => d.project)
+  ])).filter(Boolean).length;
+
   if (lblProjects) lblProjects.textContent = isEn ? '🏗️ Allocated Projects' : '🏗️ المشاريع المستفيدة';
-  if (subProjects) subProjects.textContent = isEn ? 'Active project sites supplied' : 'مواقع العمل المفرغ بها';
-  if (elProjectsCount) elProjectsCount.textContent = isEn ? `${kpis.projectsCount} Sites` : `${kpis.projectsCount}`;
+  if (subProjects) {
+    subProjects.textContent = isEn
+      ? `Supplied sites (${totalMasterProjects} in directory)`
+      : `مواقع مفرغ بها (${totalMasterProjects} مسجلة بالدليل)`;
+  }
+  if (elProjectsCount) {
+    elProjectsCount.textContent = kpis.projectsCount > 0
+      ? (isEn ? `${kpis.projectsCount} Sites` : `${kpis.projectsCount} موقع`)
+      : (isEn ? `0 Active (${totalMasterProjects} Registered)` : `0 مستفيدة (${totalMasterProjects} بالدليل)`);
+  }
 
   // 2. Update Project Filter & Period Filter Labels
   const lblFilterPrj = document.getElementById('lblTankerFilterProject');
@@ -6793,6 +6965,55 @@ function bindEvents() {
   document.getElementById('tankerDeliveryModal')?.addEventListener('click', (e) => {
     if (e.target.id === 'tankerDeliveryModal') closeTankerModal();
   });
+
+  // Tanker Projects Directory Listeners
+  document.getElementById('btnManageTankerProjects')?.addEventListener('click', openTankerProjectsModal);
+  document.getElementById('btnCloseTankerProjectsModal')?.addEventListener('click', closeTankerProjectsModal);
+  document.getElementById('btnDoneTankerProjectsModal')?.addEventListener('click', closeTankerProjectsModal);
+  document.getElementById('tankerProjectsModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'tankerProjectsModal') closeTankerProjectsModal();
+  });
+
+  const handleAddProjectFromDirectory = () => {
+    const inp = document.getElementById('newTankerProjectInput');
+    const val = inp?.value?.trim();
+    if (!val) {
+      alert('يرجى كتابة اسم المشروع أو الموقع أولاً');
+      return;
+    }
+    try {
+      addProjectToMasterList(val);
+      showToast(state.tankerLang === 'en' ? `Project "${val}" added to directory 🏗️` : `تمت إضافة مشروع "${val}" إلى الدليل بنجاح 🏗️`);
+      if (inp) {
+        inp.value = '';
+        inp.focus();
+      }
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+  document.getElementById('btnAddTankerProjectSubmit')?.addEventListener('click', handleAddProjectFromDirectory);
+  document.getElementById('newTankerProjectInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddProjectFromDirectory();
+    }
+  });
+
+  document.getElementById('tankerProjectsListContainer')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-delete-project');
+    if (!btn) return;
+    const prj = btn.getAttribute('data-project');
+    if (!prj) return;
+    if (confirm(state.tankerLang === 'en' ? `Are you sure you want to delete project "${prj}"?` : `هل أنت متأكد من حذف مشروع "${prj}" من الدليل؟`)) {
+      try {
+        removeProjectFromMasterList(prj);
+        showToast(state.tankerLang === 'en' ? `Project "${prj}" removed from directory` : `تم حذف مشروع "${prj}" من الدليل`);
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+  });
   document.getElementById('btnSaveTankerDelivery')?.addEventListener('click', handleSaveTankerDelivery);
   document.getElementById('btnPrintTankerStatement')?.addEventListener('click', printTankerReport);
   document.getElementById('btnExportTankerExcel')?.addEventListener('click', exportTankerCsv);
@@ -7203,7 +7424,9 @@ function bindEvents() {
 
   if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
+      navigator.serviceWorker.register('./sw.js').then((reg) => {
+        reg.update().catch(() => {});
+      }).catch(() => {});
     });
   }
 }
@@ -7275,6 +7498,8 @@ if (typeof module !== 'undefined' && module.exports) {
     calculateTankerKpis,
     addTankerDelivery,
     updateTankerDelivery,
-    deleteTankerDelivery
+    deleteTankerDelivery,
+    addProjectToMasterList,
+    removeProjectFromMasterList
   };
 }

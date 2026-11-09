@@ -30,7 +30,9 @@ const {
   updateTankerDelivery,
   deleteTankerDelivery,
   saveState,
-  loadState
+  loadState,
+  addProjectToMasterList,
+  removeProjectFromMasterList
 } = app;
 
 console.log('================================================================');
@@ -408,6 +410,50 @@ test('addTankerDelivery auto-calculates amount when amount is omitted but liters
   assert.ok(delivery.id, 'Delivery should be created');
   assert.strictEqual(delivery.amount, 525.00, 'Amount must be auto-calculated (250 * 2.100)');
   assert.strictEqual(delivery.pricePerLiter, 2.100);
+});
+
+console.log('\n📌 CATEGORY 8: Projects Directory Management & Dual-Layer Emergency Persistence');
+
+test('addProjectToMasterList successfully registers new project site and persists across reload', () => {
+  const prj = addProjectToMasterList('مشروع جزيرة اللؤلؤة الجديد');
+  assert.strictEqual(prj, 'مشروع جزيرة اللؤلؤة الجديد');
+  assert.ok(state.data.projectsList.includes('مشروع جزيرة اللؤلؤة الجديد'));
+
+  // Test reload
+  state.data.projectsList = [];
+  loadState();
+  assert.ok(state.data.projectsList.includes('مشروع جزيرة اللؤلؤة الجديد'), 'Project must be restored on reload');
+});
+
+test('removeProjectFromMasterList safely removes unused project from directory', () => {
+  const success = removeProjectFromMasterList('مشروع جزيرة اللؤلؤة الجديد');
+  assert.strictEqual(success, true);
+  assert.ok(!state.data.projectsList.includes('مشروع جزيرة اللؤلؤة الجديد'));
+});
+
+test('removeProjectFromMasterList blocks deleting project that has recorded deliveries', () => {
+  assert.throws(() => {
+    removeProjectFromMasterList('مشروع لوسيل'); // Has active delivery
+  }, /لا يمكن حذف هذا المشروع لوجود بونات/);
+  assert.ok(state.data.projectsList.includes('مشروع لوسيل'), 'Project must not be deleted');
+});
+
+test('Emergency fallback backup restores deliveries even if primary localStorage key is cleared', () => {
+  // Ensure emergency key has data
+  saveState();
+  const emergencyKey = global.localStorage.getItem('petty_cash_tanker_deliveries_backup');
+  assert.ok(emergencyKey && JSON.parse(emergencyKey).length > 0, 'Emergency backup key must be populated');
+
+  // Corrupt / clear primary key to test recovery
+  const primaryRaw = JSON.parse(global.localStorage.getItem('petty_cash_clean_v2'));
+  primaryRaw.tankerDeliveries = []; // wiped out
+  global.localStorage.setItem('petty_cash_clean_v2', JSON.stringify(primaryRaw));
+
+  // Load state - should recover from emergency backup
+  state.data.tankerDeliveries = [];
+  loadState();
+
+  assert.ok(state.data.tankerDeliveries.length > 0, 'Must recover tanker deliveries from emergency backup');
 });
 
 console.log('\n================================================================');
