@@ -907,23 +907,37 @@ async function runBrowserE2E() {
     const breakdownPillsCount = await client.eval('document.querySelectorAll("#tankerProjectsBreakdownList .project-breakdown-pill").length');
     testAssert('Project breakdown shows visual distribution pill for Lusail project', breakdownPillsCount === 1);
 
-    // Test print statement trigger
+    // Test print customization modal opening
     await client.eval(`{
       window._tankerPrintCalled = false;
       window.print = () => { window._tankerPrintCalled = true; };
       document.getElementById('btnPrintTankerStatement').click();
     }`);
     await sleep(300);
+    const modalIsOpen = await client.eval('document.getElementById("tankerPrintCustomModal")?.classList.contains("active")');
+    testAssert('Clicking print tanker button opens Print Customization Modal', modalIsOpen === true);
+
+    // Execute custom print (defaults to landscape orientation)
+    await client.eval('document.getElementById("btnExecuteCustomPrint").click();');
+    await sleep(200);
     const tankerPrintCalled = await client.eval('window._tankerPrintCalled');
-    testAssert('Clicking print tanker sheet triggers corporate window.print()', tankerPrintCalled === true);
+    const isLandscape = await client.eval('document.body.classList.contains("printing-landscape")');
+    testAssert('Executing custom print triggers window.print() in landscape orientation', tankerPrintCalled === true && isLandscape === true);
 
     // Capture Tab 9 Corporate Print Preview while in printing-tanker state
     await client.send('Emulation.setEmulatedMedia', { media: 'print' });
+    await client.send('Emulation.setDeviceMetricsOverride', {
+      width: 1122,
+      height: 793,
+      deviceScaleFactor: 1,
+      mobile: false
+    });
     await sleep(400);
     const tankerPrintScreenshotData = await client.send('Page.captureScreenshot', { format: 'png' });
     const tankerPrintScreenshotPath = path.join(__dirname, '..', 'browser_e2e_verified_tab9_print.png');
     fs.writeFileSync(tankerPrintScreenshotPath, Buffer.from(tankerPrintScreenshotData.data, 'base64'));
     console.log(`   📸 Live browser Tab 9 Print Sheet screenshot captured: ${tankerPrintScreenshotPath}`);
+    await client.send('Emulation.clearDeviceMetricsOverride');
     await client.send('Emulation.setEmulatedMedia', { media: '' });
     await client.eval('window.dispatchEvent(new Event("afterprint"));');
     await sleep(200);
@@ -934,11 +948,17 @@ async function runBrowserE2E() {
     const tankerEngTitle = await client.eval('document.getElementById("tankerMainTitle").textContent');
     testAssert('Switching Tab 9 to English updates title to English', tankerEngTitle.includes('Tanker Diesel'));
 
-    // Test Tab 9 English Print mode
+    // Test Tab 9 English Print mode via Customization Modal
     await client.eval(`{
       window._tankerEnPrintCalled = false;
       window.print = () => { window._tankerEnPrintCalled = true; };
       document.getElementById('btnPrintTankerStatement').click();
+      const radioEn = document.querySelector('input[name="tankerPrintLang"][value="en"]');
+      if (radioEn) {
+        radioEn.checked = true;
+        radioEn.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      document.getElementById('btnExecuteCustomPrint').click();
     }`);
     await sleep(200);
     const tankerEnPrintCalled = await client.eval('window._tankerEnPrintCalled');

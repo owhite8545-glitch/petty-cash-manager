@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#1e3a8a" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=20261109_v3" />
+  <link rel="stylesheet" href="styles.css?v=20261109_v4" />
 </head>
 <body class="senior-friendly">
   <!-- Official Print-Only Header (Appears on Paper/PDF when printing any report) -->
@@ -1543,7 +1543,7 @@
                 <img src="assets/heliopolis-logo-transparent.png" alt="HELIOPOLIS ELECTRIC COMPANY" class="dispatch-corp-logo-img" />
                 <div>
                   <h2 id="printTankerCompanyName" class="dispatch-corp-legal-name">
-                    شركة هليوبوليس للكهرباء (HELIOPOLIS ELECTRIC COMPANY)
+                    شركة هليوبوليس للكهرباء
                   </h2>
                   <div id="printTankerDeptName" class="dispatch-corp-division">
                     إدارة المشاريع والخدمات اللوجستية — قسم المحروقات والديزل
@@ -1556,7 +1556,7 @@
 
               <div class="dispatch-voucher-badge">
                 <h3 id="printTankerDocTitle" class="dispatch-voucher-title">
-                  كشف تفريغ وتوزيع السولار على المشاريع (DIESEL DISBURSEMENT SHEET)
+                  كشف تفريغ وتوزيع السولار على المشاريع
                 </h3>
               </div>
             </div>
@@ -1607,18 +1607,6 @@
 
         <div class="table-responsive dispatch-table-responsive">
           <table class="data-table dispatch-table-corporate" id="tankerTable">
-            <colgroup>
-              <col style="width: 4%;">
-              <col style="width: 10%;">
-              <col style="width: 16%;">
-              <col style="width: 10%;">
-              <col style="width: 9%;">
-              <col style="width: 12%;">
-              <col style="width: 10%;">
-              <col style="width: 12%;">
-              <col style="width: 9%;">
-              <col style="width: 8%;" class="no-print">
-            </colgroup>
             <thead id="tankerTableHead"></thead>
             <tbody id="tankerTableBody"></tbody>
             <tfoot id="tankerTableFoot"></tfoot>
@@ -2106,9 +2094,172 @@
     </div>
   </div>
 
+  <!-- Tanker Print Customization Modal -->
+  <div id="tankerPrintCustomModal" class="modal-overlay hidden" role="dialog" aria-labelledby="tankerPrintCustomModalTitle" aria-modal="true">
+    <div class="modal-box" style="max-width: 680px; width: 95%;">
+      <div class="modal-header">
+        <h3 id="tankerPrintCustomModalTitle">🖨️ تخصيص وإعدادات طباعة كشف السولار</h3>
+        <button type="button" id="btnCloseTankerPrintModal" class="modal-close-btn" aria-label="إغلاق">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px; max-height: 80vh; overflow-y: auto;">
+        
+        <!-- SECTION 1: Page Orientation & Language -->
+        <div style="background: var(--bg-hover); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 14px;">
+          <strong style="color: var(--text-color); font-size: 0.95rem; display: block; margin-bottom: 8px;">📄 1. اتجاه الصفحة واللغة المطبوعة:</strong>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">اتجاه الورقة (Page Orientation):</label>
+              <div style="display: flex; gap: 8px;">
+                <label class="radio-pill" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.88rem; background: var(--bg-card);">
+                  <input type="radio" name="tankerPrintOrientation" value="landscape" checked />
+                  <span><strong>أفقي (بالعرض)</strong> <span style="font-size: 0.72rem; color: var(--success-color);">✓ موصى به</span></span>
+                </label>
+                <label class="radio-pill" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.88rem; background: var(--bg-card);">
+                  <input type="radio" name="tankerPrintOrientation" value="portrait" />
+                  <span><strong>رأسي (بالطول)</strong></span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">لغة التقرير المطبوع (Language):</label>
+              <div style="display: flex; gap: 8px;">
+                <label class="radio-pill" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.88rem; background: var(--bg-card);">
+                  <input type="radio" name="tankerPrintLang" value="ar" checked />
+                  <span>العربية (Official AR)</span>
+                </label>
+                <label class="radio-pill" style="flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.88rem; background: var(--bg-card);">
+                  <input type="radio" name="tankerPrintLang" value="en" />
+                  <span>English (Official EN)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 2: Scope & Project Filtering -->
+        <div style="background: var(--bg-hover); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 14px;">
+          <strong style="color: var(--text-color); font-size: 0.95rem; display: block; margin-bottom: 8px;">🔍 2. نطاق البيانات والمشروع المطبوع:</strong>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label for="tankerPrintScopeProject" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">المشروع المطبوع (Project Filter):</label>
+              <select id="tankerPrintScopeProject" class="select-control" style="width: 100%; font-size: 0.9rem;">
+                <option value="all">كافة المشاريع والمواقع (تقرير شامل)</option>
+              </select>
+            </div>
+            <div>
+              <label for="tankerPrintScopePeriod" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">فترة التقرير (Period):</label>
+              <select id="tankerPrintScopePeriod" class="select-control" style="width: 100%; font-size: 0.9rem;">
+                <option value="all" selected>كل الأوقات (سجل شامل لكافة الفواتير)</option>
+                <option value="current">الشهر الحالي المحدد فقط</option>
+                <option value="year">كامل السنة الحالية</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 3: Columns Customization -->
+        <div style="background: var(--bg-hover); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <strong style="color: var(--text-color); font-size: 0.95rem;">📊 3. تخصيص أعمدة الجدول المطبوعة (إظهار / إخفاء):</strong>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">إلغاء الأعمدة غير المطلوبة يمنح الأعمدة الأخرى مساحة أوسع</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="chkPrintColDate" checked />
+              <span>تاريخ البون (Date)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="chkPrintColProject" checked />
+              <span>اسم المشروع (Project)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="chkPrintColLiters" checked />
+              <span>الكمية باللتر (Liters)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="chkPrintColPrice" checked />
+              <span>سعر اللتر (Price/L)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="chkPrintColAmount" checked />
+              <span>إجمالي المبلغ (Total)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="chkPrintColInvoiceNo" checked />
+              <span>رقم الفاتورة (Invoice)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="chkPrintColReceiver" checked />
+              <span>المستلم بالموقع (Receiver)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="chkPrintColSupplier" checked />
+              <span>المورد / التانكر (Supplier)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- SECTION 4: Header, Tafqeet & Signatures Control -->
+        <div style="background: var(--bg-hover); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 14px;">
+          <strong style="color: var(--text-color); font-size: 0.95rem; display: block; margin-bottom: 8px;">✍️ 4. ترويسة السند والاعتمادات الرسمية:</strong>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+            <div>
+              <label for="tankerPrintVoucherRefInput" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">رقم السند في الترويسة (Voucher Ref):</label>
+              <input type="text" id="tankerPrintVoucherRefInput" class="input-control" value="DSL-202611-001" style="width: 100%; font-size: 0.9rem;" />
+            </div>
+            <div>
+              <label for="tankerPrintCopyDestInput" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">نسخة السند (Copy Destination):</label>
+              <input type="text" id="tankerPrintCopyDestInput" class="input-control" value="الأصل - قسم الحسابات والمشاريع" style="width: 100%; font-size: 0.9rem;" />
+            </div>
+          </div>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="chkPrintKpiStrip" checked />
+              <span>إظهار شريط كروت الملخص الإجمالي (KPI Summary)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="chkPrintTafqeet" checked />
+              <span>كتابة إجمالي المبلغ بالحروف (Tafqeet Words)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+              <input type="checkbox" id="chkPrintSignatures" checked />
+              <span>مربعات التوقيع الثلاثية + ختم الشركة الرسمي</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- SECTION 5: Print Scale & Density -->
+        <div style="background: var(--bg-hover); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <strong style="color: var(--text-color); font-size: 0.95rem; display: block; margin-bottom: 6px;">📐 5. مقاس وحجم الخط للطباعة (Scale / Density):</strong>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <label class="radio-pill" style="flex: 1; min-width: 140px; padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; background: var(--bg-card);">
+              <input type="radio" name="tankerPrintScale" value="normal" checked />
+              <span><strong>قياسي (Standard 100%)</strong></span>
+            </label>
+            <label class="radio-pill" style="flex: 1; min-width: 140px; padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; background: var(--bg-card);">
+              <input type="radio" name="tankerPrintScale" value="compact" />
+              <span><strong>مدمج لصفحة واحدة (85%)</strong></span>
+            </label>
+            <label class="radio-pill" style="flex: 1; min-width: 140px; padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; background: var(--bg-card);">
+              <input type="radio" name="tankerPrintScale" value="large" />
+              <span><strong>كبير ومريح لكبار السن (115%)</strong></span>
+            </label>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-btn-row" style="margin-top: 14px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" id="btnCancelTankerPrintModal" class="btn btn-outline" style="min-width: 100px;">إلغاء</button>
+        <button type="button" id="btnExecuteCustomPrint" class="btn btn-primary" style="padding: 8px 24px; font-weight: 800; font-size: 1rem;">
+          🖨️ بدء الطباعة الآن (Print Now)
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div id="toastContainer" class="toast-container no-print"></div>
 
-  <script src="app.js?v=20261109_v3"></script>
+  <script src="app.js?v=20261109_v4"></script>
 </body>
 </html>

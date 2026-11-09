@@ -5325,31 +5325,31 @@ function renderTankerTab() {
     if (isEn) {
       thead.innerHTML = `
         <tr>
-          <th style="text-align: center;">#</th>
-          <th style="text-align: center;">Date</th>
-          <th style="text-align: left;">Project / Site Name</th>
-          <th style="text-align: right;">Quantity (Liters)</th>
-          <th style="text-align: right;">Price / Liter</th>
-          <th style="text-align: right;">Invoice Total (QAR)</th>
-          <th style="text-align: center;">Invoice Ref</th>
-          <th style="text-align: left;">Site Receiver</th>
-          <th style="text-align: left;">Supplier / Tanker</th>
-          <th class="no-print" style="text-align: center;">Actions</th>
+          <th class="col-tanker-num" style="text-align: center;">#</th>
+          <th class="col-tanker-date" style="text-align: center;">Date</th>
+          <th class="col-tanker-project" style="text-align: left;">Project / Site Name</th>
+          <th class="col-tanker-liters" style="text-align: right;">Quantity (Liters)</th>
+          <th class="col-tanker-price" style="text-align: right;">Price / Liter</th>
+          <th class="col-tanker-amount" style="text-align: right;">Invoice Total (QAR)</th>
+          <th class="col-tanker-invoiceno" style="text-align: center;">Invoice Ref</th>
+          <th class="col-tanker-receiver" style="text-align: left;">Site Receiver</th>
+          <th class="col-tanker-supplier" style="text-align: left;">Supplier / Tanker</th>
+          <th class="col-tanker-actions no-print" style="text-align: center;">Actions</th>
         </tr>
       `;
     } else {
       thead.innerHTML = `
         <tr>
-          <th style="text-align: center;">#</th>
-          <th style="text-align: center;">التاريخ</th>
-          <th style="text-align: right;">اسم المشروع / الموقع</th>
-          <th style="text-align: right;">الكمية (لتر)</th>
-          <th style="text-align: right;">سعر اللتر</th>
-          <th style="text-align: right;">إجمالي الفاتورة</th>
-          <th style="text-align: center;">رقم الفاتورة</th>
-          <th style="text-align: right;">المستلم بالموقع</th>
-          <th style="text-align: right;">المورد / التانكر</th>
-          <th class="no-print" style="text-align: center;">الإجراءات</th>
+          <th class="col-tanker-num" style="text-align: center;">#</th>
+          <th class="col-tanker-date" style="text-align: center;">التاريخ</th>
+          <th class="col-tanker-project" style="text-align: right;">اسم المشروع / الموقع</th>
+          <th class="col-tanker-liters" style="text-align: right;">الكمية (لتر)</th>
+          <th class="col-tanker-price" style="text-align: right;">سعر اللتر</th>
+          <th class="col-tanker-amount" style="text-align: right;">إجمالي الفاتورة</th>
+          <th class="col-tanker-invoiceno" style="text-align: center;">رقم الفاتورة</th>
+          <th class="col-tanker-receiver" style="text-align: right;">المستلم بالموقع</th>
+          <th class="col-tanker-supplier" style="text-align: right;">المورد / التانكر</th>
+          <th class="col-tanker-actions no-print" style="text-align: center;">الإجراءات</th>
         </tr>
       `;
     }
@@ -5369,16 +5369,16 @@ function renderTankerTab() {
     } else {
       tbody.innerHTML = deliveries.map((item, idx) => `
         <tr>
-          <td style="text-align: center; font-weight: 700;">${idx + 1}</td>
-          <td style="font-family: monospace; white-space: nowrap; text-align: center;">${item.date}</td>
-          <td style="font-weight: 700; color: var(--primary-color);">🏗️ ${escapeHtml(item.project)}</td>
-          <td style="font-weight: 700; text-align: right;">${formatNumber(item.liters)} ${isEn ? 'L' : 'لتر'}</td>
-          <td style="text-align: right; font-family: monospace;">${item.pricePerLiter ? item.pricePerLiter.toFixed(3) : '-'}</td>
-          <td style="font-weight: 800; text-align: right; color: var(--success-color);">${formatNumber(item.amount, true)} ${isEn ? 'QAR' : 'ر.ق'}</td>
-          <td style="font-family: monospace; text-align: center;">${escapeHtml(item.invoiceNo || '-')}</td>
-          <td>${escapeHtml(item.receiver || '-')}</td>
-          <td>${escapeHtml(item.supplier || '-')}</td>
-          <td class="no-print" style="text-align: center; white-space: nowrap;">
+          <td class="col-tanker-num" style="text-align: center; font-weight: 700;">${idx + 1}</td>
+          <td class="col-tanker-date" style="font-family: monospace; white-space: nowrap; text-align: center;">${item.date}</td>
+          <td class="col-tanker-project" style="font-weight: 700; color: var(--primary-color);"><span class="no-print">🏗️ </span>${escapeHtml(item.project)}</td>
+          <td class="col-tanker-liters" style="font-weight: 700; text-align: right; white-space: nowrap;">${formatNumber(item.liters)} ${isEn ? 'L' : 'لتر'}</td>
+          <td class="col-tanker-price" style="text-align: right; font-family: monospace; white-space: nowrap;">${item.pricePerLiter ? item.pricePerLiter.toFixed(3) : '-'}</td>
+          <td class="col-tanker-amount" style="font-weight: 800; text-align: right; color: var(--success-color); white-space: nowrap;">${formatNumber(item.amount, true)} ${isEn ? 'QAR' : 'ر.ق'}</td>
+          <td class="col-tanker-invoiceno" style="font-family: monospace; text-align: center; white-space: nowrap;">${escapeHtml(item.invoiceNo || '-')}</td>
+          <td class="col-tanker-receiver">${escapeHtml(item.receiver || '-')}</td>
+          <td class="col-tanker-supplier">${escapeHtml(item.supplier || '-')}</td>
+          <td class="col-tanker-actions no-print" style="text-align: center; white-space: nowrap;">
             <button type="button" class="btn btn-sm btn-outline btn-edit-tanker" data-id="${item.id}" title="${isEn ? 'Edit voucher' : 'تعديل هذا البون'}" style="padding: 3px 8px; font-size: 0.8rem;">✏️ ${isEn ? 'Edit' : 'تعديل'}</button>
             <button type="button" class="btn btn-sm btn-outline btn-delete-tanker" data-id="${item.id}" title="${isEn ? 'Delete voucher' : 'حذف هذا البون'}" style="padding: 3px 8px; font-size: 0.8rem; color: var(--danger-color); margin-inline-start: 4px;">🗑️ ${isEn ? 'Delete' : 'حذف'}</button>
           </td>
@@ -5395,12 +5395,14 @@ function renderTankerTab() {
     } else {
       tfoot.innerHTML = `
         <tr style="background: var(--bg-hover); font-weight: 800; border-top: 2px solid var(--border-color);">
-          <td colspan="3" style="text-align: center;">${isEn ? `Grand Total (${deliveries.length} Deliveries)` : `الإجمالي العام (${deliveries.length} بون توريد)`}</td>
-          <td style="text-align: right; color: var(--primary-color);">${formatNumber(kpis.totalLiters)} ${isEn ? 'L' : 'لتر'}</td>
-          <td style="text-align: right; font-family: monospace;">${kpis.avgPrice.toFixed(3)}</td>
-          <td style="text-align: right; color: var(--success-color); font-size: 1.05rem;">${formatNumber(kpis.totalAmount, true)} ${isEn ? 'QAR' : 'ر.ق'}</td>
-          <td colspan="3"></td>
-          <td class="no-print"></td>
+          <td colspan="3" class="col-tanker-project" style="text-align: center;">${isEn ? `Grand Total (${deliveries.length} Deliveries)` : `الإجمالي العام (${deliveries.length} بون توريد)`}</td>
+          <td class="col-tanker-liters" style="text-align: right; color: var(--primary-color); white-space: nowrap;">${formatNumber(kpis.totalLiters)} ${isEn ? 'L' : 'لتر'}</td>
+          <td class="col-tanker-price" style="text-align: right; font-family: monospace; white-space: nowrap;">${kpis.avgPrice.toFixed(3)}</td>
+          <td class="col-tanker-amount" style="text-align: right; color: var(--success-color); font-size: 1.05rem; white-space: nowrap;">${formatNumber(kpis.totalAmount, true)} ${isEn ? 'QAR' : 'ر.ق'}</td>
+          <td class="col-tanker-invoiceno"></td>
+          <td class="col-tanker-receiver"></td>
+          <td class="col-tanker-supplier"></td>
+          <td class="col-tanker-actions no-print"></td>
         </tr>
       `;
     }
@@ -5418,7 +5420,7 @@ function renderTankerTab() {
   const pCopyLbl = document.getElementById('printTankerCopyLbl');
   const pCopyVal = document.getElementById('printTankerCopyVal');
 
-  if (pComp) pComp.textContent = isEn ? 'HELIOPOLIS ELECTRIC COMPANY' : 'شركة هليوبوليس للكهرباء (HELIOPOLIS ELECTRIC COMPANY)';
+  if (pComp) pComp.textContent = isEn ? 'HELIOPOLIS ELECTRIC COMPANY' : 'شركة هليوبوليس للكهرباء';
   if (pDept) pDept.textContent = isEn ? 'Projects Management & Logistics — Fuel & Diesel Department' : 'إدارة المشاريع والخدمات اللوجستية — قسم المحروقات والديزل';
   if (pLegal) {
     pLegal.textContent = isEn
@@ -5428,7 +5430,7 @@ function renderTankerTab() {
   if (pTitle) {
     pTitle.textContent = isEn
       ? 'DIESEL DISBURSEMENT & PROJECT ALLOCATION STATEMENT'
-      : 'كشف تفريغ وتوزيع السولار على المشاريع (DIESEL DISBURSEMENT SHEET)';
+      : 'كشف تفريغ وتوزيع السولار على المشاريع';
   }
   if (pVouchLbl) pVouchLbl.textContent = isEn ? 'Voucher Ref:' : 'رقم السند:';
   if (pDateLbl) pDateLbl.textContent = isEn ? 'Statement Date:' : 'تاريخ الكشف:';
@@ -5613,24 +5615,175 @@ function exportTankerCsv() {
   showToast(isEn ? 'Tanker statement exported to Excel successfully 📊' : 'تم تصدير كشف سولار التانكر إلى Excel بنجاح 📊');
 }
 
-function printTankerReport() {
-  document.body.classList.add('printing-tanker');
-  if (state.tankerLang === 'en') {
-    document.body.classList.add('printing-lang-en');
-    document.body.classList.remove('printing-lang-ar');
-  } else {
-    document.body.classList.add('printing-lang-ar');
-    document.body.classList.remove('printing-lang-en');
+function openTankerPrintModal() {
+  if (typeof document === 'undefined') return;
+  const modal = document.getElementById('tankerPrintCustomModal');
+  if (!modal) return;
+
+  // 1. Populate project select in print modal
+  const prjSelect = document.getElementById('tankerPrintScopeProject');
+  if (prjSelect) {
+    const allProjects = Array.from(new Set([
+      ...(state.data?.projectsList || []),
+      ...(state.data?.tankerDeliveries || []).map(d => d.project)
+    ])).filter(Boolean).sort();
+
+    const isEn = state.tankerLang === 'en';
+    let optionsHtml = `<option value="all">${isEn ? 'All Projects & Sites (Comprehensive Statement)' : 'كافة المشاريع والمواقع (تقرير شامل)'}</option>`;
+    allProjects.forEach(p => {
+      const selected = (p === state.tankerProjectFilter && p !== 'all') ? 'selected' : '';
+      optionsHtml += `<option value="${escapeHtml(p)}" ${selected}>🏗️ ${escapeHtml(p)}</option>`;
+    });
+    prjSelect.innerHTML = optionsHtml;
   }
-  const onAfterPrint = () => {
-    document.body.classList.remove('printing-tanker', 'printing-lang-en', 'printing-lang-ar');
-    window.removeEventListener('afterprint', onAfterPrint);
+
+  // 2. Set period select to active state filter
+  const perSelect = document.getElementById('tankerPrintScopePeriod');
+  if (perSelect) {
+    perSelect.value = state.tankerPeriodFilter || 'all';
+  }
+
+  // 3. Set print language radios
+  const radAr = document.querySelector('input[name="tankerPrintLang"][value="ar"]');
+  const radEn = document.querySelector('input[name="tankerPrintLang"][value="en"]');
+  if (radAr && radEn) {
+    radAr.checked = state.tankerLang !== 'en';
+    radEn.checked = state.tankerLang === 'en';
+  }
+
+  // 4. Set custom Voucher Ref & Copy destination default
+  const vRef = document.getElementById('tankerPrintVoucherRefInput');
+  if (vRef) {
+    vRef.value = `DSL-${state.year}${String(state.month).padStart(2, '0')}-001`;
+  }
+  const copyInp = document.getElementById('tankerPrintCopyDestInput');
+  if (copyInp) {
+    copyInp.value = state.tankerLang === 'en'
+      ? 'Original - Accounts & Projects Dept.'
+      : 'الأصل - قسم الحسابات والمشاريع';
+  }
+
+  modal.classList.remove('hidden');
+  modal.classList.add('active');
+}
+
+function closeTankerPrintModal() {
+  if (typeof document === 'undefined') return;
+  const modal = document.getElementById('tankerPrintCustomModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('active');
+  }
+}
+
+function executeCustomTankerPrint() {
+  if (typeof document === 'undefined') return;
+
+  // Read options from modal
+  const orientation = document.querySelector('input[name="tankerPrintOrientation"]:checked')?.value || 'landscape';
+  const printLang = document.querySelector('input[name="tankerPrintLang"]:checked')?.value || 'ar';
+  const scale = document.querySelector('input[name="tankerPrintScale"]:checked')?.value || 'normal';
+  const selectedProject = document.getElementById('tankerPrintScopeProject')?.value || 'all';
+  const selectedPeriod = document.getElementById('tankerPrintScopePeriod')?.value || 'all';
+
+  const showDate = document.getElementById('chkPrintColDate')?.checked ?? true;
+  const showProject = document.getElementById('chkPrintColProject')?.checked ?? true;
+  const showLiters = document.getElementById('chkPrintColLiters')?.checked ?? true;
+  const showPrice = document.getElementById('chkPrintColPrice')?.checked ?? true;
+  const showAmount = document.getElementById('chkPrintColAmount')?.checked ?? true;
+  const showInvoiceNo = document.getElementById('chkPrintColInvoiceNo')?.checked ?? true;
+  const showReceiver = document.getElementById('chkPrintColReceiver')?.checked ?? true;
+  const showSupplier = document.getElementById('chkPrintColSupplier')?.checked ?? true;
+
+  const showKpiStrip = document.getElementById('chkPrintKpiStrip')?.checked ?? true;
+  const showTafqeet = document.getElementById('chkPrintTafqeet')?.checked ?? true;
+  const showSignatures = document.getElementById('chkPrintSignatures')?.checked ?? true;
+
+  const customVoucherRef = document.getElementById('tankerPrintVoucherRefInput')?.value?.trim() || `DSL-${state.year}${String(state.month).padStart(2, '0')}-001`;
+  const customCopy = document.getElementById('tankerPrintCopyDestInput')?.value?.trim() || (printLang === 'en' ? 'Original - Accounts & Projects Dept.' : 'الأصل - قسم الحسابات والمشاريع');
+
+  // Backup active state to restore after print
+  const origLang = state.tankerLang;
+  const origPrj = state.tankerProjectFilter;
+  const origPer = state.tankerPeriodFilter;
+  const origSearch = state.tankerSearch;
+
+  // Temporarily apply print scope filters
+  state.tankerLang = printLang;
+  state.tankerProjectFilter = selectedProject;
+  state.tankerPeriodFilter = selectedPeriod;
+  state.tankerSearch = '';
+
+  renderTankerTab();
+
+  // Override Voucher ref and copy in print header
+  const elPrintVoucher = document.getElementById('printTankerVoucherNo');
+  if (elPrintVoucher) elPrintVoucher.textContent = customVoucherRef;
+  const elPrintCopy = document.getElementById('printTankerCopyVal');
+  if (elPrintCopy) elPrintCopy.textContent = customCopy;
+
+  // Apply print classes to document.body
+  const printClasses = ['printing-tanker'];
+  if (orientation === 'landscape') {
+    printClasses.push('printing-landscape');
+  } else {
+    printClasses.push('printing-portrait');
+  }
+
+  if (printLang === 'en') {
+    printClasses.push('printing-lang-en');
+  } else {
+    printClasses.push('printing-lang-ar');
+  }
+
+  if (scale === 'compact') printClasses.push('print-scale-compact');
+  if (scale === 'large') printClasses.push('print-scale-large');
+
+  if (!showDate) printClasses.push('hide-print-date');
+  if (!showProject) printClasses.push('hide-print-project');
+  if (!showLiters) printClasses.push('hide-print-liters');
+  if (!showPrice) printClasses.push('hide-print-price');
+  if (!showAmount) printClasses.push('hide-print-amount');
+  if (!showInvoiceNo) printClasses.push('hide-print-invoiceno');
+  if (!showReceiver) printClasses.push('hide-print-receiver');
+  if (!showSupplier) printClasses.push('hide-print-supplier');
+
+  if (!showKpiStrip) printClasses.push('hide-print-kpis');
+  if (!showTafqeet) printClasses.push('hide-print-tafqeet');
+  if (!showSignatures) printClasses.push('hide-print-signatures');
+
+  document.body.classList.add(...printClasses);
+
+  closeTankerPrintModal();
+
+  let cleanedUp = false;
+  const cleanupAfterPrint = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    document.body.classList.remove(
+      'printing-tanker', 'printing-landscape', 'printing-portrait',
+      'printing-lang-en', 'printing-lang-ar', 'print-scale-compact', 'print-scale-large',
+      'hide-print-date', 'hide-print-project', 'hide-print-liters', 'hide-print-price',
+      'hide-print-amount', 'hide-print-invoiceno', 'hide-print-receiver', 'hide-print-supplier',
+      'hide-print-kpis', 'hide-print-tafqeet', 'hide-print-signatures'
+    );
+    state.tankerLang = origLang;
+    state.tankerProjectFilter = origPrj;
+    state.tankerPeriodFilter = origPer;
+    state.tankerSearch = origSearch;
+    renderTankerTab();
+    window.removeEventListener('afterprint', cleanupAfterPrint);
   };
-  window.addEventListener('afterprint', onAfterPrint);
+
+  window.addEventListener('afterprint', cleanupAfterPrint);
+
   window.print();
-  setTimeout(() => {
-    document.body.classList.remove('printing-tanker', 'printing-lang-en', 'printing-lang-ar');
-  }, 1000);
+
+  setTimeout(cleanupAfterPrint, 1500);
+}
+
+function printTankerReport() {
+  openTankerPrintModal();
 }
 
 function switchTab(tabId) {
@@ -7015,7 +7168,13 @@ function bindEvents() {
     }
   });
   document.getElementById('btnSaveTankerDelivery')?.addEventListener('click', handleSaveTankerDelivery);
-  document.getElementById('btnPrintTankerStatement')?.addEventListener('click', printTankerReport);
+  document.getElementById('btnPrintTankerStatement')?.addEventListener('click', openTankerPrintModal);
+  document.getElementById('btnCloseTankerPrintModal')?.addEventListener('click', closeTankerPrintModal);
+  document.getElementById('btnCancelTankerPrintModal')?.addEventListener('click', closeTankerPrintModal);
+  document.getElementById('tankerPrintCustomModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'tankerPrintCustomModal') closeTankerPrintModal();
+  });
+  document.getElementById('btnExecuteCustomPrint')?.addEventListener('click', executeCustomTankerPrint);
   document.getElementById('btnExportTankerExcel')?.addEventListener('click', exportTankerCsv);
   document.getElementById('btnTankerLangAr')?.addEventListener('click', () => {
     state.tankerLang = 'ar';
@@ -7500,6 +7659,10 @@ if (typeof module !== 'undefined' && module.exports) {
     updateTankerDelivery,
     deleteTankerDelivery,
     addProjectToMasterList,
-    removeProjectFromMasterList
+    removeProjectFromMasterList,
+    openTankerPrintModal,
+    closeTankerPrintModal,
+    executeCustomTankerPrint,
+    printTankerReport
   };
 }

@@ -1952,15 +1952,26 @@ body.senior-friendly .day-pill .d-name {
    ============================================================================ */
 @media print {
   @page {
+    size: auto;
+    margin: 8mm;
+  }
+
+  @page page-landscape {
+    size: A4 landscape;
+    margin: 6mm 8mm;
+  }
+
+  @page page-portrait {
     size: A4 portrait;
-    margin: 8mm 10mm 10mm 10mm;
+    margin: 6mm 8mm;
   }
 
   body.printing-landscape {
-    @page {
-      size: A4 landscape;
-      margin: 8mm;
-    }
+    page: page-landscape;
+  }
+
+  body.printing-portrait {
+    page: page-portrait;
   }
 
   html, body {
@@ -4171,6 +4182,48 @@ body.eye-comfort .project-breakdown-pill {
   border-color: #e2d7c5 !important;
 }
 
+/* Tab 9: Tanker Table Base Sizing */
+#tankerTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#tankerTable th,
+#tankerTable td {
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+#tankerTable th.col-tanker-num,
+#tankerTable td.col-tanker-num {
+  width: 36px;
+  min-width: 30px;
+  text-align: center;
+}
+
+#tankerTable th.col-tanker-date,
+#tankerTable td.col-tanker-date {
+  min-width: 100px;
+  white-space: nowrap;
+  text-align: center;
+  font-family: monospace;
+}
+
+#tankerTable th.col-tanker-liters,
+#tankerTable td.col-tanker-liters,
+#tankerTable th.col-tanker-price,
+#tankerTable td.col-tanker-price,
+#tankerTable th.col-tanker-amount,
+#tankerTable td.col-tanker-amount {
+  white-space: nowrap;
+  text-align: right;
+}
+
+#tankerTable th.col-tanker-project,
+#tankerTable td.col-tanker-project {
+  min-width: 130px;
+}
+
 @media print {
   body.printing-tanker .print-report-header {
     display: none !important;
@@ -4185,26 +4238,121 @@ body.eye-comfort .project-breakdown-pill {
     border: none !important;
   }
 
+  body.printing-tanker #tankerTable {
+    table-layout: auto !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  body.printing-tanker #tankerTable colgroup {
+    display: none !important;
+  }
+
+  body.printing-tanker #tankerTable th,
+  body.printing-tanker #tankerTable td {
+    padding: 5px 6px !important;
+    border: 1px solid #334155 !important;
+    font-size: 8pt !important;
+  }
+
+  /* Never wrap numbers, dates, units or financial figures */
+  body.printing-tanker #tankerTable td.col-tanker-num,
+  body.printing-tanker #tankerTable td.col-tanker-date,
+  body.printing-tanker #tankerTable td.col-tanker-liters,
+  body.printing-tanker #tankerTable td.col-tanker-price,
+  body.printing-tanker #tankerTable td.col-tanker-amount,
+  body.printing-tanker #tankerTable td.col-tanker-invoiceno,
+  body.printing-tanker #tankerTable tfoot td {
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+  }
+
+  body.printing-tanker #tankerTable td.col-tanker-project,
+  body.printing-tanker #tankerTable td.col-tanker-receiver,
+  body.printing-tanker #tankerTable td.col-tanker-supplier {
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+  }
+
+  body.printing-tanker #tankerTable th.col-tanker-num,
+  body.printing-tanker #tankerTable td.col-tanker-num,
+  body.printing-tanker #tankerTable th.col-tanker-date,
+  body.printing-tanker #tankerTable td.col-tanker-date,
+  body.printing-tanker #tankerTable th.col-tanker-invoiceno,
+  body.printing-tanker #tankerTable td.col-tanker-invoiceno {
+    text-align: center !important;
+  }
+
+  body.printing-tanker #tankerTable th.col-tanker-liters,
+  body.printing-tanker #tankerTable td.col-tanker-liters,
+  body.printing-tanker #tankerTable th.col-tanker-price,
+  body.printing-tanker #tankerTable td.col-tanker-price,
+  body.printing-tanker #tankerTable th.col-tanker-amount,
+  body.printing-tanker #tankerTable td.col-tanker-amount {
+    text-align: right !important;
+  }
+
   body.printing-tanker.printing-lang-en #tankerTable th,
   body.printing-tanker.printing-lang-en #tankerTable td {
     text-align: left !important;
   }
-  body.printing-tanker.printing-lang-en #tankerTable th:first-child,
-  body.printing-tanker.printing-lang-en #tankerTable td:first-child,
-  body.printing-tanker.printing-lang-en #tankerTable th:nth-child(2),
-  body.printing-tanker.printing-lang-en #tankerTable td:nth-child(2),
-  body.printing-tanker.printing-lang-en #tankerTable th:nth-child(7),
-  body.printing-tanker.printing-lang-en #tankerTable td:nth-child(7) {
+  body.printing-tanker.printing-lang-en #tankerTable th.col-tanker-num,
+  body.printing-tanker.printing-lang-en #tankerTable td.col-tanker-num,
+  body.printing-tanker.printing-lang-en #tankerTable th.col-tanker-date,
+  body.printing-tanker.printing-lang-en #tankerTable td.col-tanker-date,
+  body.printing-tanker.printing-lang-en #tankerTable th.col-tanker-invoiceno,
+  body.printing-tanker.printing-lang-en #tankerTable td.col-tanker-invoiceno {
     text-align: center !important;
   }
-  body.printing-tanker.printing-lang-en #tankerTable th:nth-child(4),
-  body.printing-tanker.printing-lang-en #tankerTable td:nth-child(4),
-  body.printing-tanker.printing-lang-en #tankerTable th:nth-child(5),
-  body.printing-tanker.printing-lang-en #tankerTable td:nth-child(5),
-  body.printing-tanker.printing-lang-en #tankerTable th:nth-child(6),
-  body.printing-tanker.printing-lang-en #tankerTable td:nth-child(6) {
+  body.printing-tanker.printing-lang-en #tankerTable th.col-tanker-liters,
+  body.printing-tanker.printing-lang-en #tankerTable td.col-tanker-liters,
+  body.printing-tanker.printing-lang-en #tankerTable th.col-tanker-price,
+  body.printing-tanker.printing-lang-en #tankerTable td.col-tanker-price,
+  body.printing-tanker.printing-lang-en #tankerTable th.col-tanker-amount,
+  body.printing-tanker.printing-lang-en #tankerTable td.col-tanker-amount {
     text-align: right !important;
   }
+
+  /* Print Scale Densities */
+  body.print-scale-compact #tab-tanker {
+    font-size: 7.5pt !important;
+  }
+  body.print-scale-compact #tankerTable th,
+  body.print-scale-compact #tankerTable td {
+    padding: 3px 4px !important;
+    font-size: 7.5pt !important;
+  }
+  body.print-scale-compact .dispatch-corp-legal-name {
+    font-size: 1.05rem !important;
+  }
+  body.print-scale-compact .dispatch-voucher-title {
+    font-size: 0.92rem !important;
+  }
+
+  body.print-scale-large #tab-tanker {
+    font-size: 9.5pt !important;
+  }
+  body.print-scale-large #tankerTable th,
+  body.print-scale-large #tankerTable td {
+    padding: 6px 8px !important;
+    font-size: 9.5pt !important;
+  }
+
+  /* Column Visibility Toggles in Print */
+  body.hide-print-date #tankerTable .col-tanker-date { display: none !important; }
+  body.hide-print-project #tankerTable .col-tanker-project { display: none !important; }
+  body.hide-print-liters #tankerTable .col-tanker-liters { display: none !important; }
+  body.hide-print-price #tankerTable .col-tanker-price { display: none !important; }
+  body.hide-print-amount #tankerTable .col-tanker-amount { display: none !important; }
+  body.hide-print-invoiceno #tankerTable .col-tanker-invoiceno { display: none !important; }
+  body.hide-print-receiver #tankerTable .col-tanker-receiver { display: none !important; }
+  body.hide-print-supplier #tankerTable .col-tanker-supplier { display: none !important; }
+
+  /* Section Toggles in Print */
+  body.hide-print-kpis #tankerCorporateHeader .dispatch-reconciliation-strip { display: none !important; }
+  body.hide-print-tafqeet #tankerTafqeetStrip { display: none !important; }
+  body.hide-print-signatures #tankerCorporateSignoff { display: none !important; }
 }
 
 /* ============================================================================
