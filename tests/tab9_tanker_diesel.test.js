@@ -25,6 +25,7 @@ const {
   validateBackupPayload,
   formatCsvCell,
   getTankerDeliveries,
+  getTankerPeriodOptionsHtml,
   calculateTankerKpis,
   addTankerDelivery,
   updateTankerDelivery,
@@ -244,6 +245,38 @@ test('Project filter isolates deliveries for specific project accurately', () =>
   const filtered = getTankerDeliveries({ periodFilter: 'year', projectFilter: 'مشروع أكتوبر' });
   assert.strictEqual(filtered.length, 1);
   assert.strictEqual(filtered[0].project, 'مشروع أكتوبر');
+});
+
+test('Specific month filter (e.g. m-09 or m-10) isolates deliveries exclusively for that month', () => {
+  state.data.tankerDeliveries = [];
+  addTankerDelivery({ date: '2026-09-15', project: 'مشروع سبتمبر 1', liters: 300, amount: 630 });
+  addTankerDelivery({ date: '2026-09-28', project: 'مشروع سبتمبر 2', liters: 200, amount: 420 });
+  addTankerDelivery({ date: '2026-10-04', project: 'مشروع أكتوبر', liters: 150, amount: 315 });
+  addTankerDelivery({ date: '2026-11-01', project: 'مشروع نوفمبر', liters: 500, amount: 1050 });
+
+  const sepDeliveries = getTankerDeliveries({ periodFilter: 'm-09' });
+  assert.strictEqual(sepDeliveries.length, 2, 'Should only return 2 deliveries for September (m-09)');
+  assert.ok(sepDeliveries.every(d => d.date.startsWith('2026-09-')));
+
+  const octDeliveries = getTankerDeliveries({ periodFilter: 'm-10' });
+  assert.strictEqual(octDeliveries.length, 1, 'Should only return 1 delivery for October (m-10)');
+  assert.strictEqual(octDeliveries[0].project, 'مشروع أكتوبر');
+});
+
+test('getTankerPeriodOptionsHtml correctly renders 12 months, all-time, full year in AR and EN', () => {
+  const arHtml = getTankerPeriodOptionsHtml('m-09', false, 2026);
+  assert.ok(arHtml.includes('سجل شامل (كافة الأوقات)'));
+  assert.ok(arHtml.includes('كامل السنة الحالية (2026)'));
+  assert.ok(arHtml.includes('value="m-09" selected'));
+  assert.ok(arHtml.includes('شهر 9 - سبتمبر 2026'));
+  assert.ok(arHtml.includes('value="m-01"'));
+  assert.ok(arHtml.includes('value="m-12"'));
+
+  const enHtml = getTankerPeriodOptionsHtml('m-09', true, 2026);
+  assert.ok(enHtml.includes('All Time (Comprehensive Ledger)'));
+  assert.ok(enHtml.includes('Full Current Year (2026)'));
+  assert.ok(enHtml.includes('value="m-09" selected'));
+  assert.ok(enHtml.includes('09 - September 2026'));
 });
 
 test('Search filter matches project, invoiceNo, receiver, and supplier case-insensitively', () => {

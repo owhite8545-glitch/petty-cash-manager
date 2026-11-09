@@ -1513,10 +1513,23 @@
             </select>
 
             <label for="tankerPeriodFilter" id="lblTankerFilterPeriod" style="font-weight: 700; color: var(--text-color); margin-inline-start: 8px;">الفترة:</label>
-            <select id="tankerPeriodFilter" class="select-control" style="font-size: 0.95rem; padding: 6px 12px;">
-              <option value="all" id="optPeriodAll" selected>كل الأوقات (سجل شامل)</option>
-              <option value="current" id="optPeriodCurrent">الشهر الحالي المحدد</option>
-              <option value="year" id="optPeriodYear">كامل السنة الحالية</option>
+            <select id="tankerPeriodFilter" class="select-control" style="font-size: 0.95rem; padding: 6px 12px; min-width: 190px;">
+              <option value="all" selected>سجل شامل (كافة الأوقات)</option>
+              <option value="year">كامل السنة الحالية (2026)</option>
+              <optgroup label="أشهر السنة (2026)">
+                <option value="m-01">شهر 1 - يناير</option>
+                <option value="m-02">شهر 2 - فبراير</option>
+                <option value="m-03">شهر 3 - مارس</option>
+                <option value="m-04">شهر 4 - إبريل</option>
+                <option value="m-05">شهر 5 - مايو</option>
+                <option value="m-06">شهر 6 - يونيو</option>
+                <option value="m-07">شهر 7 - يوليو</option>
+                <option value="m-08">شهر 8 - أغسطس</option>
+                <option value="m-09">شهر 9 - سبتمبر</option>
+                <option value="m-10">شهر 10 - أكتوبر</option>
+                <option value="m-11">شهر 11 - نوفمبر</option>
+                <option value="m-12">شهر 12 - ديسمبر</option>
+              </optgroup>
             </select>
           </div>
 
@@ -2149,9 +2162,22 @@
             <div>
               <label for="tankerPrintScopePeriod" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">فترة التقرير (Period):</label>
               <select id="tankerPrintScopePeriod" class="select-control" style="width: 100%; font-size: 0.9rem;">
-                <option value="all" selected>كل الأوقات (سجل شامل لكافة الفواتير)</option>
-                <option value="current">الشهر الحالي المحدد فقط</option>
-                <option value="year">كامل السنة الحالية</option>
+                <option value="all" selected>سجل شامل (كافة الأوقات)</option>
+                <option value="year">كامل السنة الحالية (2026)</option>
+                <optgroup label="أشهر السنة (2026)">
+                  <option value="m-01">شهر 1 - يناير</option>
+                  <option value="m-02">شهر 2 - فبراير</option>
+                  <option value="m-03">شهر 3 - مارس</option>
+                  <option value="m-04">شهر 4 - إبريل</option>
+                  <option value="m-05">شهر 5 - مايو</option>
+                  <option value="m-06">شهر 6 - يونيو</option>
+                  <option value="m-07">شهر 7 - يوليو</option>
+                  <option value="m-08">شهر 8 - أغسطس</option>
+                  <option value="m-09">شهر 9 - سبتمبر</option>
+                  <option value="m-10">شهر 10 - أكتوبر</option>
+                  <option value="m-11">شهر 11 - نوفمبر</option>
+                  <option value="m-12">شهر 12 - ديسمبر</option>
+                </optgroup>
               </select>
             </div>
           </div>
@@ -2260,6 +2286,6 @@
   <!-- Toast Notification -->
   <div id="toastContainer" class="toast-container no-print"></div>
 
-  <script src="app.js?v=20261109_v5"></script>
+  <script src="app.js?v=20261109_v6"></script>
 </body>
 </html>

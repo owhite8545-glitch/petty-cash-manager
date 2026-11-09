@@ -4703,6 +4703,12 @@ function getTankerDeliveries(options = {}) {
     } else if (period === 'year') {
       const yearPrefix = `${state.year}-`;
       if (!item.date || !item.date.startsWith(yearPrefix)) return false;
+    } else if (typeof period === 'string' && (period.startsWith('m-') || /^(?:[1-9]|1[0-2])$/.test(period))) {
+      const mNum = parseInt(period.replace('m-', ''), 10);
+      if (mNum >= 1 && mNum <= 12) {
+        const monthPrefix = `${state.year}-${String(mNum).padStart(2, '0')}-`;
+        if (!item.date || !item.date.startsWith(monthPrefix)) return false;
+      }
     }
 
     // Project filter
@@ -5169,6 +5175,30 @@ function handleSaveTankerDelivery() {
   }
 }
 
+function getTankerPeriodOptionsHtml(selectedValue, isEn, year) {
+  const y = year || state.year || new Date().getFullYear();
+  const curVal = selectedValue || 'all';
+  const months = isEn ? ENGLISH_MONTHS : ARABIC_MONTHS;
+
+  let html = `
+    <option value="all" ${curVal === 'all' ? 'selected' : ''}>${isEn ? 'All Time (Comprehensive Ledger)' : 'سجل شامل (كافة الأوقات)'}</option>
+    <option value="year" ${curVal === 'year' ? 'selected' : ''}>${isEn ? `Full Current Year (${y})` : `كامل السنة الحالية (${y})`}</option>
+    <optgroup label="${isEn ? `Months of Year ${y}` : `أشهر سنة ${y}`}">
+  `;
+
+  for (let m = 1; m <= 12; m++) {
+    const val = `m-${String(m).padStart(2, '0')}`;
+    const isSelected = (curVal === val || (curVal === 'current' && m === state.month));
+    const label = isEn
+      ? `${String(m).padStart(2, '0')} - ${months[m]} ${y}`
+      : `شهر ${m} - ${months[m]} ${y}`;
+    html += `<option value="${val}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+  }
+
+  html += `</optgroup>`;
+  return html;
+}
+
 function renderTankerTab() {
   if (typeof document === 'undefined') return;
   const isEn = state.tankerLang === 'en';
@@ -5222,9 +5252,19 @@ function renderTankerTab() {
     if (isFiltered && deliveries.length < allDeliveries.length) {
       noticeBanner.classList.remove('hidden');
       if (noticeText) {
+        let filterDesc = '';
+        if (typeof state.tankerPeriodFilter === 'string' && state.tankerPeriodFilter.startsWith('m-')) {
+          const mNum = parseInt(state.tankerPeriodFilter.replace('m-', ''), 10);
+          filterDesc = isEn ? `Month: ${ENGLISH_MONTHS[mNum]} ${state.year}` : `شهر ${mNum} (${ARABIC_MONTHS[mNum]} ${state.year})`;
+        } else if (state.tankerPeriodFilter === 'year') {
+          filterDesc = isEn ? `Year ${state.year}` : `كامل سنة ${state.year}`;
+        }
+        if (state.tankerProjectFilter && state.tankerProjectFilter !== 'all') {
+          filterDesc += (filterDesc ? ' • ' : '') + (isEn ? `Project: ${state.tankerProjectFilter}` : `المشروع: ${state.tankerProjectFilter}`);
+        }
         noticeText.textContent = isEn
-          ? `🔍 Filter active: Showing ${deliveries.length} of ${allDeliveries.length} vouchers.`
-          : `🔍 يتم عرض بونات مفلترة حالياً: ${deliveries.length} من أصل ${allDeliveries.length} بون مسجل.`;
+          ? `🔍 Filter active (${filterDesc || 'Custom'}): Showing ${deliveries.length} of ${allDeliveries.length} vouchers.`
+          : `🔍 يتم عرض بونات مفلترة حالياً (${filterDesc || 'مخصص'}): ${deliveries.length} من أصل ${allDeliveries.length} بون مسجل.`;
       }
       if (noticeBtn) {
         noticeBtn.textContent = isEn ? 'Show All Vouchers (Reset Filter)' : 'إظهار كافة البونات (عرض الكل)';
@@ -5278,18 +5318,16 @@ function renderTankerTab() {
       : (isEn ? `0 Active (${totalMasterProjects} Registered)` : `0 مستفيدة (${totalMasterProjects} بالدليل)`);
   }
 
-  // 2. Update Project Filter & Period Filter Labels
+  // 2. Update Project Filter & Period Filter Labels and Dropdown Options
   const lblFilterPrj = document.getElementById('lblTankerFilterProject');
   const lblFilterPer = document.getElementById('lblTankerFilterPeriod');
   if (lblFilterPrj) lblFilterPrj.textContent = isEn ? 'Project:' : 'المشروع:';
   if (lblFilterPer) lblFilterPer.textContent = isEn ? 'Period:' : 'الفترة:';
 
-  const optCur = document.getElementById('optPeriodCurrent');
-  const optYr = document.getElementById('optPeriodYear');
-  const optAll = document.getElementById('optPeriodAll');
-  if (optCur) optCur.textContent = isEn ? 'Current Selected Month' : 'الشهر الحالي المحدد';
-  if (optYr) optYr.textContent = isEn ? 'Full Current Year' : 'كامل السنة الحالية';
-  if (optAll) optAll.textContent = isEn ? 'All Time (Full Log)' : 'كل الأوقات (سجل شامل)';
+  const perFilterSelect = document.getElementById('tankerPeriodFilter');
+  if (perFilterSelect) {
+    perFilterSelect.innerHTML = getTankerPeriodOptionsHtml(state.tankerPeriodFilter || 'all', isEn, state.year);
+  }
 
   const searchInput = document.getElementById('tankerSearchInput');
   if (searchInput) {
@@ -5302,8 +5340,8 @@ function renderTankerTab() {
   if (prjFilterSelect) {
     const curVal = state.tankerProjectFilter || 'all';
     const allProjects = Array.from(new Set([
-      ...(state.data.projectsList || []),
-      ...(state.data.tankerDeliveries || []).map(d => d.project)
+      ...(state.data?.projectsList || []),
+      ...(state.data?.tankerDeliveries || []).map(d => d.project)
     ])).filter(Boolean).sort();
 
     let optionsHtml = `<option value="all">${isEn ? 'All Projects & Sites' : 'جميع المشاريع والمواقع'}</option>`;
@@ -5400,13 +5438,13 @@ function renderTankerTab() {
         <tr>
           <td class="col-tanker-num" style="text-align: center; font-weight: 700;">${idx + 1}</td>
           <td class="col-tanker-date" style="font-family: monospace; white-space: nowrap; text-align: center;">${item.date}</td>
-          <td class="col-tanker-project" style="font-weight: 700; color: var(--primary-color);"><span class="no-print">🏗️ </span>${escapeHtml(item.project)}</td>
+          <td class="col-tanker-project" style="font-weight: 700; color: var(--primary-color);"><span class="no-print">🏗️ </span><bdi dir="auto">${escapeHtml(item.project)}</bdi></td>
           <td class="col-tanker-liters" style="font-weight: 700; text-align: right; white-space: nowrap;">${formatNumber(item.liters)} ${isEn ? 'L' : 'لتر'}</td>
           <td class="col-tanker-price" style="text-align: right; font-family: monospace; white-space: nowrap;">${item.pricePerLiter ? item.pricePerLiter.toFixed(3) : '-'}</td>
           <td class="col-tanker-amount" style="font-weight: 800; text-align: right; color: var(--success-color); white-space: nowrap;">${formatNumber(item.amount, true)} ${isEn ? 'QAR' : 'ر.ق'}</td>
           <td class="col-tanker-invoiceno" style="font-family: monospace; text-align: center; white-space: nowrap;">${escapeHtml(item.invoiceNo || '-')}</td>
-          <td class="col-tanker-receiver">${escapeHtml(item.receiver || '-')}</td>
-          <td class="col-tanker-supplier">${escapeHtml(item.supplier || '-')}</td>
+          <td class="col-tanker-receiver"><bdi dir="auto">${escapeHtml(item.receiver || '-')}</bdi></td>
+          <td class="col-tanker-supplier"><bdi dir="auto">${escapeHtml(item.supplier || '-')}</bdi></td>
           <td class="col-tanker-actions no-print" style="text-align: center; white-space: nowrap;">
             <button type="button" class="btn btn-sm btn-outline btn-edit-tanker" data-id="${item.id}" title="${isEn ? 'Edit voucher' : 'تعديل هذا البون'}" style="padding: 3px 8px; font-size: 0.8rem;">✏️ ${isEn ? 'Edit' : 'تعديل'}</button>
             <button type="button" class="btn btn-sm btn-outline btn-delete-tanker" data-id="${item.id}" title="${isEn ? 'Delete voucher' : 'حذف هذا البون'}" style="padding: 3px 8px; font-size: 0.8rem; color: var(--danger-color); margin-inline-start: 4px;">🗑️ ${isEn ? 'Delete' : 'حذف'}</button>
@@ -5457,12 +5495,18 @@ function renderTankerTab() {
       : 'الموقع الرسمي: heliopoliselectric.ae | هاتف أبوظبي: 26412641 (971+) | الدوحة: 44634054 (974+)';
   }
   if (pTitle) {
-    pTitle.textContent = isEn
-      ? 'DIESEL DISBURSEMENT & PROJECT ALLOCATION STATEMENT'
-      : 'كشف تفريغ وتوزيع السولار على المشاريع';
+    if (state.tankerProjectFilter && state.tankerProjectFilter !== 'all') {
+      pTitle.textContent = isEn
+        ? `DIESEL ALLOCATION STATEMENT — ${state.tankerProjectFilter.toUpperCase()}`
+        : `كشف تفريغ وتوزيع السولار — ${state.tankerProjectFilter}`;
+    } else {
+      pTitle.textContent = isEn
+        ? 'DIESEL DISBURSEMENT & PROJECT ALLOCATION STATEMENT'
+        : 'كشف تفريغ وتوزيع السولار على المشاريع';
+    }
   }
   if (pVouchLbl) pVouchLbl.textContent = isEn ? 'Voucher Ref:' : 'رقم السند:';
-  if (pDateLbl) pDateLbl.textContent = isEn ? 'Statement Date:' : 'تاريخ الكشف:';
+  if (pDateLbl) pDateLbl.textContent = isEn ? 'Statement Period:' : 'فترة الكشف:';
   if (pCurrLbl) pCurrLbl.textContent = isEn ? 'Currency:' : 'العملة:';
   if (pCurrVal) pCurrVal.textContent = isEn ? 'Qatari Riyal (QAR)' : 'ريال قطري (QAR)';
   if (pCopyLbl) pCopyLbl.textContent = isEn ? 'Copy:' : 'النسخة:';
@@ -5488,12 +5532,28 @@ function renderTankerTab() {
 
   const curDateStr = state.selectedDate || `${state.year}-${String(state.month).padStart(2, '0')}-01`;
   const { y: dy, m: dm, d: dd } = parseDateParts(curDateStr);
-  if (elPrintDate) {
-    elPrintDate.textContent = isEn
+
+  let periodStr = '';
+  let voucherSuffix = `${state.year}${String(state.month).padStart(2, '0')}`;
+
+  if (typeof state.tankerPeriodFilter === 'string' && state.tankerPeriodFilter.startsWith('m-')) {
+    const mNum = parseInt(state.tankerPeriodFilter.replace('m-', ''), 10);
+    voucherSuffix = `${state.year}${String(mNum).padStart(2, '0')}`;
+    periodStr = isEn ? `${ENGLISH_MONTHS[mNum]} ${state.year}` : `شهر ${mNum} (${ARABIC_MONTHS[mNum]} ${state.year})`;
+  } else if (state.tankerPeriodFilter === 'year') {
+    voucherSuffix = `${state.year}YR`;
+    periodStr = isEn ? `Full Year ${state.year}` : `كامل سنة ${state.year}`;
+  } else if (state.tankerPeriodFilter === 'all') {
+    voucherSuffix = `${state.year}ALL`;
+    periodStr = isEn ? `All-Time Comprehensive Record` : `سجل شامل (كافة الأوقات)`;
+  } else {
+    periodStr = isEn
       ? `${getEnglishDayName(dy, dm, dd)}, ${curDateStr}`
       : `${getArabicDayName(dy, dm, dd)} ${curDateStr}`;
   }
-  if (elPrintVoucher) elPrintVoucher.textContent = `DSL-${state.year}${String(state.month).padStart(2, '0')}-001`;
+
+  if (elPrintDate) elPrintDate.textContent = periodStr;
+  if (elPrintVoucher) elPrintVoucher.textContent = `DSL-${voucherSuffix}-001`;
   if (elPrintLiters) elPrintLiters.textContent = isEn ? `${formatNumber(kpis.totalLiters)} Liters` : `${formatNumber(kpis.totalLiters)} لتر`;
   if (elPrintAmount) elPrintAmount.textContent = `${formatNumber(kpis.totalAmount, true)} QAR`;
   if (elPrintAvg) elPrintAvg.textContent = `${kpis.avgPrice.toFixed(3)} QAR`;
@@ -5533,11 +5593,17 @@ function exportTankerCsv() {
   });
 
   const kpis = calculateTankerKpis(deliveries);
-  const periodLabel = state.tankerPeriodFilter === 'year'
-    ? (isEn ? `Year_${state.year}` : `سنة_${state.year}`)
-    : (state.tankerPeriodFilter === 'all'
-      ? (isEn ? 'All_Periods' : 'كافة_الفترات')
-      : (isEn ? `Month_${ENGLISH_MONTHS[state.month]}_${state.year}` : `شهر_${ARABIC_MONTHS[state.month]}_${state.year}`));
+  let periodLabel = '';
+  if (state.tankerPeriodFilter === 'year') {
+    periodLabel = isEn ? `Year_${state.year}` : `سنة_${state.year}`;
+  } else if (state.tankerPeriodFilter === 'all') {
+    periodLabel = isEn ? 'All_Periods' : 'كافة_الفترات';
+  } else if (typeof state.tankerPeriodFilter === 'string' && state.tankerPeriodFilter.startsWith('m-')) {
+    const mNum = parseInt(state.tankerPeriodFilter.replace('m-', ''), 10);
+    periodLabel = isEn ? `Month_${ENGLISH_MONTHS[mNum]}_${state.year}` : `شهر_${ARABIC_MONTHS[mNum]}_${state.year}`;
+  } else {
+    periodLabel = isEn ? `Month_${ENGLISH_MONTHS[state.month]}_${state.year}` : `شهر_${ARABIC_MONTHS[state.month]}_${state.year}`;
+  }
   const prjLabel = state.tankerProjectFilter !== 'all' ? `_${state.tankerProjectFilter}` : '';
   const filename = isEn
     ? `Tanker_Diesel_Disbursement_${periodLabel}${prjLabel}.csv`
@@ -5669,7 +5735,8 @@ function openTankerPrintModal() {
   // 2. Set period select to active state filter
   const perSelect = document.getElementById('tankerPrintScopePeriod');
   if (perSelect) {
-    perSelect.value = state.tankerPeriodFilter || 'all';
+    const isEn = state.tankerLang === 'en';
+    perSelect.innerHTML = getTankerPeriodOptionsHtml(state.tankerPeriodFilter || 'all', isEn, state.year);
   }
 
   // 3. Set print language radios
@@ -5683,7 +5750,16 @@ function openTankerPrintModal() {
   // 4. Set custom Voucher Ref & Copy destination default
   const vRef = document.getElementById('tankerPrintVoucherRefInput');
   if (vRef) {
-    vRef.value = `DSL-${state.year}${String(state.month).padStart(2, '0')}-001`;
+    let vSuffix = `${state.year}${String(state.month).padStart(2, '0')}`;
+    if (typeof state.tankerPeriodFilter === 'string' && state.tankerPeriodFilter.startsWith('m-')) {
+      const mNum = parseInt(state.tankerPeriodFilter.replace('m-', ''), 10);
+      vSuffix = `${state.year}${String(mNum).padStart(2, '0')}`;
+    } else if (state.tankerPeriodFilter === 'year') {
+      vSuffix = `${state.year}YR`;
+    } else if (state.tankerPeriodFilter === 'all') {
+      vSuffix = `${state.year}ALL`;
+    }
+    vRef.value = `DSL-${vSuffix}-001`;
   }
   const copyInp = document.getElementById('tankerPrintCopyDestInput');
   if (copyInp) {
@@ -7226,6 +7302,35 @@ function bindEvents() {
     if (e.target.id === 'tankerPrintCustomModal') closeTankerPrintModal();
   });
   document.getElementById('btnExecuteCustomPrint')?.addEventListener('click', executeCustomTankerPrint);
+  document.getElementById('tankerPrintScopePeriod')?.addEventListener('change', (e) => {
+    const vRef = document.getElementById('tankerPrintVoucherRefInput');
+    if (!vRef) return;
+    const perVal = e.target.value;
+    let vSuffix = `${state.year}${String(state.month).padStart(2, '0')}`;
+    if (typeof perVal === 'string' && perVal.startsWith('m-')) {
+      const mNum = parseInt(perVal.replace('m-', ''), 10);
+      vSuffix = `${state.year}${String(mNum).padStart(2, '0')}`;
+    } else if (perVal === 'year') {
+      vSuffix = `${state.year}YR`;
+    } else if (perVal === 'all') {
+      vSuffix = `${state.year}ALL`;
+    }
+    vRef.value = `DSL-${vSuffix}-001`;
+  });
+  document.querySelectorAll('input[name="tankerPrintLang"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      const isEn = e.target.value === 'en';
+      const perSelect = document.getElementById('tankerPrintScopePeriod');
+      if (perSelect) {
+        const curVal = perSelect.value;
+        perSelect.innerHTML = getTankerPeriodOptionsHtml(curVal, isEn, state.year);
+      }
+      const copyInp = document.getElementById('tankerPrintCopyDestInput');
+      if (copyInp) {
+        copyInp.value = isEn ? 'Original - Accounts & Projects Dept.' : 'الأصل - قسم الحسابات والمشاريع';
+      }
+    });
+  });
   document.getElementById('btnExportTankerExcel')?.addEventListener('click', exportTankerCsv);
   document.getElementById('btnTankerLangAr')?.addEventListener('click', () => {
     state.tankerLang = 'ar';
@@ -7705,6 +7810,7 @@ if (typeof module !== 'undefined' && module.exports) {
     translateDispatchMetaToEnglish,
     generateDispatchWhatsAppSummary,
     getTankerDeliveries,
+    getTankerPeriodOptionsHtml,
     calculateTankerKpis,
     addTankerDelivery,
     updateTankerDelivery,
