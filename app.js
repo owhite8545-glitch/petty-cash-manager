@@ -28,7 +28,7 @@ function createCleanData() {
     safeInvoices: [], // [ { id, date, amount, periodKey, ref, note, settlementType, status, reversedAt, reversalReason } ] (فواتير مسلمة للخزنة لتسوية السحوبات)
     safeInvoicesAudit: [],
     tankerDeliveries: [], // [ { id, date, project, liters, pricePerLiter, amount, invoiceNo, receiver, supplier, notes, createdAt } ]
-    projectsList: ['مشروع لوسيل', 'موقع الدوحة الجديدة', 'مشروع الخور', 'مشروع الوكرة', 'مشروع الريان'] // [ { action, invoice, timestamp, reason } ] (سجل التدقيق التاريخي للعمليات المحذوفة والمعكوسة)
+    projectsList: []      // قائمة أسماء المشاريع والمواقع المعتمدة (فارغة افتراضياً ليدخلها المستخدم)
   };
 }
 
@@ -118,12 +118,34 @@ function loadState() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.people)) {
-        const defaultProjects = ['مشروع لوسيل', 'موقع الدوحة الجديدة', 'مشروع الخور', 'مشروع الوكرة', 'مشروع الريان'];
-        const loadedProjects = Array.isArray(parsed.projectsList) && parsed.projectsList.length > 0
-          ? parsed.projectsList
-          : defaultProjects;
-        const projectSet = new Set([...defaultProjects, ...loadedProjects]);
+        // Mock dummy projects to auto-purge from storage unless actively used by a real voucher
+        const mockProjectsToPurge = new Set([
+          'مشروع لوسيل',
+          'موقع الدوحة الجديدة',
+          'مشروع الخور',
+          'مشروع الوكرة',
+          'مشروع الريان',
+          'مشروع الزاوية'
+        ]);
+
+        const rawProjects = Array.isArray(parsed.projectsList) ? parsed.projectsList : [];
         const loadedDeliveries = Array.isArray(parsed.tankerDeliveries) ? parsed.tankerDeliveries : [];
+
+        const projectSet = new Set();
+        rawProjects.forEach(p => {
+          if (typeof p === 'string' && p.trim()) {
+            const cleanP = p.trim();
+            if (mockProjectsToPurge.has(cleanP)) {
+              // Only keep if the user has an existing delivery recorded with this name
+              const isUsed = loadedDeliveries.some(d => d && d.project === cleanP);
+              if (isUsed) projectSet.add(cleanP);
+            } else {
+              projectSet.add(cleanP);
+            }
+          }
+        });
+
+        // Ensure projects from existing deliveries are included
         loadedDeliveries.forEach(d => {
           if (d && d.project && typeof d.project === 'string' && d.project.trim()) {
             projectSet.add(d.project.trim());
@@ -149,7 +171,11 @@ function loadState() {
             if (pbkProjects) {
               const prjListBk = JSON.parse(pbkProjects);
               if (Array.isArray(prjListBk) && prjListBk.length > 0) {
-                prjListBk.forEach(p => projectSet.add(p));
+                prjListBk.forEach(p => {
+                  if (typeof p === 'string' && p.trim() && !mockProjectsToPurge.has(p.trim())) {
+                    projectSet.add(p.trim());
+                  }
+                });
                 finalProjects = Array.from(projectSet);
               }
             }
@@ -4751,7 +4777,7 @@ function addTankerDelivery(data = {}) {
   if (!state.data) state.data = createCleanData();
   if (!Array.isArray(state.data.tankerDeliveries)) state.data.tankerDeliveries = [];
   if (!Array.isArray(state.data.projectsList)) {
-    state.data.projectsList = ['مشروع لوسيل', 'موقع الدوحة الجديدة', 'مشروع الخور', 'مشروع الوكرة', 'مشروع الريان'];
+    state.data.projectsList = [];
   }
 
   const project = typeof data.project === 'string' ? data.project.trim() : '';
@@ -4901,7 +4927,7 @@ function addProjectToMasterList(projectName) {
   if (!clean) throw new Error('يرجى إدخال اسم المشروع أو الموقع أولاً');
   if (!state.data) state.data = createCleanData();
   if (!Array.isArray(state.data.projectsList)) {
-    state.data.projectsList = ['مشروع لوسيل', 'موقع الدوحة الجديدة', 'مشروع الخور', 'مشروع الوكرة', 'مشروع الريان'];
+    state.data.projectsList = [];
   }
   if (state.data.projectsList.some(p => p.toLowerCase() === clean.toLowerCase())) {
     throw new Error('هذا المشروع مسجل بالفعل في الدليل');
@@ -4972,7 +4998,7 @@ function renderProjectsDirectoryList() {
   }
 
   if (projects.length === 0) {
-    container.innerHTML = `<div class="text-muted" style="text-align: center; padding: 18px;">${isEn ? 'No projects registered in directory.' : 'لا توجد مشاريع مسجلة في الدليل حالياً.'}</div>`;
+    container.innerHTML = `<div class="text-muted" style="text-align: center; padding: 28px 16px; font-weight: 600; line-height: 1.6;">${isEn ? 'No projects registered in directory yet.<br><span style="font-size: 0.82rem; font-weight: normal;">Type a project name in the field above and click «➕ Add Project» to register it.</span>' : 'لا توجد مشاريع مسجلة في الدليل حالياً.<br><span style="font-size: 0.82rem; font-weight: normal;">اكتب اسم المشروع في الحقل أعلاه واضغط على «➕ إضافة المشروع» لتسجيله.</span>'}</div>`;
     return;
   }
 
@@ -4996,10 +5022,13 @@ function renderProjectsDirectoryList() {
               : `<span class="text-muted">${isEn ? 'Available site (No deliveries logged yet)' : 'مشروع متاح بالدليل (لم يُسجل عليه تفريغ بعد)'}</span>`}
           </div>
         </div>
-        <div>
+        <div style="display: flex; align-items: center; gap: 6px;">
           ${canDelete
             ? `<button type="button" class="btn btn-sm btn-outline btn-delete-project" data-project="${escapeHtml(p)}" style="color: var(--danger-color); padding: 4px 10px; font-size: 0.8rem;" title="${isEn ? 'Delete Project' : 'حذف المشروع'}">🗑️ ${isEn ? 'Delete' : 'حذف'}</button>`
-            : `<span class="badge" style="background: rgba(34, 197, 94, 0.15); color: var(--success-color); font-size: 0.78rem;">${isEn ? 'Active & Supplied' : 'نشط ومستفيد'}</span>`
+            : `
+              <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: var(--success-color); font-size: 0.78rem;">${isEn ? 'Active' : 'نشط'}</span>
+              <button type="button" class="btn btn-sm btn-outline btn-delete-project-cascade" data-project="${escapeHtml(p)}" data-count="${count}" style="color: var(--danger-color); padding: 4px 8px; font-size: 0.78rem;" title="${isEn ? 'Delete Project and its vouchers' : 'حذف المشروع وبوناته'}">🗑️ ${isEn ? 'Delete' : 'حذف'}</button>
+            `
           }
         </div>
       </div>
@@ -6395,15 +6424,10 @@ function validateBackupPayload(parsed) {
     });
   }
 
-  // Sanitize projectsList
-  const defaultProjects = ['مشروع لوسيل', 'موقع الدوحة الجديدة', 'مشروع الخور', 'مشروع الوكرة', 'مشروع الريان'];
-  let sanitizedProjectsList = defaultProjects.slice();
-  if (Array.isArray(parsed.projectsList) && parsed.projectsList.length > 0) {
-    sanitizedProjectsList = Array.from(new Set([
-      ...defaultProjects,
-      ...parsed.projectsList.filter(p => typeof p === 'string' && p.trim().length > 0).map(p => p.trim())
-    ]));
-  }
+  // Sanitize projectsList (never inject dummy projects)
+  let sanitizedProjectsList = Array.isArray(parsed.projectsList)
+    ? Array.from(new Set(parsed.projectsList.filter(p => typeof p === 'string' && p.trim().length > 0).map(p => p.trim())))
+    : [];
   sanitizedTankerDeliveries.forEach(d => {
     if (d.project && !sanitizedProjectsList.includes(d.project)) {
       sanitizedProjectsList.push(d.project);
@@ -7155,16 +7179,43 @@ function bindEvents() {
 
   document.getElementById('tankerProjectsListContainer')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.btn-delete-project');
-    if (!btn) return;
-    const prj = btn.getAttribute('data-project');
-    if (!prj) return;
-    if (confirm(state.tankerLang === 'en' ? `Are you sure you want to delete project "${prj}"?` : `هل أنت متأكد من حذف مشروع "${prj}" من الدليل؟`)) {
-      try {
-        removeProjectFromMasterList(prj);
-        showToast(state.tankerLang === 'en' ? `Project "${prj}" removed from directory` : `تم حذف مشروع "${prj}" من الدليل`);
-      } catch (err) {
-        alert(err.message);
+    if (btn) {
+      const prj = btn.getAttribute('data-project');
+      if (!prj) return;
+      if (confirm(state.tankerLang === 'en' ? `Are you sure you want to delete project "${prj}"?` : `هل أنت متأكد من حذف مشروع "${prj}" من الدليل؟`)) {
+        try {
+          removeProjectFromMasterList(prj);
+          showToast(state.tankerLang === 'en' ? `Project "${prj}" removed from directory` : `تم حذف مشروع "${prj}" من الدليل`);
+        } catch (err) {
+          alert(err.message);
+        }
       }
+      return;
+    }
+
+    const btnCascade = e.target.closest('.btn-delete-project-cascade');
+    if (btnCascade) {
+      const prj = btnCascade.getAttribute('data-project');
+      const count = btnCascade.getAttribute('data-count') || '1';
+      if (!prj) return;
+      const isEn = state.tankerLang === 'en';
+      const msg = isEn
+        ? `Warning: Project "${prj}" has ${count} delivery voucher(s).\nAre you sure you want to permanently delete this project and ALL its recorded vouchers?`
+        : `تنبيه: مشروع "${prj}" مسجل عليه ${count} بون تفريغ.\nهل أنت متأكد من رغبتك في حذف هذا المشروع نهائياً مع كافة بونات التفريغ المرتبطة به؟`;
+      if (confirm(msg)) {
+        if (state.data && Array.isArray(state.data.tankerDeliveries)) {
+          state.data.tankerDeliveries = state.data.tankerDeliveries.filter(d => d.project !== prj);
+        }
+        if (state.data && Array.isArray(state.data.projectsList)) {
+          state.data.projectsList = state.data.projectsList.filter(p => p !== prj);
+        }
+        saveState();
+        updateTankerDatalists();
+        renderTankerTab();
+        renderProjectsDirectoryList();
+        showToast(isEn ? `Project "${prj}" and its vouchers deleted.` : `تم حذف مشروع "${prj}" وكافة بوناته المرتبطة بنجاح.`);
+      }
+      return;
     }
   });
   document.getElementById('btnSaveTankerDelivery')?.addEventListener('click', handleSaveTankerDelivery);

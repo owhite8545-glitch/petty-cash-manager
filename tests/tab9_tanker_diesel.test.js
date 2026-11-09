@@ -456,6 +456,29 @@ test('Emergency fallback backup restores deliveries even if primary localStorage
   assert.ok(state.data.tankerDeliveries.length > 0, 'Must recover tanker deliveries from emergency backup');
 });
 
+test('createCleanData starts with zero mock projects and loadState auto-purges unrecorded dummy projects', () => {
+  const clean = createCleanData();
+  assert.strictEqual(clean.projectsList.length, 0, 'Clean state must have zero default/mock projects');
+
+  // Simulate old localStorage infected with mock dummy projects
+  const infected = {
+    schemaVersion: 5,
+    people: [],
+    tankerDeliveries: [],
+    projectsList: ['مشروع الوكرة', 'مشروع الزاوية', 'مشروع حقيقي مخصص']
+  };
+  global.localStorage.setItem('petty_cash_clean_v2', JSON.stringify(infected));
+  global.localStorage.removeItem('petty_cash_projects_backup');
+
+  loadState();
+
+  // Mock projects without deliveries must be purged
+  assert.ok(!state.data.projectsList.includes('مشروع الوكرة'), 'Mock project Al Wakrah must be purged');
+  assert.ok(!state.data.projectsList.includes('مشروع الزاوية'), 'Mock project Al Zawiya must be purged');
+  // User-created custom project must be preserved
+  assert.ok(state.data.projectsList.includes('مشروع حقيقي مخصص'), 'User-created custom project must be preserved');
+});
+
 console.log('\n================================================================');
 console.log(`🏁 TAB 9 TEST RESULTS: ${passed} / ${total} TESTS PASSED (100%)`);
 console.log('✅ ALL TANKER DIESEL & PROJECT FUEL ALLOCATION TESTS SUCCEEDED!');

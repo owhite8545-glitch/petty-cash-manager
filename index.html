@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#1e3a8a" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=20261109_v4" />
+  <link rel="stylesheet" href="styles.css?v=20261109_v5" />
 </head>
 <body class="senior-friendly">
   <!-- Official Print-Only Header (Appears on Paper/PDF when printing any report) -->
@@ -1959,7 +1959,7 @@
                 <label for="tankerProjectInput" class="tanker-label">
                   المشروع / الموقع <span class="text-danger">*</span>
                 </label>
-                <input type="text" id="tankerProjectInput" class="input-control tanker-input" list="tankerProjectsDatalist" placeholder="اختر أو اكتب اسم المشروع (مثلاً: مشروع لوسيل)" required />
+                <input type="text" id="tankerProjectInput" class="input-control tanker-input" list="tankerProjectsDatalist" placeholder="اختر من القائمة أو اكتب اسم المشروع..." required />
                 <datalist id="tankerProjectsDatalist"></datalist>
               </div>
             </div>
@@ -2061,7 +2061,7 @@
 
   <!-- Tanker Projects Directory Modal -->
   <div id="tankerProjectsModal" class="modal-overlay hidden" role="dialog" aria-labelledby="tankerProjectsModalTitle" aria-modal="true">
-    <div class="modal-box" style="max-width: 600px; width: 95%;">
+    <div class="modal-card" style="max-width: 600px; width: 95%; background: var(--bg-card); border: 1px solid var(--border-color); box-shadow: var(--shadow-lg);">
       <div class="modal-header">
         <h3 id="tankerProjectsModalTitle">🏗️ دليل المشاريع ومواقع العمل</h3>
         <button type="button" id="btnCloseTankerProjectsModal" class="modal-close-btn" aria-label="إغلاق">✕</button>
@@ -2073,7 +2073,7 @@
 
         <!-- Form to Add New Project -->
         <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
-          <input type="text" id="newTankerProjectInput" class="input-control" placeholder="اكتب اسم المشروع الجديد (مثال: مشروع اللؤلؤة)..." style="flex: 1; min-width: 220px;" />
+          <input type="text" id="newTankerProjectInput" class="input-control" placeholder="اكتب اسم المشروع أو الموقع الجديد..." style="flex: 1; min-width: 220px;" />
           <button type="button" id="btnAddTankerProjectSubmit" class="btn btn-primary" style="white-space: nowrap;">➕ إضافة المشروع</button>
         </div>
 
@@ -2081,14 +2081,14 @@
         <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <strong style="color: var(--text-color); font-size: 0.95rem;">المشاريع المسجلة في النظام:</strong>
-            <span id="tankerProjectsTotalBadge" class="badge" style="background: var(--bg-hover); color: var(--text-color); font-size: 0.82rem; border: 1px solid var(--border-color);">5 مشاريع</span>
+            <span id="tankerProjectsTotalBadge" class="badge" style="background: var(--bg-hover); color: var(--text-color); font-size: 0.82rem; border: 1px solid var(--border-color);">0 مشاريع</span>
           </div>
           <div id="tankerProjectsListContainer" style="max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
             <!-- Rendered dynamically -->
           </div>
         </div>
       </div>
-      <div class="modal-btn-row" style="margin-top: 12px;">
+      <div class="modal-btn-row" style="margin-top: 12px; padding: 12px 16px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
         <button type="button" id="btnDoneTankerProjectsModal" class="btn btn-primary">تم وحفظ</button>
       </div>
     </div>
@@ -2096,7 +2096,7 @@
 
   <!-- Tanker Print Customization Modal -->
   <div id="tankerPrintCustomModal" class="modal-overlay hidden" role="dialog" aria-labelledby="tankerPrintCustomModalTitle" aria-modal="true">
-    <div class="modal-box" style="max-width: 680px; width: 95%;">
+    <div class="modal-card" style="max-width: 680px; width: 95%; background: var(--bg-card); border: 1px solid var(--border-color); box-shadow: var(--shadow-lg);">
       <div class="modal-header">
         <h3 id="tankerPrintCustomModalTitle">🖨️ تخصيص وإعدادات طباعة كشف السولار</h3>
         <button type="button" id="btnCloseTankerPrintModal" class="modal-close-btn" aria-label="إغلاق">✕</button>
@@ -2260,6 +2260,6 @@
   <!-- Toast Notification -->
   <div id="toastContainer" class="toast-container no-print"></div>
 
-  <script src="app.js?v=20261109_v4"></script>
+  <script src="app.js?v=20261109_v5"></script>
 </body>
 </html>
