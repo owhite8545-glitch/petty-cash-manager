@@ -371,8 +371,8 @@ async function runBrowserE2E() {
 
     const dispatchDir = await client.eval('document.getElementById("tab-dispatch").getAttribute("dir")');
     const dispatchEngTitle = await client.eval('document.getElementById("dispatchMainTitle").textContent');
-    testAssert('Switching Tab 3 to English flips direction to LTR and updates titles',
-      dispatchDir === 'ltr' && dispatchEngTitle.includes('Daily Cash')
+    testAssert('Switching Tab 3 to English keeps layout stable without horizontal flipping while updating titles to English',
+      !dispatchDir && dispatchEngTitle.includes('Daily Cash')
     );
 
     // Switch back to Arabic
@@ -927,6 +927,30 @@ async function runBrowserE2E() {
     await client.send('Emulation.setEmulatedMedia', { media: '' });
     await client.eval('window.dispatchEvent(new Event("afterprint"));');
     await sleep(200);
+
+    // Test Tab 9 Language Switch to English
+    await client.eval('document.getElementById("btnTankerLangEn").click();');
+    await sleep(300);
+    const tankerEngTitle = await client.eval('document.getElementById("tankerMainTitle").textContent');
+    testAssert('Switching Tab 9 to English updates title to English', tankerEngTitle.includes('Tanker Diesel'));
+
+    // Test Tab 9 English Print mode
+    await client.eval(`{
+      window._tankerEnPrintCalled = false;
+      window.print = () => { window._tankerEnPrintCalled = true; };
+      document.getElementById('btnPrintTankerStatement').click();
+    }`);
+    await sleep(200);
+    const tankerEnPrintCalled = await client.eval('window._tankerEnPrintCalled');
+    const hasPrintingEn = await client.eval('document.body.classList.contains("printing-lang-en")');
+    testAssert('Printing Tab 9 in English applies printing-lang-en to body', tankerEnPrintCalled === true && hasPrintingEn === true);
+    await client.eval('window.dispatchEvent(new Event("afterprint"));');
+
+    // Switch Tab 9 back to Arabic
+    await client.eval('document.getElementById("btnTankerLangAr").click();');
+    await sleep(300);
+    const tankerArTitle = await client.eval('document.getElementById("tankerMainTitle").textContent');
+    testAssert('Switching Tab 9 back to Arabic restores Arabic title', tankerArTitle.includes('سولار التانكر'));
 
     
     console.log(`\n[Quality Check] Verifying browser runtime health (Console Errors: ${client.consoleErrors.length})`);

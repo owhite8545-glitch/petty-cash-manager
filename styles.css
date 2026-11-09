@@ -683,7 +683,8 @@ body {
   padding-right: 34px;
 }
 
-.filter-pills {
+.filter-pills,
+.pill-group {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -697,13 +698,19 @@ body {
   border-radius: 99px;
   border: 1px solid var(--border-strong);
   background: var(--bg-subtle);
+  color: var(--text-color);
   cursor: pointer;
   transition: all 0.15s;
 }
 
+.pill:hover {
+  background: var(--bg-hover);
+  color: var(--text-color);
+}
+
 .pill.active {
   background: var(--primary);
-  color: #fff;
+  color: #fff !important;
   border-color: var(--primary);
 }
 
@@ -3849,22 +3856,59 @@ body.dark-mode .settlement-badge.idle {
   border-color: rgba(148, 163, 184, 0.3);
 }
 
-/* Filter pills */
+/* Filter & Role pills across all tabs */
+body.dark-mode .pill,
+body.dark-mode .pill-group .pill,
 body.dark-mode .filter-pills .pill {
-  background: #111a2b;
-  border-color: #273549;
-  color: #cbd5e1;
+  background: #111a2b !important;
+  border-color: #273549 !important;
+  color: #e2e8f0 !important;
 }
 
+body.dark-mode .pill:hover,
+body.dark-mode .pill-group .pill:hover,
 body.dark-mode .filter-pills .pill:hover {
-  background: #1e293b;
-  color: #f1f5f9;
+  background: #1e293b !important;
+  color: #ffffff !important;
 }
 
+body.dark-mode .pill.active,
+body.dark-mode .pill-group .pill.active,
 body.dark-mode .filter-pills .pill.active {
-  background: #0f766e;
-  border-color: #2dd4bf;
-  color: #fff;
+  background: #0f766e !important;
+  border-color: #2dd4bf !important;
+  color: #ffffff !important;
+}
+
+/* Tab 3 Role Badges in Dark Mode */
+body.dark-mode .role-badge.driver {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+}
+
+body.dark-mode .role-badge.staff {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fcd34d !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+}
+
+/* WhatsApp Share Button */
+.btn-whatsapp {
+  border-color: #22c55e !important;
+  color: #15803d !important;
+  font-weight: 700 !important;
+}
+
+body.dark-mode .btn-whatsapp {
+  border-color: #22c55e !important;
+  color: #4ade80 !important;
+  background: rgba(34, 197, 94, 0.12) !important;
+}
+
+body.dark-mode .btn-whatsapp:hover {
+  background: rgba(34, 197, 94, 0.22) !important;
+  color: #86efac !important;
 }
 
 /* Bulk paste box */
@@ -4072,22 +4116,7 @@ body.eye-comfort .backup-reminder-banner p {
   color: #ffffff;
   box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
 }
-#tab-dispatch[dir="ltr"] {
-  direction: ltr;
-  text-align: left;
-}
-#tab-dispatch[dir="ltr"] .data-table th,
-#tab-dispatch[dir="ltr"] .data-table td {
-  text-align: left;
-}
-#tab-dispatch[dir="ltr"] .data-table td:nth-child(5),
-#tab-dispatch[dir="ltr"] .data-table th:nth-child(5) {
-  text-align: right;
-}
-#tab-dispatch[dir="ltr"] .data-table td:nth-child(7),
-#tab-dispatch[dir="ltr"] .data-table th:nth-child(7) {
-  text-align: center;
-}
+
 .dispatch-corporate-header {
   border-bottom: 2px solid #0f172a;
   padding-bottom: 12px;
@@ -4154,6 +4183,27 @@ body.eye-comfort .project-breakdown-pill {
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
+  }
+
+  body.printing-tanker.printing-lang-en #tankerTable th,
+  body.printing-tanker.printing-lang-en #tankerTable td {
+    text-align: left !important;
+  }
+  body.printing-tanker.printing-lang-en #tankerTable th:first-child,
+  body.printing-tanker.printing-lang-en #tankerTable td:first-child,
+  body.printing-tanker.printing-lang-en #tankerTable th:nth-child(2),
+  body.printing-tanker.printing-lang-en #tankerTable td:nth-child(2),
+  body.printing-tanker.printing-lang-en #tankerTable th:nth-child(7),
+  body.printing-tanker.printing-lang-en #tankerTable td:nth-child(7) {
+    text-align: center !important;
+  }
+  body.printing-tanker.printing-lang-en #tankerTable th:nth-child(4),
+  body.printing-tanker.printing-lang-en #tankerTable td:nth-child(4),
+  body.printing-tanker.printing-lang-en #tankerTable th:nth-child(5),
+  body.printing-tanker.printing-lang-en #tankerTable td:nth-child(5),
+  body.printing-tanker.printing-lang-en #tankerTable th:nth-child(6),
+  body.printing-tanker.printing-lang-en #tankerTable td:nth-child(6) {
+    text-align: right !important;
   }
 }
 

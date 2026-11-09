@@ -502,7 +502,7 @@
             <button id="btnExportDispatchExcel" class="btn btn-outline" title="تصدير كشف الصرف إلى Excel / CSV">
               📊 <span id="lblExportDispatch">تصدير إكسيل</span>
             </button>
-            <button id="btnCopyDispatchWhatsApp" class="btn btn-outline" style="border-color: #22c55e; color: #15803d; font-weight: 700;" title="نسخ ملخص تقرير واتساب سريع">
+            <button id="btnCopyDispatchWhatsApp" class="btn btn-outline btn-whatsapp" title="نسخ ملخص تقرير واتساب سريع">
               📋 <span id="lblWhatsAppDispatch">نسخ للواتساب</span>
             </button>
           </div>
@@ -1437,10 +1437,19 @@
         <div class="monthly-title-row" style="flex-wrap: wrap; gap: 16px;">
           <div>
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-              <h2 style="margin: 0;">⛽ سولار التانكر وتوزيع المشاريع</h2>
-              <span class="badge" style="background: #0284c7; color: #fff; font-size: 0.85rem; padding: 4px 10px;">ديزل المحروقات والمواقع</span>
+              <h2 id="tankerMainTitle" style="margin: 0;">⛽ سولار التانكر وتوزيع المشاريع</h2>
+              <span id="tankerBadge" class="badge" style="background: #0284c7; color: #fff; font-size: 0.85rem; padding: 4px 10px;">ديزل المحروقات والمواقع</span>
+              <!-- Language Segmented Control -->
+              <div class="dispatch-lang-switch no-print" role="group" aria-label="Tanker Language Selector">
+                <button type="button" id="btnTankerLangAr" class="btn btn-sm btn-lang active" title="عرض باللغة العربية">
+                  🇸🇦 عربي (Arabic)
+                </button>
+                <button type="button" id="btnTankerLangEn" class="btn btn-sm btn-lang" title="Switch to English">
+                  🇬🇧 English (إنجليزي)
+                </button>
+              </div>
             </div>
-            <p class="text-muted" style="margin-top: 6px;">
+            <p id="tankerSubTitle" class="text-muted" style="margin-top: 6px;">
               تفريغ ديزل المحروقات من التانكر، سداد فواتير المورد، وتوزيع استهلاك كل موقع ومشروع باللتر والمبلغ (ر.ق)
             </p>
           </div>
@@ -1448,13 +1457,13 @@
           <!-- Action Buttons -->
           <div class="monthly-controls no-print" style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button type="button" id="btnOpenTankerModal" class="btn btn-primary" title="تسجيل تفريغ ديزل جديد">
-              ➕ تسجيل تفريغ تانكر جديد
+              ➕ <span id="lblOpenTankerModal">تسجيل تفريغ تانكر جديد</span>
             </button>
             <button type="button" id="btnPrintTankerStatement" class="btn-corporate-print" title="طباعة كشف تفريغ وتوزيع السولار">
-              🖨️ طباعة كشف السولار
+              🖨️ <span id="lblPrintTankerStatement">طباعة كشف السولار</span>
             </button>
             <button type="button" id="btnExportTankerExcel" class="btn btn-outline" title="تصدير كشف السولار إلى Excel / CSV">
-              📊 تصدير إكسيل
+              📊 <span id="lblExportTankerExcel">تصدير إكسيل</span>
             </button>
           </div>
         </div>
@@ -1462,31 +1471,31 @@
         <!-- KPI Cards -->
         <div class="monthly-kpis" style="margin-top: 16px;">
           <div class="kpi-card kpi-item">
-            <span class="kpi-lbl kpi-label">⛽ إجمالي اللترات المفرغة</span>
+            <span class="kpi-lbl kpi-label" id="lblKpiTankerLiters">⛽ إجمالي اللترات المفرغة</span>
             <span class="kpi-val kpi-value text-blue" id="kpiTankerTotalLiters">0.00 لتر</span>
-            <span class="kpi-sub kpi-sub-split">مجموع كميات الديزل المستلمة</span>
+            <span class="kpi-sub kpi-sub-split" id="subKpiTankerLiters">مجموع كميات الديزل المستلمة</span>
           </div>
           <div class="kpi-card kpi-item">
-            <span class="kpi-lbl kpi-label">💰 إجمالي المدفوع للتانكر</span>
+            <span class="kpi-lbl kpi-label" id="lblKpiTankerAmount">💰 إجمالي المدفوع للتانكر</span>
             <span class="kpi-val kpi-value text-green" id="kpiTankerTotalAmount">0.00 ر.ق</span>
-            <span class="kpi-sub kpi-sub-split">إجمالي قيمة فواتير التوريد</span>
+            <span class="kpi-sub kpi-sub-split" id="subKpiTankerAmount">إجمالي قيمة فواتير التوريد</span>
           </div>
           <div class="kpi-card kpi-item">
-            <span class="kpi-lbl kpi-label">🏷️ متوسط سعر اللتر</span>
+            <span class="kpi-lbl kpi-label" id="lblKpiTankerAvg">🏷️ متوسط سعر اللتر</span>
             <span class="kpi-val kpi-value" id="kpiTankerAvgPrice">0.00 ر.ق/لتر</span>
-            <span class="kpi-sub kpi-sub-split">المتوسط المرجح للتكلفة</span>
+            <span class="kpi-sub kpi-sub-split" id="subKpiTankerAvg">المتوسط المرجح للتكلفة</span>
           </div>
           <div class="kpi-card kpi-item">
-            <span class="kpi-lbl kpi-label">🏗️ المشاريع المستفيدة</span>
+            <span class="kpi-lbl kpi-label" id="lblKpiTankerProjects">🏗️ المشاريع المستفيدة</span>
             <span class="kpi-val kpi-value" id="kpiTankerProjectsCount">0</span>
-            <span class="kpi-sub kpi-sub-split">مواقع العمل المفرغ بها</span>
+            <span class="kpi-sub kpi-sub-split" id="subKpiTankerProjects">مواقع العمل المفرغ بها</span>
           </div>
         </div>
 
         <!-- Projects Allocation Breakdown Pill Bar -->
         <div id="tankerProjectsBreakdownWrap" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color);">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <strong style="font-size: 0.95rem; color: var(--text-color);">📊 ملخص توزيع الاستهلاك على المشاريع:</strong>
+            <strong id="lblTankerBreakdownTitle" style="font-size: 0.95rem; color: var(--text-color);">📊 ملخص توزيع الاستهلاك على المشاريع:</strong>
             <span id="tankerBreakdownSummaryText" class="text-muted" style="font-size: 0.85rem;"></span>
           </div>
           <div id="tankerProjectsBreakdownList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
@@ -1495,16 +1504,16 @@
         <!-- Filter & Search Bar -->
         <div class="dispatch-date-bar no-print" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <label for="tankerProjectFilter" style="font-weight: 700; color: var(--text-color);">المشروع:</label>
+            <label for="tankerProjectFilter" id="lblTankerFilterProject" style="font-weight: 700; color: var(--text-color);">المشروع:</label>
             <select id="tankerProjectFilter" class="select-control" style="font-size: 0.95rem; padding: 6px 12px; min-width: 170px;">
               <option value="all">كل المشاريع (All Projects)</option>
             </select>
 
-            <label for="tankerPeriodFilter" style="font-weight: 700; color: var(--text-color); margin-inline-start: 8px;">الفترة:</label>
+            <label for="tankerPeriodFilter" id="lblTankerFilterPeriod" style="font-weight: 700; color: var(--text-color); margin-inline-start: 8px;">الفترة:</label>
             <select id="tankerPeriodFilter" class="select-control" style="font-size: 0.95rem; padding: 6px 12px;">
-              <option value="current">الشهر الحالي المحدد</option>
-              <option value="year">كامل السنة الحالية</option>
-              <option value="all">كل الأوقات (سجل شامل)</option>
+              <option value="current" id="optPeriodCurrent">الشهر الحالي المحدد</option>
+              <option value="year" id="optPeriodYear">كامل السنة الحالية</option>
+              <option value="all" id="optPeriodAll">كل الأوقات (سجل شامل)</option>
             </select>
           </div>
 
@@ -1524,20 +1533,20 @@
               <div class="dispatch-corp-logo-group">
                 <img src="assets/heliopolis-logo-transparent.png" alt="HELIOPOLIS ELECTRIC COMPANY" class="dispatch-corp-logo-img" />
                 <div>
-                  <h2 class="dispatch-corp-legal-name">
+                  <h2 id="printTankerCompanyName" class="dispatch-corp-legal-name">
                     شركة هليوبوليس للكهرباء (HELIOPOLIS ELECTRIC COMPANY)
                   </h2>
-                  <div class="dispatch-corp-division">
+                  <div id="printTankerDeptName" class="dispatch-corp-division">
                     إدارة المشاريع والخدمات اللوجستية — قسم المحروقات والديزل
                   </div>
-                  <div class="dispatch-corp-legal-meta">
+                  <div id="printTankerLegalMeta" class="dispatch-corp-legal-meta">
                     الموقع الرسمي: heliopoliselectric.ae | هاتف أبوظبي: 26412641 (971+) | الدوحة: 44634054 (974+)
                   </div>
                 </div>
               </div>
 
               <div class="dispatch-voucher-badge">
-                <h3 class="dispatch-voucher-title">
+                <h3 id="printTankerDocTitle" class="dispatch-voucher-title">
                   كشف تفريغ وتوزيع السولار على المشاريع (DIESEL DISBURSEMENT SHEET)
                 </h3>
               </div>
@@ -1547,20 +1556,20 @@
             <div class="dispatch-corp-meta-wrap">
               <table class="dispatch-corp-meta-box">
                 <tr>
-                  <td><strong>رقم السند:</strong></td>
+                  <td><strong id="printTankerVoucherNoLbl">رقم السند:</strong></td>
                   <td style="font-family: monospace; font-weight: 800;"><span id="printTankerVoucherNo">DSL-20261108-001</span></td>
                 </tr>
                 <tr>
-                  <td><strong>تاريخ الكشف:</strong></td>
+                  <td><strong id="printTankerDateLbl">تاريخ الكشف:</strong></td>
                   <td style="font-weight: 700;"><span id="printTankerDate"></span></td>
                 </tr>
                 <tr>
-                  <td><strong>العملة:</strong></td>
-                  <td><strong>ريال قطري (QAR)</strong></td>
+                  <td><strong id="printTankerCurrencyLbl">العملة:</strong></td>
+                  <td><strong id="printTankerCurrencyVal">ريال قطري (QAR)</strong></td>
                 </tr>
                 <tr>
-                  <td><strong>النسخة:</strong></td>
-                  <td>الأصل - قسم الحسابات والمشاريع</td>
+                  <td><strong id="printTankerCopyLbl">النسخة:</strong></td>
+                  <td id="printTankerCopyVal">الأصل - قسم الحسابات والمشاريع</td>
                 </tr>
               </table>
             </div>
@@ -1569,19 +1578,19 @@
           <!-- Official Reconciliation Summary Strip for Print -->
           <div class="dispatch-reconciliation-strip only-print">
             <div class="dispatch-recon-cell">
-              <span class="dispatch-recon-label">إجمالي كمية الديزل</span>
+              <span class="dispatch-recon-label" id="reconLblTankerLiters">إجمالي كمية الديزل</span>
               <span class="dispatch-recon-value text-blue" id="printReconTankerLiters">0.00 لتر</span>
             </div>
             <div class="dispatch-recon-cell">
-              <span class="dispatch-recon-label">إجمالي تكلفة السولار</span>
+              <span class="dispatch-recon-label" id="reconLblTankerAmount">إجمالي تكلفة السولار</span>
               <span class="dispatch-recon-value text-green" id="printReconTankerAmount">0.00 QAR</span>
             </div>
             <div class="dispatch-recon-cell">
-              <span class="dispatch-recon-label">متوسط سعر اللتر</span>
+              <span class="dispatch-recon-label" id="reconLblTankerAvgPrice">متوسط سعر اللتر</span>
               <span class="dispatch-recon-value" id="printReconTankerAvgPrice">0.00 QAR</span>
             </div>
             <div class="dispatch-recon-cell">
-              <span class="dispatch-recon-label">عدد المواقع المفرغ بها</span>
+              <span class="dispatch-recon-label" id="reconLblTankerProjects">عدد المواقع المفرغ بها</span>
               <span class="dispatch-recon-value text-blue" id="printReconTankerProjectsCount">0</span>
             </div>
           </div>
@@ -1601,20 +1610,7 @@
               <col style="width: 9%;">
               <col style="width: 8%;" class="no-print">
             </colgroup>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>التاريخ</th>
-                <th>اسم المشروع / الموقع</th>
-                <th>الكمية (لتر)</th>
-                <th>سعر اللتر</th>
-                <th>إجمالي الفاتورة</th>
-                <th>رقم الفاتورة</th>
-                <th>المستلم بالموقع</th>
-                <th>المورد / التانكر</th>
-                <th class="no-print">الإجراءات</th>
-              </tr>
-            </thead>
+            <thead id="tankerTableHead"></thead>
             <tbody id="tankerTableBody"></tbody>
             <tfoot id="tankerTableFoot"></tfoot>
           </table>
@@ -1622,7 +1618,7 @@
 
         <!-- Official Tafqeet (Amount in Words) Strip -->
         <div class="dispatch-tafqeet-strip only-print" id="tankerTafqeetStrip">
-          <span class="dispatch-tafqeet-lbl">إجمالي الفواتير كتابة بالحروف:</span>
+          <span class="dispatch-tafqeet-lbl" id="tankerTafqeetLbl">إجمالي الفواتير كتابة بالحروف:</span>
           <span id="printTankerTafqeetText" class="dispatch-tafqeet-val">فقط صفر ريال قطري لا غير</span>
         </div>
 
@@ -1630,19 +1626,19 @@
         <div class="dispatch-corporate-signoff only-print" id="tankerCorporateSignoff">
           <div class="dispatch-signoff-grid">
             <div class="dispatch-sign-box">
-              <div class="dispatch-sign-title">مسؤول استلام الموقع</div>
+              <div class="dispatch-sign-title" id="tankerSignTitle1">مسؤول استلام الموقع</div>
               <div class="dispatch-sign-line"></div>
-              <span class="dispatch-sign-sub">الاسم، التوقيع والتاريخ</span>
+              <span class="dispatch-sign-sub" id="tankerSignSub1">الاسم، التوقيع والتاريخ</span>
             </div>
             <div class="dispatch-sign-box">
-              <div class="dispatch-sign-title">تدقيق الحسابات / المحاسب</div>
+              <div class="dispatch-sign-title" id="tankerSignTitle2">تدقيق الحسابات / المحاسب</div>
               <div class="dispatch-sign-line"></div>
-              <span class="dispatch-sign-sub">الاسم، التوقيع والتاريخ</span>
+              <span class="dispatch-sign-sub" id="tankerSignSub2">الاسم، التوقيع والتاريخ</span>
             </div>
             <div class="dispatch-sign-box">
-              <div class="dispatch-sign-title">اعتماد الإدارة / المدير المالي</div>
+              <div class="dispatch-sign-title" id="tankerSignTitle3">اعتماد الإدارة / المدير المالي</div>
               <div class="dispatch-sign-line"></div>
-              <span class="dispatch-sign-sub">الاسم، التوقيع والتاريخ</span>
+              <span class="dispatch-sign-sub" id="tankerSignSub3">الاسم، التوقيع والتاريخ</span>
             </div>
             <div class="dispatch-seal-box">
               <div style="font-size: 1.15rem; font-weight: 900; letter-spacing: 1.5px; color: #0f172a; margin-bottom: 2px;">HEC</div>

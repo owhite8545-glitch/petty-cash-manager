@@ -87,6 +87,7 @@ const state = {
   safeShowYear: false,
   dispatchLang: 'ar',
   dispatchRoleFilter: 'all',
+  tankerLang: 'ar',
   tankerSearch: '',
   tankerProjectFilter: 'all',
   tankerPeriodFilter: 'current',
@@ -3868,7 +3869,7 @@ function renderDispatchTab() {
   const isEn = state.dispatchLang === 'en';
   const tabEl = document.getElementById('tab-dispatch');
   if (tabEl) {
-    tabEl.setAttribute('dir', isEn ? 'ltr' : 'rtl');
+    tabEl.removeAttribute('dir');
   }
 
   const titleEl = document.getElementById('dispatchMainTitle');
@@ -3990,8 +3991,8 @@ function renderDispatchTable(list, isEn) {
       const tr = document.createElement('tr');
       const p = item.person;
       const roleBadge = p.role === 'staff'
-        ? `<span class="badge" style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.82rem;">${isEn ? 'Staff' : 'موظف'}</span>`
-        : `<span class="badge" style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:4px; font-weight:700; font-size:0.82rem;">${isEn ? 'Driver' : 'سائق'}</span>`;
+        ? `<span class="role-badge staff">${isEn ? 'Staff' : 'موظف'}</span>`
+        : `<span class="role-badge driver">${isEn ? 'Driver' : 'سائق'}</span>`;
 
       let nameCellContent = '';
       if (isEn) {
@@ -3999,10 +4000,10 @@ function renderDispatchTable(list, isEn) {
         nameCellContent = `
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
             <div>
-              <strong style="color: #0f172a; font-size: 1rem;">${escapeHtml(enName)}</strong>
-              <small style="display: block; color: #64748b; font-size: 0.78rem;">${escapeHtml(p.name)} (#${p.num})</small>
+              <strong style="color: var(--text-color); font-size: 1rem;">${escapeHtml(enName)}</strong>
+              <small style="display: block; color: var(--text-muted); font-size: 0.78rem;">${escapeHtml(p.name)} (#${p.num})</small>
             </div>
-            <button type="button" class="btn btn-sm btn-outline no-print" data-edit-eng-name="${p.id}" title="Edit English spelling" style="padding: 2px 7px; font-size: 0.75rem; border-color: #cbd5e1;">
+            <button type="button" class="btn btn-sm btn-outline no-print" data-edit-eng-name="${p.id}" title="Edit English spelling" style="padding: 2px 7px; font-size: 0.75rem;">
               ✏️ Edit
             </button>
           </div>
@@ -4010,7 +4011,7 @@ function renderDispatchTable(list, isEn) {
       } else {
         nameCellContent = `
           <div>
-            <strong style="font-size: 1.02rem; color: #0f172a;">${escapeHtml(p.name)}</strong>
+            <strong style="font-size: 1.02rem; color: var(--text-color);">${escapeHtml(p.name)}</strong>
             <small style="display: block; color: var(--text-muted); font-size: 0.8rem;">رقم #${p.num}</small>
           </div>
         `;
@@ -4021,12 +4022,12 @@ function renderDispatchTable(list, isEn) {
       const amtDisplay = isEn ? `${formatNumber(item.cash)} QAR` : `${formatNumber(item.cash)} ر.ق`;
 
       tr.innerHTML = `
-        <td style="text-align: center; font-weight: 700; color: #64748b;">${idx + 1}</td>
+        <td style="text-align: center; font-weight: 700; color: var(--text-muted);">${idx + 1}</td>
         <td>${nameCellContent}</td>
         <td style="text-align: center;">${roleBadge}</td>
         <td style="text-align: center; color: var(--text-muted); font-size: 0.88rem;">${escapeHtml(metaDisplay)}</td>
-        <td style="text-align: right; font-weight: 800; color: #15803d; font-size: 1.08rem; font-variant-numeric: tabular-nums;">${amtDisplay}</td>
-        <td style="font-size: 0.88rem; color: #334155;">${escapeHtml(noteDisplay)}</td>
+        <td style="text-align: right; font-weight: 800; color: var(--success-color); font-size: 1.08rem; font-variant-numeric: tabular-nums;">${amtDisplay}</td>
+        <td style="font-size: 0.88rem; color: var(--text-color);">${escapeHtml(noteDisplay)}</td>
         <td style="text-align: center;">
           <div class="only-print" style="min-height: 28px; border-bottom: 1px dashed #64748b; width: 85%; margin: 0 auto;"></div>
           <span class="no-print text-muted" style="font-size: 0.82rem;">[ ✍️ ${isEn ? 'Signature' : 'التوقيع'} ]</span>
@@ -4942,6 +4943,39 @@ function handleSaveTankerDelivery() {
 }
 
 function renderTankerTab() {
+  if (typeof document === 'undefined') return;
+  const isEn = state.tankerLang === 'en';
+
+  // Toggle language button states
+  const btnAr = document.getElementById('btnTankerLangAr');
+  const btnEn = document.getElementById('btnTankerLangEn');
+  if (btnAr) btnAr.classList.toggle('active', !isEn);
+  if (btnEn) btnEn.classList.toggle('active', isEn);
+
+  // Update Header Titles & Badge
+  const titleEl = document.getElementById('tankerMainTitle');
+  const badgeEl = document.getElementById('tankerBadge');
+  const subEl = document.getElementById('tankerSubTitle');
+  if (titleEl) {
+    titleEl.textContent = isEn ? '⛽ Tanker Diesel & Projects Allocation' : '⛽ سولار التانكر وتوزيع المشاريع';
+  }
+  if (badgeEl) {
+    badgeEl.textContent = isEn ? 'Fuel & Site Operations' : 'ديزل المحروقات والمواقع';
+  }
+  if (subEl) {
+    subEl.textContent = isEn
+      ? 'Diesel unloading from tanker, supplier invoice settlements, and site consumption allocation by liters and cost (QAR)'
+      : 'تفريغ ديزل المحروقات من التانكر، سداد فواتير المورد، وتوزيع استهلاك كل موقع ومشروع باللتر والمبلغ (ر.ق)';
+  }
+
+  // Update Action Button Labels
+  const lblAdd = document.getElementById('lblOpenTankerModal');
+  const lblPrint = document.getElementById('lblPrintTankerStatement');
+  const lblExport = document.getElementById('lblExportTankerExcel');
+  if (lblAdd) lblAdd.textContent = isEn ? 'Log Diesel Delivery' : 'تسجيل تفريغ تانكر جديد';
+  if (lblPrint) lblPrint.textContent = isEn ? 'Print Diesel Statement' : 'طباعة كشف السولار';
+  if (lblExport) lblExport.textContent = isEn ? 'Export Excel (CSV)' : 'تصدير إكسيل';
+
   const deliveries = getTankerDeliveries({
     periodFilter: state.tankerPeriodFilter,
     projectFilter: state.tankerProjectFilter,
@@ -4951,17 +4985,54 @@ function renderTankerTab() {
   const kpis = calculateTankerKpis(deliveries);
 
   // 1. Update KPI cards
+  const lblLiters = document.getElementById('lblKpiTankerLiters');
+  const subLiters = document.getElementById('subKpiTankerLiters');
   const elLiters = document.getElementById('kpiTankerTotalLiters');
+  if (lblLiters) lblLiters.textContent = isEn ? '⛽ Total Liters Delivered' : '⛽ إجمالي اللترات المفرغة';
+  if (subLiters) subLiters.textContent = isEn ? 'Total diesel volume received' : 'مجموع كميات الديزل المستلمة';
+  if (elLiters) elLiters.textContent = isEn ? `${formatNumber(kpis.totalLiters)} Liters` : `${formatNumber(kpis.totalLiters)} لتر`;
+
+  const lblAmount = document.getElementById('lblKpiTankerAmount');
+  const subAmount = document.getElementById('subKpiTankerAmount');
   const elAmount = document.getElementById('kpiTankerTotalAmount');
+  if (lblAmount) lblAmount.textContent = isEn ? '💰 Total Diesel Cost' : '💰 إجمالي المدفوع للتانكر';
+  if (subAmount) subAmount.textContent = isEn ? 'Total invoice expenditures' : 'إجمالي قيمة فواتير التوريد';
+  if (elAmount) elAmount.textContent = isEn ? `${formatNumber(kpis.totalAmount, true)} QAR` : `${formatNumber(kpis.totalAmount, true)} ر.ق`;
+
+  const lblAvg = document.getElementById('lblKpiTankerAvg');
+  const subAvg = document.getElementById('subKpiTankerAvg');
   const elAvgPrice = document.getElementById('kpiTankerAvgPrice');
+  if (lblAvg) lblAvg.textContent = isEn ? '🏷️ Average Price / Liter' : '🏷️ متوسط سعر اللتر';
+  if (subAvg) subAvg.textContent = isEn ? 'Weighted average cost per liter' : 'المتوسط المرجح للتكلفة';
+  if (elAvgPrice) elAvgPrice.textContent = isEn ? `${kpis.avgPrice.toFixed(3)} QAR/L` : `${kpis.avgPrice.toFixed(3)} ر.ق/لتر`;
+
+  const lblProjects = document.getElementById('lblKpiTankerProjects');
+  const subProjects = document.getElementById('subKpiTankerProjects');
   const elProjectsCount = document.getElementById('kpiTankerProjectsCount');
+  if (lblProjects) lblProjects.textContent = isEn ? '🏗️ Allocated Projects' : '🏗️ المشاريع المستفيدة';
+  if (subProjects) subProjects.textContent = isEn ? 'Active project sites supplied' : 'مواقع العمل المفرغ بها';
+  if (elProjectsCount) elProjectsCount.textContent = isEn ? `${kpis.projectsCount} Sites` : `${kpis.projectsCount}`;
 
-  if (elLiters) elLiters.textContent = `${formatNumber(kpis.totalLiters)} لتر`;
-  if (elAmount) elAmount.textContent = `${formatNumber(kpis.totalAmount, true)} ر.ق`;
-  if (elAvgPrice) elAvgPrice.textContent = `${kpis.avgPrice.toFixed(2)} ر.ق/لتر`;
-  if (elProjectsCount) elProjectsCount.textContent = `${kpis.projectsCount}`;
+  // 2. Update Project Filter & Period Filter Labels
+  const lblFilterPrj = document.getElementById('lblTankerFilterProject');
+  const lblFilterPer = document.getElementById('lblTankerFilterPeriod');
+  if (lblFilterPrj) lblFilterPrj.textContent = isEn ? 'Project:' : 'المشروع:';
+  if (lblFilterPer) lblFilterPer.textContent = isEn ? 'Period:' : 'الفترة:';
 
-  // 2. Update Project Filter Dropdown
+  const optCur = document.getElementById('optPeriodCurrent');
+  const optYr = document.getElementById('optPeriodYear');
+  const optAll = document.getElementById('optPeriodAll');
+  if (optCur) optCur.textContent = isEn ? 'Current Selected Month' : 'الشهر الحالي المحدد';
+  if (optYr) optYr.textContent = isEn ? 'Full Current Year' : 'كامل السنة الحالية';
+  if (optAll) optAll.textContent = isEn ? 'All Time (Full Log)' : 'كل الأوقات (سجل شامل)';
+
+  const searchInput = document.getElementById('tankerSearchInput');
+  if (searchInput) {
+    searchInput.placeholder = isEn
+      ? 'Search project, invoice, receiver, supplier...'
+      : 'ابحث بالمشروع، رقم الفاتورة، المستلم...';
+  }
+
   const prjFilterSelect = document.getElementById('tankerProjectFilter');
   if (prjFilterSelect) {
     const curVal = state.tankerProjectFilter || 'all';
@@ -4970,7 +5041,7 @@ function renderTankerTab() {
       ...(state.data.tankerDeliveries || []).map(d => d.project)
     ])).filter(Boolean).sort();
 
-    let optionsHtml = '<option value="all">جميع المشاريع والمواقع</option>';
+    let optionsHtml = `<option value="all">${isEn ? 'All Projects & Sites' : 'جميع المشاريع والمواقع'}</option>`;
     allProjects.forEach(p => {
       const selected = (p === curVal) ? 'selected' : '';
       optionsHtml += `<option value="${escapeHtml(p)}" ${selected}>${escapeHtml(p)}</option>`;
@@ -4979,37 +5050,83 @@ function renderTankerTab() {
   }
 
   // 3. Update Project Breakdown List
+  const lblBreakdown = document.getElementById('lblTankerBreakdownTitle');
+  if (lblBreakdown) {
+    lblBreakdown.textContent = isEn ? '📊 Project Consumption & Cost Breakdown:' : '📊 ملخص توزيع الاستهلاك على المشاريع:';
+  }
   const breakdownList = document.getElementById('tankerProjectsBreakdownList');
   const breakdownSummaryText = document.getElementById('tankerBreakdownSummaryText');
   if (breakdownSummaryText) {
-    breakdownSummaryText.textContent = kpis.projectsBreakdown.length > 0
-      ? `توزيع استهلاك وتكلفة السولار على المشاريع (${kpis.projectsBreakdown.length} مواقع):`
-      : 'لا توجد مشاريع مسجلة لهذه الفترة.';
+    if (isEn) {
+      breakdownSummaryText.textContent = kpis.projectsBreakdown.length > 0
+        ? `Fuel and cost allocation across ${kpis.projectsBreakdown.length} sites:`
+        : 'No projects registered for this period.';
+    } else {
+      breakdownSummaryText.textContent = kpis.projectsBreakdown.length > 0
+        ? `توزيع استهلاك وتكلفة السولار على المشاريع (${kpis.projectsBreakdown.length} مواقع):`
+        : 'لا توجد مشاريع مسجلة لهذه الفترة.';
+    }
   }
   if (breakdownList) {
     if (kpis.projectsBreakdown.length === 0) {
-      breakdownList.innerHTML = '<span class="text-muted" style="font-size: 0.85rem;">لا توجد بيانات تفريغ للمشاريع حالياً.</span>';
+      breakdownList.innerHTML = `<span class="text-muted" style="font-size: 0.85rem;">${isEn ? 'No project delivery data available.' : 'لا توجد بيانات تفريغ للمشاريع حالياً.'}</span>`;
     } else {
       breakdownList.innerHTML = kpis.projectsBreakdown.map(p => `
         <div class="project-breakdown-pill">
           <div class="pill-project-name">🏗️ ${escapeHtml(p.project)}</div>
           <div class="pill-stats">
-            <span>⛽ <strong>${formatNumber(p.liters)}</strong> لتر (${p.percentLiters}%)</span>
-            <span>💰 <strong>${formatNumber(p.amount, true)}</strong> ر.ق (${p.percentAmount}%)</span>
+            <span>⛽ <strong>${formatNumber(p.liters)}</strong> ${isEn ? 'L' : 'لتر'} (${p.percentLiters}%)</span>
+            <span>💰 <strong>${formatNumber(p.amount, true)}</strong> ${isEn ? 'QAR' : 'ر.ق'} (${p.percentAmount}%)</span>
           </div>
         </div>
       `).join('');
     }
   }
 
-  // 4. Update Table Rows
+  // 4. Update Table Headers
+  const thead = document.getElementById('tankerTableHead');
+  if (thead) {
+    if (isEn) {
+      thead.innerHTML = `
+        <tr>
+          <th style="text-align: center;">#</th>
+          <th style="text-align: center;">Date</th>
+          <th style="text-align: left;">Project / Site Name</th>
+          <th style="text-align: right;">Quantity (Liters)</th>
+          <th style="text-align: right;">Price / Liter</th>
+          <th style="text-align: right;">Invoice Total (QAR)</th>
+          <th style="text-align: center;">Invoice Ref</th>
+          <th style="text-align: left;">Site Receiver</th>
+          <th style="text-align: left;">Supplier / Tanker</th>
+          <th class="no-print" style="text-align: center;">Actions</th>
+        </tr>
+      `;
+    } else {
+      thead.innerHTML = `
+        <tr>
+          <th style="text-align: center;">#</th>
+          <th style="text-align: center;">التاريخ</th>
+          <th style="text-align: right;">اسم المشروع / الموقع</th>
+          <th style="text-align: right;">الكمية (لتر)</th>
+          <th style="text-align: right;">سعر اللتر</th>
+          <th style="text-align: right;">إجمالي الفاتورة</th>
+          <th style="text-align: center;">رقم الفاتورة</th>
+          <th style="text-align: right;">المستلم بالموقع</th>
+          <th style="text-align: right;">المورد / التانكر</th>
+          <th class="no-print" style="text-align: center;">الإجراءات</th>
+        </tr>
+      `;
+    }
+  }
+
+  // 5. Update Table Body
   const tbody = document.getElementById('tankerTableBody');
   if (tbody) {
     if (deliveries.length === 0) {
       tbody.innerHTML = `
         <tr>
           <td colspan="10" class="empty-state" style="text-align: center; padding: 28px; color: var(--text-muted);">
-            لا توجد بونات توريد مسجلة لهذه الفترة أو معايير البحث المحددة.
+            ${isEn ? 'No fuel delivery vouchers found for this period or search criteria.' : 'لا توجد بونات توريد مسجلة لهذه الفترة أو معايير البحث المحددة.'}
           </td>
         </tr>
       `;
@@ -5017,24 +5134,24 @@ function renderTankerTab() {
       tbody.innerHTML = deliveries.map((item, idx) => `
         <tr>
           <td style="text-align: center; font-weight: 700;">${idx + 1}</td>
-          <td style="font-family: monospace; white-space: nowrap;">${item.date}</td>
+          <td style="font-family: monospace; white-space: nowrap; text-align: center;">${item.date}</td>
           <td style="font-weight: 700; color: var(--primary-color);">🏗️ ${escapeHtml(item.project)}</td>
-          <td style="font-weight: 700; text-align: right;">${formatNumber(item.liters)} لتر</td>
+          <td style="font-weight: 700; text-align: right;">${formatNumber(item.liters)} ${isEn ? 'L' : 'لتر'}</td>
           <td style="text-align: right; font-family: monospace;">${item.pricePerLiter ? item.pricePerLiter.toFixed(3) : '-'}</td>
-          <td style="font-weight: 800; text-align: right; color: var(--success-color);">${formatNumber(item.amount, true)} ر.ق</td>
+          <td style="font-weight: 800; text-align: right; color: var(--success-color);">${formatNumber(item.amount, true)} ${isEn ? 'QAR' : 'ر.ق'}</td>
           <td style="font-family: monospace; text-align: center;">${escapeHtml(item.invoiceNo || '-')}</td>
           <td>${escapeHtml(item.receiver || '-')}</td>
           <td>${escapeHtml(item.supplier || '-')}</td>
           <td class="no-print" style="text-align: center; white-space: nowrap;">
-            <button type="button" class="btn btn-sm btn-outline btn-edit-tanker" data-id="${item.id}" title="تعديل هذا البون" style="padding: 3px 8px; font-size: 0.8rem;">✏️ تعديل</button>
-            <button type="button" class="btn btn-sm btn-outline btn-delete-tanker" data-id="${item.id}" title="حذف هذا البون" style="padding: 3px 8px; font-size: 0.8rem; color: var(--danger-color); margin-inline-start: 4px;">🗑️ حذف</button>
+            <button type="button" class="btn btn-sm btn-outline btn-edit-tanker" data-id="${item.id}" title="${isEn ? 'Edit voucher' : 'تعديل هذا البون'}" style="padding: 3px 8px; font-size: 0.8rem;">✏️ ${isEn ? 'Edit' : 'تعديل'}</button>
+            <button type="button" class="btn btn-sm btn-outline btn-delete-tanker" data-id="${item.id}" title="${isEn ? 'Delete voucher' : 'حذف هذا البون'}" style="padding: 3px 8px; font-size: 0.8rem; color: var(--danger-color); margin-inline-start: 4px;">🗑️ ${isEn ? 'Delete' : 'حذف'}</button>
           </td>
         </tr>
       `).join('');
     }
   }
 
-  // 5. Update Table Foot
+  // 6. Update Table Foot
   const tfoot = document.getElementById('tankerTableFoot');
   if (tfoot) {
     if (deliveries.length === 0) {
@@ -5042,10 +5159,10 @@ function renderTankerTab() {
     } else {
       tfoot.innerHTML = `
         <tr style="background: var(--bg-hover); font-weight: 800; border-top: 2px solid var(--border-color);">
-          <td colspan="3" style="text-align: center;">الإجمالي العام (${deliveries.length} بون توريد)</td>
-          <td style="text-align: right; color: var(--primary-color);">${formatNumber(kpis.totalLiters)} لتر</td>
+          <td colspan="3" style="text-align: center;">${isEn ? `Grand Total (${deliveries.length} Deliveries)` : `الإجمالي العام (${deliveries.length} بون توريد)`}</td>
+          <td style="text-align: right; color: var(--primary-color);">${formatNumber(kpis.totalLiters)} ${isEn ? 'L' : 'لتر'}</td>
           <td style="text-align: right; font-family: monospace;">${kpis.avgPrice.toFixed(3)}</td>
-          <td style="text-align: right; color: var(--success-color); font-size: 1.05rem;">${formatNumber(kpis.totalAmount, true)} ر.ق</td>
+          <td style="text-align: right; color: var(--success-color); font-size: 1.05rem;">${formatNumber(kpis.totalAmount, true)} ${isEn ? 'QAR' : 'ر.ق'}</td>
           <td colspan="3"></td>
           <td class="no-print"></td>
         </tr>
@@ -5053,7 +5170,46 @@ function renderTankerTab() {
     }
   }
 
-  // 6. Update Corporate Print Elements
+  // 7. Corporate Print Elements & Tafqeet
+  const pComp = document.getElementById('printTankerCompanyName');
+  const pDept = document.getElementById('printTankerDeptName');
+  const pLegal = document.getElementById('printTankerLegalMeta');
+  const pTitle = document.getElementById('printTankerDocTitle');
+  const pVouchLbl = document.getElementById('printTankerVoucherNoLbl');
+  const pDateLbl = document.getElementById('printTankerDateLbl');
+  const pCurrLbl = document.getElementById('printTankerCurrencyLbl');
+  const pCurrVal = document.getElementById('printTankerCurrencyVal');
+  const pCopyLbl = document.getElementById('printTankerCopyLbl');
+  const pCopyVal = document.getElementById('printTankerCopyVal');
+
+  if (pComp) pComp.textContent = isEn ? 'HELIOPOLIS ELECTRIC COMPANY' : 'شركة هليوبوليس للكهرباء (HELIOPOLIS ELECTRIC COMPANY)';
+  if (pDept) pDept.textContent = isEn ? 'Projects Management & Logistics — Fuel & Diesel Department' : 'إدارة المشاريع والخدمات اللوجستية — قسم المحروقات والديزل';
+  if (pLegal) {
+    pLegal.textContent = isEn
+      ? 'Official Website: heliopoliselectric.ae | Abu Dhabi: +971 2 641 2641 | Doha: +974 4463 4054'
+      : 'الموقع الرسمي: heliopoliselectric.ae | هاتف أبوظبي: 26412641 (971+) | الدوحة: 44634054 (974+)';
+  }
+  if (pTitle) {
+    pTitle.textContent = isEn
+      ? 'DIESEL DISBURSEMENT & PROJECT ALLOCATION STATEMENT'
+      : 'كشف تفريغ وتوزيع السولار على المشاريع (DIESEL DISBURSEMENT SHEET)';
+  }
+  if (pVouchLbl) pVouchLbl.textContent = isEn ? 'Voucher Ref:' : 'رقم السند:';
+  if (pDateLbl) pDateLbl.textContent = isEn ? 'Statement Date:' : 'تاريخ الكشف:';
+  if (pCurrLbl) pCurrLbl.textContent = isEn ? 'Currency:' : 'العملة:';
+  if (pCurrVal) pCurrVal.textContent = isEn ? 'Qatari Riyal (QAR)' : 'ريال قطري (QAR)';
+  if (pCopyLbl) pCopyLbl.textContent = isEn ? 'Copy:' : 'النسخة:';
+  if (pCopyVal) pCopyVal.textContent = isEn ? 'Original - Accounts & Projects Dept.' : 'الأصل - قسم الحسابات والمشاريع';
+
+  const rLitersLbl = document.getElementById('reconLblTankerLiters');
+  const rAmountLbl = document.getElementById('reconLblTankerAmount');
+  const rAvgLbl = document.getElementById('reconLblTankerAvgPrice');
+  const rPrjLbl = document.getElementById('reconLblTankerProjects');
+  if (rLitersLbl) rLitersLbl.textContent = isEn ? 'Total Diesel Volume' : 'إجمالي كمية الديزل';
+  if (rAmountLbl) rAmountLbl.textContent = isEn ? 'Total Diesel Cost' : 'إجمالي تكلفة السولار';
+  if (rAvgLbl) rAvgLbl.textContent = isEn ? 'Average Price / Liter' : 'متوسط سعر اللتر';
+  if (rPrjLbl) rPrjLbl.textContent = isEn ? 'Supplied Sites Count' : 'عدد المواقع المفرغ بها';
+
   const elPrintDate = document.getElementById('printTankerDate');
   const elPrintVoucher = document.getElementById('printTankerVoucherNo');
   const elPrintLiters = document.getElementById('printReconTankerLiters');
@@ -5061,26 +5217,48 @@ function renderTankerTab() {
   const elPrintAvg = document.getElementById('printReconTankerAvgPrice');
   const elPrintProjects = document.getElementById('printReconTankerProjectsCount');
   const elPrintTafqeet = document.getElementById('printTankerTafqeetText');
+  const lblTafqeet = document.getElementById('tankerTafqeetLbl');
 
   const curDateStr = state.selectedDate || `${state.year}-${String(state.month).padStart(2, '0')}-01`;
-  if (elPrintDate) elPrintDate.textContent = curDateStr;
+  const { y: dy, m: dm, d: dd } = parseDateParts(curDateStr);
+  if (elPrintDate) {
+    elPrintDate.textContent = isEn
+      ? `${getEnglishDayName(dy, dm, dd)}, ${curDateStr}`
+      : `${getArabicDayName(dy, dm, dd)} ${curDateStr}`;
+  }
   if (elPrintVoucher) elPrintVoucher.textContent = `DSL-${state.year}${String(state.month).padStart(2, '0')}-001`;
-  if (elPrintLiters) elPrintLiters.textContent = `${formatNumber(kpis.totalLiters)} لتر`;
+  if (elPrintLiters) elPrintLiters.textContent = isEn ? `${formatNumber(kpis.totalLiters)} Liters` : `${formatNumber(kpis.totalLiters)} لتر`;
   if (elPrintAmount) elPrintAmount.textContent = `${formatNumber(kpis.totalAmount, true)} QAR`;
-  if (elPrintAvg) elPrintAvg.textContent = `${kpis.avgPrice.toFixed(2)} QAR`;
-  if (elPrintProjects) elPrintProjects.textContent = `${kpis.projectsCount}`;
+  if (elPrintAvg) elPrintAvg.textContent = `${kpis.avgPrice.toFixed(3)} QAR`;
+  if (elPrintProjects) elPrintProjects.textContent = isEn ? `${kpis.projectsCount} Sites` : `${kpis.projectsCount}`;
 
+  if (lblTafqeet) lblTafqeet.textContent = isEn ? 'Total Amount in Words:' : 'إجمالي الفواتير كتابة بالحروف:';
   if (elPrintTafqeet) {
-    elPrintTafqeet.textContent = typeof moneyToArabicWords === 'function'
-      ? (moneyToArabicWords(kpis.totalAmount) + ' لا غير')
-      : `فقط ${formatNumber(kpis.totalAmount, true)} ريال قطري لا غير`;
+    elPrintTafqeet.textContent = isEn
+      ? (typeof moneyToEnglishWords === 'function' ? moneyToEnglishWords(kpis.totalAmount) : `${formatNumber(kpis.totalAmount, true)} QAR Only`)
+      : (typeof moneyToArabicWords === 'function' ? (moneyToArabicWords(kpis.totalAmount) + ' لا غير') : `فقط ${formatNumber(kpis.totalAmount, true)} ريال قطري لا غير`);
   }
 
-  // 7. Update Autocomplete Datalists
+  const sTitle1 = document.getElementById('tankerSignTitle1');
+  const sSub1 = document.getElementById('tankerSignSub1');
+  const sTitle2 = document.getElementById('tankerSignTitle2');
+  const sSub2 = document.getElementById('tankerSignSub2');
+  const sTitle3 = document.getElementById('tankerSignTitle3');
+  const sSub3 = document.getElementById('tankerSignSub3');
+
+  if (sTitle1) sTitle1.textContent = isEn ? 'Site Receiving Officer' : 'مسؤول استلام الموقع';
+  if (sSub1) sSub1.textContent = isEn ? 'Name, Signature & Date' : 'الاسم، التوقيع والتاريخ';
+  if (sTitle2) sTitle2.textContent = isEn ? 'Internal Audit / Accountant' : 'تدقيق الحسابات / المحاسب';
+  if (sSub2) sSub2.textContent = isEn ? 'Name, Signature & Date' : 'الاسم، التوقيع والتاريخ';
+  if (sTitle3) sTitle3.textContent = isEn ? 'Financial Management Approval' : 'اعتماد الإدارة / المدير المالي';
+  if (sSub3) sSub3.textContent = isEn ? 'Name, Signature & Date' : 'الاسم، التوقيع والتاريخ';
+
+  // 8. Update Autocomplete Datalists
   updateTankerDatalists();
 }
 
 function exportTankerCsv() {
+  const isEn = state.tankerLang === 'en';
   const deliveries = getTankerDeliveries({
     periodFilter: state.tankerPeriodFilter,
     projectFilter: state.tankerProjectFilter,
@@ -5089,27 +5267,42 @@ function exportTankerCsv() {
 
   const kpis = calculateTankerKpis(deliveries);
   const periodLabel = state.tankerPeriodFilter === 'year'
-    ? `سنة_${state.year}`
-    : (state.tankerPeriodFilter === 'all' ? 'كافة_الفترات' : `شهر_${ARABIC_MONTHS[state.month]}_${state.year}`);
+    ? (isEn ? `Year_${state.year}` : `سنة_${state.year}`)
+    : (state.tankerPeriodFilter === 'all'
+      ? (isEn ? 'All_Periods' : 'كافة_الفترات')
+      : (isEn ? `Month_${ENGLISH_MONTHS[state.month]}_${state.year}` : `شهر_${ARABIC_MONTHS[state.month]}_${state.year}`));
   const prjLabel = state.tankerProjectFilter !== 'all' ? `_${state.tankerProjectFilter}` : '';
-  const filename = `كشف_سولار_التانكر_والمشاريع_${periodLabel}${prjLabel}.csv`;
+  const filename = isEn
+    ? `Tanker_Diesel_Disbursement_${periodLabel}${prjLabel}.csv`
+    : `كشف_سولار_التانكر_والمشاريع_${periodLabel}${prjLabel}.csv`;
 
   const csvRows = [];
-  csvRows.push(['=== شركة هليوبوليس للكهرباء (HELIOPOLIS ELECTRIC COMPANY) ===']);
-  csvRows.push(['=== كشف تفريغ وتوزيع السولار على المشاريع (DIESEL DISBURSEMENT STATEMENT) ===']);
-  csvRows.push(['تاريخ استخراج التقرير', new Date().toLocaleDateString('ar-QA') || new Date().toISOString().split('T')[0]]);
-  csvRows.push(['فترة الكشف', periodLabel]);
+  csvRows.push([isEn ? '=== HELIOPOLIS ELECTRIC COMPANY ===' : '=== شركة هليوبوليس للكهرباء (HELIOPOLIS ELECTRIC COMPANY) ===']);
+  csvRows.push([isEn ? '=== DIESEL DISBURSEMENT & PROJECT ALLOCATION STATEMENT ===' : '=== كشف تفريغ وتوزيع السولار على المشاريع (DIESEL DISBURSEMENT STATEMENT) ===']);
+  csvRows.push([isEn ? 'Report Generated Date' : 'تاريخ استخراج التقرير', new Date().toISOString().split('T')[0]]);
+  csvRows.push([isEn ? 'Statement Period' : 'فترة الكشف', periodLabel]);
   if (state.tankerProjectFilter !== 'all') {
-    csvRows.push(['المشروع المخصص', state.tankerProjectFilter]);
+    csvRows.push([isEn ? 'Allocated Project' : 'المشروع المخصص', state.tankerProjectFilter]);
   }
-  csvRows.push(['إجمالي كمية الديزل (لتر)', kpis.totalLiters]);
-  csvRows.push(['إجمالي المبلغ المدفوع (ر.ق)', kpis.totalAmount]);
-  csvRows.push(['متوسط سعر اللتر المرجح (ر.ق)', kpis.avgPrice]);
-  csvRows.push(['عدد المواقع المستفيدة', kpis.projectsCount]);
+  csvRows.push([isEn ? 'Total Diesel Volume (Liters)' : 'إجمالي كمية الديزل (لتر)', kpis.totalLiters]);
+  csvRows.push([isEn ? 'Total Expenditures (QAR)' : 'إجمالي المبلغ المدفوع (ر.ق)', kpis.totalAmount]);
+  csvRows.push([isEn ? 'Weighted Average Price / Liter (QAR)' : 'متوسط سعر اللتر المرجح (ر.ق)', kpis.avgPrice]);
+  csvRows.push([isEn ? 'Supplied Projects Count' : 'عدد المواقع المستفيدة', kpis.projectsCount]);
   csvRows.push([]);
 
   // Table header
-  csvRows.push([
+  csvRows.push(isEn ? [
+    '#',
+    'Date',
+    'Project / Site',
+    'Quantity (Liters)',
+    'Price / Liter (QAR)',
+    'Invoice Total (QAR)',
+    'Invoice / Voucher Ref',
+    'Site Receiver',
+    'Supplier / Tanker',
+    'Notes'
+  ] : [
     'م',
     'التاريخ',
     'المشروع / الموقع',
@@ -5138,7 +5331,18 @@ function exportTankerCsv() {
   });
 
   csvRows.push([]);
-  csvRows.push([
+  csvRows.push(isEn ? [
+    'Grand Total',
+    '',
+    `${kpis.projectsCount} Sites`,
+    kpis.totalLiters,
+    kpis.avgPrice,
+    kpis.totalAmount,
+    `${deliveries.length} Deliveries`,
+    '',
+    '',
+    ''
+  ] : [
     'الإجمالي العام',
     '',
     `${kpis.projectsCount} موقع`,
@@ -5153,8 +5357,10 @@ function exportTankerCsv() {
 
   if (kpis.projectsBreakdown.length > 0) {
     csvRows.push([]);
-    csvRows.push(['=== توزيع التكلفة والكميات حسب المشاريع ===']);
-    csvRows.push(['المشروع / الموقع', 'الكمية المستهلكة (لتر)', 'نسبة الاستهلاك %', 'إجمالي التكلفة (ر.ق)', 'نسبة التكلفة %']);
+    csvRows.push([isEn ? '=== Fuel & Cost Allocation Breakdown ===' : '=== توزيع التكلفة والكميات حسب المشاريع ===']);
+    csvRows.push(isEn
+      ? ['Project / Site', 'Consumed Volume (L)', 'Volume %', 'Total Cost (QAR)', 'Cost %']
+      : ['المشروع / الموقع', 'الكمية المستهلكة (لتر)', 'نسبة الاستهلاك %', 'إجمالي التكلفة (ر.ق)', 'نسبة التكلفة %']);
     kpis.projectsBreakdown.forEach(p => {
       csvRows.push([p.project, p.liters, `${p.percentLiters}%`, p.amount, `${p.percentAmount}%`]);
     });
@@ -5168,17 +5374,27 @@ function exportTankerCsv() {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('تم تصدير كشف سولار التانكر إلى Excel بنجاح 📊');
+  showToast(isEn ? 'Tanker statement exported to Excel successfully 📊' : 'تم تصدير كشف سولار التانكر إلى Excel بنجاح 📊');
 }
 
 function printTankerReport() {
   document.body.classList.add('printing-tanker');
+  if (state.tankerLang === 'en') {
+    document.body.classList.add('printing-lang-en');
+    document.body.classList.remove('printing-lang-ar');
+  } else {
+    document.body.classList.add('printing-lang-ar');
+    document.body.classList.remove('printing-lang-en');
+  }
   const onAfterPrint = () => {
-    document.body.classList.remove('printing-tanker');
+    document.body.classList.remove('printing-tanker', 'printing-lang-en', 'printing-lang-ar');
     window.removeEventListener('afterprint', onAfterPrint);
   };
   window.addEventListener('afterprint', onAfterPrint);
   window.print();
+  setTimeout(() => {
+    document.body.classList.remove('printing-tanker', 'printing-lang-en', 'printing-lang-ar');
+  }, 1000);
 }
 
 function switchTab(tabId) {
@@ -6516,6 +6732,14 @@ function bindEvents() {
   document.getElementById('btnSaveTankerDelivery')?.addEventListener('click', handleSaveTankerDelivery);
   document.getElementById('btnPrintTankerStatement')?.addEventListener('click', printTankerReport);
   document.getElementById('btnExportTankerExcel')?.addEventListener('click', exportTankerCsv);
+  document.getElementById('btnTankerLangAr')?.addEventListener('click', () => {
+    state.tankerLang = 'ar';
+    renderTankerTab();
+  });
+  document.getElementById('btnTankerLangEn')?.addEventListener('click', () => {
+    state.tankerLang = 'en';
+    renderTankerTab();
+  });
 
   document.getElementById('tankerProjectFilter')?.addEventListener('change', (e) => {
     state.tankerProjectFilter = e.target.value;
