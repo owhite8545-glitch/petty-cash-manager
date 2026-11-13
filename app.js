@@ -4280,7 +4280,7 @@ function updateDispatchI18nLabels(isEn) {
   const pCopyLbl = document.getElementById('printCorpCopyLbl');
   const pCopyVal = document.getElementById('printCorpCopyVal');
 
-  if (pComp) pComp.textContent = isEn ? 'HELIOPOLIS ELECTRIC COMPANY' : 'شركة هليوبوليس للكهرباء (HELIOPOLIS ELECTRIC COMPANY)';
+  if (pComp) pComp.textContent = isEn ? 'HELIOPOLIS ELECTRICITY, TRADING & CONTRACTING CO. LLC.' : 'شركة هليوبولس للكهرباء و التجارة و المقاولات ذ.م.م.';
   if (pDept) pDept.textContent = isEn ? 'Corporate Treasury & Petty Cash Department' : 'قسم الخزينة والعهد النقدية — Corporate Treasury & Petty Cash Dept.';
   const pLegal = document.getElementById('printCorpLegalMeta');
   if (pLegal) {
@@ -4357,7 +4357,7 @@ function updateDispatchI18nLabels(isEn) {
   if (sAppS) sAppS.textContent = isEn ? 'Name, Signature & Date' : 'الاسم، التوقيع والتاريخ';
   const sSealTitle = document.getElementById('signSealTitle');
   const sSealSub = document.getElementById('signSealSub');
-  if (sSealTitle) sSealTitle.textContent = isEn ? 'HELIOPOLIS ELECTRIC' : 'شركة هليوبوليس للكهرباء';
+  if (sSealTitle) sSealTitle.textContent = isEn ? 'HELIOPOLIS ELECTRICITY' : 'شركة هليوبولس للكهرباء و التجارة و المقاولات ذ.م.م.';
   if (sSealSub) sSealSub.textContent = isEn ? 'OFFICIAL COMPANY SEAL' : 'خاتم الاعتماد الرسمي';
 }
 
@@ -5571,7 +5571,7 @@ function renderTankerTab() {
   const pCopyLbl = document.getElementById('printTankerCopyLbl');
   const pCopyVal = document.getElementById('printTankerCopyVal');
 
-  if (pComp) pComp.textContent = isEn ? 'HELIOPOLIS ELECTRIC COMPANY' : 'شركة هليوبوليس للكهرباء';
+  if (pComp) pComp.textContent = isEn ? 'HELIOPOLIS ELECTRICITY, TRADING & CONTRACTING CO. LLC.' : 'شركة هليوبولس للكهرباء و التجارة و المقاولات ذ.م.م.';
   if (pDept) pDept.textContent = isEn ? 'Projects Management & Logistics — Fuel & Diesel Department' : 'إدارة المشاريع والخدمات اللوجستية — قسم المحروقات والديزل';
   if (pLegal) {
     pLegal.textContent = isEn
@@ -5664,6 +5664,11 @@ function renderTankerTab() {
   if (sTitle3) sTitle3.textContent = isEn ? 'Financial Management Approval' : 'اعتماد الإدارة / المدير المالي';
   if (sSub3) sSub3.textContent = isEn ? 'Name, Signature & Date' : 'الاسم، التوقيع والتاريخ';
 
+  const sTankerSealTitle = document.getElementById('tankerSealTitle');
+  const sTankerSealSub = document.getElementById('tankerSealSub');
+  if (sTankerSealTitle) sTankerSealTitle.textContent = isEn ? 'HELIOPOLIS ELECTRICITY' : 'شركة هليوبولس للكهرباء و التجارة و المقاولات ذ.م.م.';
+  if (sTankerSealSub) sTankerSealSub.textContent = isEn ? 'OFFICIAL COMPANY SEAL' : 'خاتم الاعتماد الرسمي';
+
   // 8. Update Autocomplete Datalists
   updateTankerDatalists();
 }
@@ -5694,7 +5699,7 @@ function exportTankerCsv() {
     : `كشف_سولار_التانكر_والمشاريع_${periodLabel}${prjLabel}.csv`;
 
   const csvRows = [];
-  csvRows.push([isEn ? '=== HELIOPOLIS ELECTRIC COMPANY ===' : '=== شركة هليوبوليس للكهرباء (HELIOPOLIS ELECTRIC COMPANY) ===']);
+  csvRows.push([isEn ? '=== HELIOPOLIS ELECTRICITY, TRADING & CONTRACTING CO. LLC. ===' : '=== شركة هليوبولس للكهرباء و التجارة و المقاولات ذ.م.م. (HELIOPOLIS ELECTRICITY, TRADING & CONTRACTING CO. LLC.) ===']);
   csvRows.push([isEn ? '=== DIESEL DISBURSEMENT & PROJECT ALLOCATION STATEMENT ===' : '=== كشف تفريغ وتوزيع السولار على المشاريع (DIESEL DISBURSEMENT STATEMENT) ===']);
   csvRows.push([isEn ? 'Report Generated Date' : 'تاريخ استخراج التقرير', new Date().toISOString().split('T')[0]]);
   csvRows.push([isEn ? 'Statement Period' : 'فترة الكشف', periodLabel]);
