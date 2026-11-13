@@ -802,7 +802,7 @@
                   </tr>
                 </thead>
                 <tbody id="personLedgerBody"></tbody>
-                <tfoot>
+                <tfoot id="personLedgerFoot">
                   <tr class="ledger-totals-row">
                     <td colspan="3"><strong>التوتال الكلي للفترة</strong></td>
                     <td class="col-cash-total"><strong id="personTotalCash">0</strong></td>
@@ -817,8 +817,9 @@
             <!-- Bottom Separate Totals Summary Cards -->
             <div class="person-bottom-totals">
               <div class="p-total-card cash-card">
-                <span class="p-total-label">💵 إجمالي النقدية المسلَّمة له (سُلف ومصروفات)</span>
+                <span class="p-total-label" id="cardPersonCashLabel">💵 إجمالي النقدية المسلَّمة له (سُلف ومصروفات)</span>
                 <strong class="p-total-val" id="cardPersonCashTotal">0</strong>
+                <div id="cardPersonCashBreakdownContainer"></div>
               </div>
               <div class="p-total-card invoice-card">
                 <span class="p-total-label">🧾 إجمالي الفواتير المعتمدة منه (بترول وصيانة ونثريات)</span>
@@ -832,6 +833,7 @@
                 <span class="p-total-label">⚖️ صافي موقف الحساب (المتبقي في ذمته)</span>
                 <strong class="p-total-val" id="cardPersonNetDiff">0</strong>
                 <span class="p-total-sub" id="cardPersonNetStatus"></span>
+                <div id="cardPersonNetEquationContainer"></div>
               </div>
             </div>
           </div>
@@ -2286,6 +2288,6 @@
   <!-- Toast Notification -->
   <div id="toastContainer" class="toast-container no-print"></div>
 
-  <script src="app.js?v=20261109_v7"></script>
+  <script src="app.js?v=20261113_v1"></script>
 </body>
 </html>

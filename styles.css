@@ -1247,6 +1247,59 @@ body.dark-mode #safeNetSummaryCard h3 {
   font-size: 1.2rem !important;
 }
 
+.ledger-subtotals-row td {
+  background: #334155;
+  color: #f8fafc;
+  font-size: 0.95rem;
+  padding: 10px 14px;
+  border-top: 2px solid #475569;
+}
+
+.col-cash-subtotal {
+  background: #166534 !important;
+  color: #fff !important;
+  font-size: 1.1rem !important;
+  font-weight: 700;
+}
+
+.col-inv-subtotal {
+  background: #581c87 !important;
+  color: #fff !important;
+  font-size: 1.1rem !important;
+  font-weight: 700;
+}
+
+.col-ret-subtotal {
+  background: #0369a1 !important;
+  color: #fff !important;
+  font-size: 1.1rem !important;
+  font-weight: 700;
+}
+
+.p-cash-breakdown-box {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(22, 101, 52, 0.08);
+  border-radius: 6px;
+  border-top: 1px dashed rgba(22, 101, 52, 0.35);
+  font-size: 0.85rem;
+  color: #14532d;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.p-net-equation-box {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(30, 58, 138, 0.08);
+  border-radius: 6px;
+  border-top: 1px dashed rgba(30, 58, 138, 0.35);
+  font-size: 0.84rem;
+  color: #1e3a8a;
+  font-weight: 600;
+}
+
 .person-bottom-totals {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -3517,6 +3570,24 @@ body.dark-mode .p-total-card.net-card {
 
 body.dark-mode .p-total-label {
   color: #cbd5e1 !important;
+}
+
+body.dark-mode .ledger-subtotals-row td {
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .p-cash-breakdown-box {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+  color: #a7f3d0 !important;
+}
+
+body.dark-mode .p-net-equation-box {
+  background: rgba(59, 130, 246, 0.12) !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+  color: #bfdbfe !important;
 }
 
 /* Tab 3 Dispatch Language Switch in Dark Mode */

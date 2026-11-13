@@ -2018,26 +2018,97 @@ function renderPersonSheet() {
   const totalInvoices = fromCents(totalInvoicesCents);
   const totalReturned = fromCents(totalReturnedCents);
   const netDiff = fromCents(runningBalanceCents);
+  const hasOpening = Math.abs(openingBal) > 0.001;
+  const totalAccountableCash = fromCents(totalCashCents + toCents(openingBal));
 
-  document.getElementById('personTotalCash').textContent = formatNumber(totalCash);
-  document.getElementById('personTotalInvoices').textContent = formatNumber(totalInvoices);
-  const pTotRetEl = document.getElementById('personTotalReturned');
-  if (pTotRetEl) pTotRetEl.textContent = formatNumber(totalReturned);
+  // Render Table Footer (shows period movements & comprehensive grand total when opening balance exists)
+  const tfoot = document.getElementById('personLedgerFoot');
+  if (tfoot) {
+    if (hasOpening) {
+      const netPeriodOnly = fromCents(totalCashCents - (totalInvoicesCents + totalReturnedCents));
+      tfoot.innerHTML = `
+        <tr class="ledger-subtotals-row">
+          <td colspan="3" style="text-align: center;"><strong>مجموع حركات الفترة الحالية فقط</strong></td>
+          <td class="col-cash-subtotal"><strong>${formatNumber(totalCash)}</strong></td>
+          <td class="col-inv-subtotal"><strong>${formatNumber(totalInvoices)}</strong></td>
+          <td class="col-ret-subtotal"><strong>${formatNumber(totalReturned)}</strong></td>
+          <td colspan="3" style="text-align: center; font-size: 0.92rem;">
+            صافي حركات الفترة: <strong>${formatNumber(netPeriodOnly)} ر.ق</strong>
+          </td>
+        </tr>
+        <tr class="ledger-totals-row">
+          <td colspan="3">
+            <strong>الإجمالي الشامل</strong>
+            <span style="display: block; font-size: 0.8rem; font-weight: 600; opacity: 0.9; margin-top: 2px;">
+              (شامل رصيد سابق مرحل: ${openingBal > 0 ? '+' : ''}${formatNumber(openingBal)} ر.ق)
+            </span>
+          </td>
+          <td class="col-cash-total"><strong id="personTotalCash">${formatNumber(totalAccountableCash)}</strong></td>
+          <td class="col-inv-total"><strong id="personTotalInvoices">${formatNumber(totalInvoices)}</strong></td>
+          <td class="col-ret-total"><strong id="personTotalReturned">${formatNumber(totalReturned)}</strong></td>
+          <td colspan="3" id="personNetSummaryCell">
+            <span>الرصيد النهائي: <strong>${formatNumber(netDiff)} ر.ق</strong> ${netDiff > 0.001 ? '(متبقي بذمته)' : netDiff < -0.001 ? '(له فرق مستحق)' : '(خالص ومصفى بالكامل ✓)'}</span>
+          </td>
+        </tr>
+      `;
+    } else {
+      tfoot.innerHTML = `
+        <tr class="ledger-totals-row">
+          <td colspan="3"><strong>التوتال الكلي للفترة</strong></td>
+          <td class="col-cash-total"><strong id="personTotalCash">${formatNumber(totalCash)}</strong></td>
+          <td class="col-inv-total"><strong id="personTotalInvoices">${formatNumber(totalInvoices)}</strong></td>
+          <td class="col-ret-total"><strong id="personTotalReturned">${formatNumber(totalReturned)}</strong></td>
+          <td colspan="3" id="personNetSummaryCell">
+            <span>الرصيد النهائي: <strong>${formatNumber(netDiff)} ر.ق</strong> ${netDiff > 0.001 ? '(متبقي بذمته)' : netDiff < -0.001 ? '(له فرق مستحق)' : '(خالص ومصفى بالكامل ✓)'}</span>
+          </td>
+        </tr>
+      `;
+    }
+  } else {
+    const ptc = document.getElementById('personTotalCash');
+    if (ptc) ptc.textContent = formatNumber(hasOpening ? totalAccountableCash : totalCash);
+    const pti = document.getElementById('personTotalInvoices');
+    if (pti) pti.textContent = formatNumber(totalInvoices);
+    const ptr = document.getElementById('personTotalReturned');
+    if (ptr) ptr.textContent = formatNumber(totalReturned);
+    const pnc = document.getElementById('personNetSummaryCell');
+    if (pnc) {
+      pnc.innerHTML = `<span>الرصيد النهائي: <strong>${formatNumber(netDiff)} ر.ق</strong> ${netDiff > 0.001 ? '(متبقي بذمته)' : netDiff < -0.001 ? '(له فرق مستحق)' : '(خالص ومصفى بالكامل ✓)'}</span>`;
+    }
+  }
 
-  document.getElementById('ledgerSettlementBadge').innerHTML = getSettlementBadgeHtml(totalCash + openingBal, totalInvoices, totalReturned);
+  document.getElementById('ledgerSettlementBadge').innerHTML = getSettlementBadgeHtml(totalAccountableCash, totalInvoices, totalReturned);
 
-  document.getElementById('personNetSummaryCell').innerHTML = `
-    <span>الرصيد النهائي: <strong>${formatNumber(netDiff)} ر.ق</strong> ${netDiff > 0.001 ? '(متبقي بذمته)' : netDiff < -0.001 ? '(له فرق مستحق)' : '(خالص ومصفى بالكامل ✓)'}</span>
-  `;
+  // Bottom Summary Cards
+  const lblCashCard = document.getElementById('cardPersonCashLabel');
+  const valCashCard = document.getElementById('cardPersonCashTotal');
+  const bkdCashCard = document.getElementById('cardPersonCashBreakdownContainer');
 
-  document.getElementById('cardPersonCashTotal').textContent = `${formatNumber(totalCash)} ر.ق`;
+  if (hasOpening) {
+    if (lblCashCard) lblCashCard.innerHTML = `💵 إجمالي النقدية والعهدة المطالب بها <span style="font-size: 0.78rem; font-weight: normal; opacity: 0.85;">(شاملة الرصيد السابق)</span>`;
+    if (valCashCard) valCashCard.textContent = `${formatNumber(totalAccountableCash)} ر.ق`;
+    if (bkdCashCard) {
+      bkdCashCard.innerHTML = `
+        <div class="p-cash-breakdown-box">
+          <span>• نقدية الفترة الحالية: <strong>${formatNumber(totalCash)} ر.ق</strong></span>
+          <span>• رصيد سابق مرحل من قبل: <strong>${openingBal > 0 ? '+' : ''}${formatNumber(openingBal)} ر.ق</strong></span>
+          <span>• الإجمالي الشامل المطالب به: <strong>${formatNumber(totalAccountableCash)} ر.ق</strong></span>
+        </div>
+      `;
+    }
+  } else {
+    if (lblCashCard) lblCashCard.textContent = `💵 إجمالي النقدية المسلَّمة له (سُلف ومصروفات)`;
+    if (valCashCard) valCashCard.textContent = `${formatNumber(totalCash)} ر.ق`;
+    if (bkdCashCard) bkdCashCard.innerHTML = '';
+  }
+
   document.getElementById('cardPersonInvTotal').textContent = `${formatNumber(totalInvoices)} ر.ق`;
   const cardRetEl = document.getElementById('cardPersonRetTotal');
   if (cardRetEl) cardRetEl.textContent = `${formatNumber(totalReturned)} ر.ق`;
   document.getElementById('cardPersonNetDiff').textContent = `${formatNumber(netDiff)} ر.ق`;
 
   const statusSubEl = document.getElementById('cardPersonNetStatus');
-  if (totalCash === 0 && totalInvoices === 0 && totalReturned === 0 && Math.abs(openingBal) <= 0.001) {
+  if (totalCash === 0 && totalInvoices === 0 && totalReturned === 0 && !hasOpening) {
     statusSubEl.textContent = 'لا توجد مبالغ مسجلة';
     statusSubEl.className = 'p-total-sub text-muted';
   } else if (Math.abs(netDiff) < 0.001) {
@@ -2049,6 +2120,19 @@ function renderPersonSheet() {
   } else {
     statusSubEl.textContent = `له فرق فواتير مستحق الصرف: ${formatNumber(Math.abs(netDiff))} ر.ق`;
     statusSubEl.className = 'p-total-sub text-blue';
+  }
+
+  const eqNetCard = document.getElementById('cardPersonNetEquationContainer');
+  if (eqNetCard) {
+    if (hasOpening) {
+      eqNetCard.innerHTML = `
+        <div class="p-net-equation-box">
+          🧮 الحسبة: <strong>${formatNumber(totalAccountableCash)}</strong> نقدية شاملة - <strong>${formatNumber(totalInvoices)}</strong> فواتير ${totalReturned > 0 ? `- <strong>${formatNumber(totalReturned)}</strong> كاش مرتجع ` : ''}= <strong>${formatNumber(netDiff)} ر.ق</strong>
+        </div>
+      `;
+    } else {
+      eqNetCard.innerHTML = '';
+    }
   }
 
   tbody.querySelectorAll('[data-edit-pdate]').forEach(btn => {
