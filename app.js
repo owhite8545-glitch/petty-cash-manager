@@ -74,6 +74,8 @@ const state = {
   personSidebarFilter: 'all',
   personSidebarSearch: '',
   personSelectedMonth: 'current', // 'current' | 'all' | 1..12 (طلب الوالد)
+  personIncludeOpening: true,
+  personCustomStartDate: '',
   ledgerScope: 'month',
   annualFromMonth: 1,
   annualToMonth: 12,
@@ -716,6 +718,7 @@ function getDayTotals(dateStr) {
   let retCents = 0;
   let activeCashCount = 0;
   let activeInvoiceCount = 0;
+  const returnedCashItems = [];
 
   Object.entries(dayEntries).forEach(([pid, entry]) => {
     const c = toCents(entry.cash);
@@ -737,13 +740,21 @@ function getDayTotals(dateStr) {
     }
     if (ret > 0) {
       retCents += ret;
+      returnedCashItems.push({
+        id: pid,
+        num: person ? person.num : '',
+        name: person ? getPersonDisplayName(person) : pid,
+        amount: fromCents(ret),
+        note: (entry && entry.note) || ''
+      });
     }
   });
 
   const distributed = fromCents(distCents);
   const totalOut = addMoney(distributed, extra.amount);
   const returnedCashTotal = fromCents(retCents);
-  const remaining = subMoney(addMoney(received, returnedCashTotal), totalOut);
+  const remaining = subMoney(received, totalOut);
+  const netRemainingWithReturned = subMoney(addMoney(received, returnedCashTotal), totalOut);
 
   return {
     received,
@@ -755,10 +766,42 @@ function getDayTotals(dateStr) {
     excludeFromCompany: extra.excludeFromCompany,
     totalOut,
     returnedCashTotal,
+    returnedCashItems,
     remaining,
+    netRemainingWithReturned,
     invoices: fromCents(invCents),
     activeCashCount,
     activeInvoiceCount
+  };
+}
+
+function extractNoteMathSum(noteStr) {
+  if (!noteStr || typeof noteStr !== 'string') return null;
+  const normalized = noteStr
+    .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 1632))
+    .replace(/٫/g, '.')
+    .replace(/\b\d{1,4}[\/\-]\d{1,2}[\/\-]\d{1,4}\b/g, ' ')
+    .replace(/(?:عدد|رقم)\s*\d+/g, ' ');
+  if (!normalized.includes('+')) return null;
+  const parts = normalized.split('+');
+  if (parts.length < 2) return null;
+  const terms = [];
+  parts.forEach(part => {
+    const matches = part.match(/\d+(?:\.\d+)?/g);
+    if (matches && matches.length > 0) {
+      const val = Number(matches[matches.length - 1]);
+      if (Number.isFinite(val) && val > 0) {
+        terms.push(val);
+      }
+    }
+  });
+  if (terms.length < 2) return null;
+  const sumCents = terms.reduce((acc, n) => acc + toCents(n), 0);
+  const sum = fromCents(sumCents);
+  return {
+    sum,
+    terms,
+    expr: terms.map(t => formatNumber(t)).join(' + ')
   };
 }
 
@@ -1032,6 +1075,16 @@ function renderDaysStrip(shouldCenter = false) {
     pill.className = 'day-pill';
     if (isFri) pill.classList.add('is-friday');
     if (hasData) pill.classList.add('has-data');
+    let diffTagHtml = '';
+    if (totals.received > 0 || totals.totalOut > 0) {
+      if (totals.remaining < -0.001) {
+        pill.classList.add('has-deficit');
+        diffTagHtml = `<span class="d-diff-tag is-deficit">${formatNumber(totals.remaining)}</span>`;
+      } else if (totals.remaining > 0.001) {
+        pill.classList.add('has-surplus');
+        diffTagHtml = `<span class="d-diff-tag is-surplus">+${formatNumber(totals.remaining)}</span>`;
+      }
+    }
     if (dateKey === state.selectedDate) {
       pill.classList.add('active');
     }
@@ -1039,6 +1092,7 @@ function renderDaysStrip(shouldCenter = false) {
     pill.innerHTML = `
       <span class="d-num">${d}</span>
       <span class="d-name">${isFri ? 'الجمعة (إجازة)' : dayName}</span>
+      ${diffTagHtml}
       <span class="d-dot"></span>
     `;
 
@@ -1071,6 +1125,123 @@ function renderDaysStrip(shouldCenter = false) {
     friBanner.classList.remove('hidden');
   } else {
     friBanner.classList.add('hidden');
+  }
+}
+
+function renderPrevWorkdayReconBanner(dateStr, currentTotals) {
+  const bannerEl = document.getElementById('prevWorkdayReconBanner');
+  if (!bannerEl) return;
+
+  const { y, m, d } = parseDateParts(dateStr);
+  let prevFound = null;
+
+  for (let step = 1; step <= 7; step++) {
+    const dt = new Date(y, m - 1, d - step);
+    const py = dt.getFullYear();
+    const pm = dt.getMonth() + 1;
+    const pd = dt.getDate();
+    const pKey = formatDateKey(py, pm, pd);
+    const pTotals = getDayTotals(pKey);
+    const dayData = (state.data.entries && state.data.entries[pKey]) || {};
+    const notesPeopleNotes = [];
+    (state.data.people || []).forEach(p => {
+      if (p.name && p.name.includes('ملاحظات')) {
+        const e = dayData[p.id];
+        if (e && ((e.note && e.note.trim()) || Number(e.cash) > 0 || Number(e.invoice) > 0 || Number(e.returnedCash) > 0)) {
+          notesPeopleNotes.push({
+            personName: getPersonDisplayName(p),
+            note: (e.note || '').trim(),
+            cash: Number(e.cash) || 0,
+            returnedCash: Number(e.returnedCash) || 0
+          });
+        }
+      }
+    });
+
+    const hasActivity = pTotals.received > 0 || pTotals.totalOut > 0 || pTotals.invoices > 0 || pTotals.returnedCashTotal > 0 || notesPeopleNotes.length > 0;
+    if (hasActivity) {
+      prevFound = {
+        dateKey: pKey,
+        y: py,
+        m: pm,
+        d: pd,
+        dayName: getArabicDayName(py, pm, pd),
+        totals: pTotals,
+        notesPeopleNotes
+      };
+      break;
+    }
+  }
+
+  if (!prevFound) {
+    bannerEl.classList.add('hidden');
+    bannerEl.innerHTML = '';
+    return;
+  }
+
+  const rem = prevFound.totals.remaining;
+  const hasDiff = Math.abs(rem) > 0.001 && (prevFound.totals.received > 0 || prevFound.totals.totalOut > 0);
+  const hasMemo = prevFound.notesPeopleNotes.length > 0;
+
+  if (!hasDiff && !hasMemo) {
+    bannerEl.classList.add('hidden');
+    bannerEl.innerHTML = '';
+    return;
+  }
+
+  const isDeficit = rem < -0.001;
+  const isSurplus = rem > 0.001;
+  bannerEl.className = `prev-workday-recon-banner no-print ${isDeficit ? 'is-deficit' : isSurplus ? 'is-surplus' : ''}`;
+
+  let diffBadge = `<span class="recon-pill matched">0 ✓ مطابق</span>`;
+  if (isDeficit) {
+    diffBadge = `<span class="recon-pill deficit">⚠️ الفرق: ${formatNumber(rem)} ر.ق (ماينص ${formatNumber(Math.abs(rem))})</span>`;
+  } else if (isSurplus) {
+    diffBadge = `<span class="recon-pill surplus">💡 متبقي غير موزع: +${formatNumber(rem)} ر.ق</span>`;
+  }
+
+  let twoDayHtml = '';
+  if (hasDiff && (currentTotals.received > 0 || currentTotals.totalOut > 0)) {
+    const twoDayNet = addMoney(rem, currentTotals.remaining);
+    const twoDayTxt = Math.abs(twoDayNet) < 0.001
+      ? '0 ✓ خالص ومصفى بين اليومين'
+      : `${twoDayNet > 0 ? '+' : ''}${formatNumber(twoDayNet)} ر.ق`;
+    twoDayHtml = `<span class="recon-pill twoday">⚖️ صافي اليومين معاً: <strong>${twoDayTxt}</strong></span>`;
+  }
+
+  const memosHtml = prevFound.notesPeopleNotes.map(item => {
+    const extraAmt = item.returnedCash > 0 ? ` (${formatNumber(item.returnedCash)} ر.ق)` : item.cash > 0 ? ` (${formatNumber(item.cash)} ر.ق)` : '';
+    return `<div class="recon-memo-line">📌 <strong>${escapeHtml(item.personName)}${extraAmt}:</strong> ${escapeHtml(item.note || 'بدون نص')}</div>`;
+  }).join('');
+
+  bannerEl.innerHTML = `
+    <div class="recon-main-row">
+      <div class="recon-info">
+        <span class="recon-title">🔔 تذكير من يوم العمل السابق (${prevFound.dayName} ${prevFound.d} ${ARABIC_MONTHS[prevFound.m]}):</span>
+        <span class="recon-stat">المستلم: <strong>${formatNumber(prevFound.totals.received)}</strong></span>
+        <span class="recon-stat">الموزع: <strong>${formatNumber(prevFound.totals.totalOut)}</strong></span>
+        ${diffBadge}
+        ${twoDayHtml}
+      </div>
+      <button type="button" class="btn btn-sm btn-outline" data-jump-prev-workday="${prevFound.dateKey}">
+        📅 فتح يوم ${prevFound.d} ${ARABIC_MONTHS[prevFound.m]}
+      </button>
+    </div>
+    ${memosHtml}
+  `;
+
+  const jumpBtn = bannerEl.querySelector('[data-jump-prev-workday]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const targetDate = jumpBtn.getAttribute('data-jump-prev-workday');
+      if (targetDate) {
+        const parts = parseDateParts(targetDate);
+        state.year = parts.y;
+        state.month = parts.m;
+        state.selectedDate = targetDate;
+        renderAll();
+      }
+    });
   }
 }
 
@@ -1138,8 +1309,25 @@ function renderDailySummaryCards() {
     balanceBox.classList.add('over');
     remValEl.classList.add('text-danger');
     remValEl.textContent = formatNumber(totals.remaining);
-    statusEl.textContent = `تنبيه: التوزيع زاد عن المستلم بـ ${formatNumber(Math.abs(totals.remaining))} ر.ق`;
+    statusEl.textContent = `تنبيه: التوزيع زاد عن المستلم بـ ${formatNumber(Math.abs(totals.remaining))} ر.ق (ماينص ${formatNumber(Math.abs(totals.remaining))})`;
   }
+
+  const retSubNoteEl = document.getElementById('dailyReturnedCashSubNote');
+  if (retSubNoteEl) {
+    if (totals.returnedCashTotal > 0) {
+      const itemLabels = (totals.returnedCashItems || []).map(it => `${it.name}: ${formatNumber(it.amount)}`).join(' ، ');
+      const netTxt = Math.abs(totals.netRemainingWithReturned) < 0.001
+        ? '0 ✓ مطابق'
+        : `${totals.netRemainingWithReturned > 0 ? '+' : ''}${formatNumber(totals.netRemainingWithReturned)} ر.ق`;
+      retSubNoteEl.classList.remove('hidden');
+      retSubNoteEl.innerHTML = `💵 مسجل في «كاش مرتجع باليد» بالجدول: <strong>+${formatNumber(totals.returnedCashTotal)} ر.ق</strong> (${escapeHtml(itemLabels)}) • الصافي في حال إضافته للمستلم: <strong>${netTxt}</strong>`;
+    } else {
+      retSubNoteEl.classList.add('hidden');
+      retSubNoteEl.innerHTML = '';
+    }
+  }
+
+  renderPrevWorkdayReconBanner(state.selectedDate, totals);
 
   // Update filter pill counts
   const driversCount = state.data.people.filter(p => p.role === 'driver').length;
@@ -1378,6 +1566,15 @@ function renderDailyTable() {
           data-pid="${person.id}"
           data-field="note"
         />
+        <div id="noteMathHelper_${person.id}" class="note-math-helper ${extractNoteMathSum(entry.note) ? '' : 'hidden'} no-print">
+          ${(() => {
+            const nm = extractNoteMathSum(entry.note);
+            if (!nm) return '';
+            return `<span>🧮 مجموع الفواتير بالملاحظة: <strong>${formatNumber(nm.sum)}</strong> ر.ق</span>
+              <button type="button" class="note-math-btn" data-apply-note-sum="${nm.sum}" data-apply-pid="${person.id}" data-apply-field="invoice">🧾 وضع في الفواتير</button>
+              <button type="button" class="note-math-btn" data-apply-note-sum="${nm.sum}" data-apply-pid="${person.id}" data-apply-field="cash">💵 وضع في النقدية</button>`;
+          })()}
+        </div>
         <div class="cell-quick-tags no-print">
           <button type="button" class="tag-chip" data-row-tag="⛽ بترول/وقود" data-target-pid="${person.id}">⛽ وقود</button>
           <button type="button" class="tag-chip" data-row-tag="🔧 صيانة" data-target-pid="${person.id}">🔧 صيانة</button>
@@ -1495,6 +1692,20 @@ function renderDailyTable() {
         input.classList.toggle('has-val-inv', updated.invoice > 0);
       } else if (field === 'returnedCash') {
         input.classList.toggle('has-val-ret', updated.returnedCash > 0);
+      } else if (field === 'note') {
+        const helperEl = document.getElementById(`noteMathHelper_${pid}`);
+        if (helperEl) {
+          const nm = extractNoteMathSum(val);
+          if (nm) {
+            helperEl.classList.remove('hidden');
+            helperEl.innerHTML = `<span>🧮 مجموع الفواتير بالملاحظة: <strong>${formatNumber(nm.sum)}</strong> ر.ق</span>
+              <button type="button" class="note-math-btn" data-apply-note-sum="${nm.sum}" data-apply-pid="${pid}" data-apply-field="invoice">🧾 وضع في الفواتير</button>
+              <button type="button" class="note-math-btn" data-apply-note-sum="${nm.sum}" data-apply-pid="${pid}" data-apply-field="cash">💵 وضع في النقدية</button>`;
+          } else {
+            helperEl.classList.add('hidden');
+            helperEl.innerHTML = '';
+          }
+        }
       }
 
       const sCell = document.getElementById(`mSettleCell_${pid}`);
@@ -1531,6 +1742,24 @@ function renderDailyTable() {
       openPersonLedgerPage(pid);
     });
   });
+
+  if (!tbody._hasNoteMathDelegate) {
+    tbody._hasNoteMathDelegate = true;
+    tbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-apply-note-sum]');
+      if (!btn) return;
+      const sumVal = Number(btn.getAttribute('data-apply-note-sum')) || 0;
+      const pid = btn.getAttribute('data-apply-pid');
+      const targetField = btn.getAttribute('data-apply-field') || 'invoice';
+      const targetInp = tbody.querySelector(`input[data-pid="${pid}"][data-field="${targetField}"]`);
+      if (targetInp && sumVal > 0) {
+        targetInp.value = sumVal;
+        targetInp.dispatchEvent(new Event('input', { bubbles: true }));
+        const person = state.data.people.find(p => p.id === pid);
+        showToast(`تم وضع مجموع الفواتير (${formatNumber(sumVal)} ر.ق) لـ ${getPersonDisplayName(person)} ✓`);
+      }
+    });
+  }
 
   tbody.querySelectorAll('[data-open-voucher]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1660,6 +1889,42 @@ function renderMonthlyMatrixTab() {
   bodyHtml += `
       <td><strong>${formatNumber(monthDistTotal)}</strong></td>
       <td><strong>${formatNumber(monthInvTotal)}</strong></td>
+    </tr>
+  `;
+
+  const monthDiffTotal = subMoney(monthRecTotal, monthDistTotal);
+  bodyHtml += `
+    <tr class="matrix-diff-row">
+      <td class="sticky-col" style="background:#fffbeb;">⚖️ الفرق اليومي</td>
+      <td>المطابقة</td>
+  `;
+  activeDays.forEach(dayObj => {
+    const dt = getDayTotals(dayObj.dateKey);
+    const hasActivity = dt.received > 0 || dt.totalOut > 0;
+    let cellClass = 'matrix-cell-editable';
+    let cellText = '-';
+    if (hasActivity) {
+      if (Math.abs(dt.remaining) < 0.001) {
+        cellClass += ' diff-matched';
+        cellText = '0 ✓';
+      } else if (dt.remaining < 0) {
+        cellClass += ' diff-deficit';
+        cellText = formatNumber(dt.remaining);
+      } else {
+        cellClass += ' diff-surplus';
+        cellText = `+${formatNumber(dt.remaining)}`;
+      }
+    }
+    bodyHtml += `
+      <td class="${cellClass}" data-jump-date="${dayObj.dateKey}" title="الفرق اليومي ليوم ${dayObj.d}: المستلم ${formatNumber(dt.received)} - الموزع ${formatNumber(dt.totalOut)}">
+        ${cellText}
+      </td>
+    `;
+  });
+  const monthDiffClass = Math.abs(monthDiffTotal) < 0.001 ? 'diff-matched' : (monthDiffTotal < 0 ? 'diff-deficit' : 'diff-surplus');
+  bodyHtml += `
+      <td class="${monthDiffClass}"><strong>${Math.abs(monthDiffTotal) < 0.001 ? '0 ✓' : (monthDiffTotal > 0 ? '+' : '') + formatNumber(monthDiffTotal)}</strong></td>
+      <td>-</td>
     </tr>
   `;
 
@@ -1914,14 +2179,35 @@ function renderPersonSheet() {
     pEntryDate.value = state.selectedDate;
   }
 
-  const startDateKey = formatDateKey(state.year, startMonth, 1);
-  const openingBal = getPersonBalanceBeforeDate(person.id, startDateKey);
+  const chkIncOp = document.getElementById('chkPersonIncludeOpening');
+  if (chkIncOp) {
+    chkIncOp.checked = state.personIncludeOpening !== false;
+  }
+  const customDateInp = document.getElementById('personCustomStartDate');
+  if (customDateInp && document.activeElement !== customDateInp) {
+    customDateInp.value = state.personCustomStartDate || '';
+  }
+  const btnClearDate = document.getElementById('btnClearPersonStartDate');
+  if (btnClearDate) {
+    btnClearDate.classList.toggle('hidden', !state.personCustomStartDate);
+  }
+
+  const defaultStartDateKey = formatDateKey(state.year, startMonth, 1);
+  const customStart = (state.personCustomStartDate && /^\d{4}-\d{2}-\d{2}$/.test(state.personCustomStartDate))
+    ? state.personCustomStartDate
+    : '';
+  const effectiveStartDateKey = customStart || defaultStartDateKey;
+  const rawOpeningBal = getPersonBalanceBeforeDate(person.id, effectiveStartDateKey);
+  const openingBal = (state.personIncludeOpening !== false) ? rawOpeningBal : 0;
 
   const rows = [];
-  for (let m = startMonth; m <= endMonth; m++) {
+  const loopStartMonth = customStart ? Math.min(startMonth, parseDateParts(customStart).m) : startMonth;
+  for (let m = loopStartMonth; m <= endMonth; m++) {
     const daysCount = getDaysInMonth(state.year, m);
     for (let d = 1; d <= daysCount; d++) {
       const dateKey = formatDateKey(state.year, m, d);
+      if (customStart && dateKey < customStart) continue;
+      if (!customStart && m < startMonth) continue;
       const entry = getPersonEntry(dateKey, person.id);
       if (entry.cash > 0 || entry.invoice > 0 || entry.returnedCash > 0 || (entry.note && entry.note.trim() !== '')) {
         rows.push({
@@ -2006,6 +2292,7 @@ function renderPersonSheet() {
         <td>${escapeHtml(r.note) || '-'}</td>
         <td class="col-balance-cell"><span class="${balClass}">${balText}</span></td>
         <td class="no-print">
+          ${(r.returnedCash > 0 && r.invoice === 0) ? `<button type="button" class="btn btn-sm btn-outline" data-swap-ret-inv="${r.dateKey}" title="نقل هذا المبلغ (${formatNumber(r.returnedCash)}) من كاش مرتجع إلى عمود الفواتير">⇄ للفواتير</button>` : ''}
           <button type="button" class="btn btn-sm btn-outline" data-edit-pdate="${r.dateKey}" title="تعديل هذا السطر">✏️</button>
           <button type="button" class="btn btn-sm btn-danger-outline" data-del-pdate="${r.dateKey}" title="حذف هذا السطر">🗑️</button>
         </td>
@@ -2157,6 +2444,21 @@ function renderPersonSheet() {
         renderPersonTab();
         showToast('تم حذف السطر بنجاح');
       }
+    });
+  });
+
+  tbody.querySelectorAll('[data-swap-ret-inv]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const dateKey = btn.getAttribute('data-swap-ret-inv');
+      const entry = getPersonEntry(dateKey, person.id);
+      const amt = Number(entry.returnedCash) || 0;
+      if (amt <= 0) return;
+      setPersonEntry(dateKey, person.id, {
+        invoice: addMoney(Number(entry.invoice) || 0, amt),
+        returnedCash: 0
+      });
+      renderAll();
+      showToast(`تم نقل ${formatNumber(amt)} ر.ق من «كاش مرتجع» إلى «الفواتير» ليوم ${dateKey} ✓`);
     });
   });
 }
@@ -4802,12 +5104,15 @@ function getTankerDeliveries(options = {}) {
 
     // Live search filter across multiple fields
     if (search) {
-      const matchProject = item.project && item.project.toLowerCase().includes(search);
-      const matchInvoice = item.invoiceNo && item.invoiceNo.toLowerCase().includes(search);
-      const matchReceiver = item.receiver && item.receiver.toLowerCase().includes(search);
-      const matchSupplier = item.supplier && item.supplier.toLowerCase().includes(search);
-      const matchNotes = item.notes && item.notes.toLowerCase().includes(search);
-      if (!matchProject && !matchInvoice && !matchReceiver && !matchSupplier && !matchNotes) {
+      const matchProject = item.project && (item.project.toLowerCase().includes(search) || matchArabicSearch(item.project, search));
+      const matchInvoice = item.invoiceNo && (item.invoiceNo.toLowerCase().includes(search) || matchArabicSearch(item.invoiceNo, search));
+      const matchReceiver = item.receiver && (item.receiver.toLowerCase().includes(search) || matchArabicSearch(item.receiver, search));
+      const matchSupplier = item.supplier && (item.supplier.toLowerCase().includes(search) || matchArabicSearch(item.supplier, search));
+      const matchNotes = item.notes && (item.notes.toLowerCase().includes(search) || matchArabicSearch(item.notes, search));
+      const matchDate = item.date && item.date.includes(search);
+      const matchLiters = item.liters != null && String(item.liters).includes(search);
+      const matchAmount = item.amount != null && String(item.amount).includes(search);
+      if (!matchProject && !matchInvoice && !matchReceiver && !matchSupplier && !matchNotes && !matchDate && !matchLiters && !matchAmount) {
         return false;
       }
     }
@@ -5165,11 +5470,24 @@ function openTankerModal(deliveryId = null) {
     if (dateInput) dateInput.value = todayStr;
     if (prjInput) prjInput.value = '';
     if (litersInput) litersInput.value = '';
-    if (priceInput) priceInput.value = '2.100';
+    const allDeliveries = Array.isArray(state.data.tankerDeliveries) ? state.data.tankerDeliveries : [];
+    const latestDelivery = allDeliveries.length > 0
+      ? [...allDeliveries].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0))[0]
+      : null;
+    const defaultPrice = (latestDelivery && Number(latestDelivery.pricePerLiter) > 0)
+      ? String(latestDelivery.pricePerLiter)
+      : '2.25';
+    const defaultSupplier = (latestDelivery && latestDelivery.supplier)
+      ? String(latestDelivery.supplier)
+      : '';
+    if (priceInput) priceInput.value = defaultPrice;
     if (amountInput) amountInput.value = '';
     if (invoiceInput) invoiceInput.value = '';
-    if (receiverInput) receiverInput.value = '';
-    if (supplierInput) supplierInput.value = 'شركة وقود (WOQOD)';
+    if (receiverInput) {
+      receiverInput.value = '';
+      receiverInput.dataset.userTyped = '';
+    }
+    if (supplierInput) supplierInput.value = defaultSupplier;
     if (notesInput) notesInput.value = '';
   }
 
@@ -5467,6 +5785,54 @@ function renderTankerTab() {
           </div>
         </div>
       `).join('');
+    }
+  }
+
+  // 3b. Update Daily Tanker Totals Strip (to reconcile daily multi-voucher sums with Youssef Diesel's invoices)
+  const dailyTotalsWrap = document.getElementById('tankerDailyTotalsWrap');
+  const dailyTotalsList = document.getElementById('tankerDailyTotalsList');
+  if (dailyTotalsWrap && dailyTotalsList) {
+    const byDateMap = {};
+    deliveries.forEach(item => {
+      const dk = item.date || '';
+      if (!dk) return;
+      if (!byDateMap[dk]) {
+        byDateMap[dk] = { date: dk, count: 0, liters: 0, amountCents: 0 };
+      }
+      byDateMap[dk].count += 1;
+      byDateMap[dk].liters += (Number(item.liters) || 0);
+      byDateMap[dk].amountCents += toCents(item.amount || 0);
+    });
+    const dailyGroups = Object.values(byDateMap).sort((a, b) => b.date.localeCompare(a.date));
+    if (dailyGroups.length === 0) {
+      dailyTotalsWrap.classList.add('hidden');
+      dailyTotalsList.innerHTML = '';
+    } else {
+      dailyTotalsWrap.classList.remove('hidden');
+      dailyTotalsList.innerHTML = dailyGroups.map(g => {
+        const amt = fromCents(g.amountCents);
+        const isSelectedDate = (state.tankerSearch && state.tankerSearch.trim() === g.date);
+        return `
+          <div class="tanker-daily-pill ${isSelectedDate ? 'active' : ''}" data-tanker-date-pill="${escapeHtml(g.date)}" title="اضغط لفلترة بونات يوم ${escapeHtml(g.date)}">
+            <span class="t-day-date">📅 ${escapeHtml(g.date)} <small>(${g.count} ${g.count === 1 ? 'بون' : 'بونات'})</small></span>
+            <span class="t-day-stats">⛽ ${formatNumber(g.liters)} لتر • 💰 <strong>${formatNumber(amt, true)} ر.ق</strong></span>
+          </div>
+        `;
+      }).join('');
+
+      dailyTotalsList.querySelectorAll('[data-tanker-date-pill]').forEach(pill => {
+        pill.addEventListener('click', () => {
+          const dk = pill.getAttribute('data-tanker-date-pill');
+          if (state.tankerSearch && state.tankerSearch.trim() === dk) {
+            state.tankerSearch = '';
+          } else {
+            state.tankerSearch = dk;
+          }
+          const sInp = document.getElementById('tankerSearchInput');
+          if (sInp) sInp.value = state.tankerSearch;
+          renderTankerTab();
+        });
+      });
     }
   }
 
@@ -6944,12 +7310,63 @@ function bindEvents() {
     renderPersonSheet();
   });
 
+  document.getElementById('chkPersonIncludeOpening')?.addEventListener('change', (e) => {
+    state.personIncludeOpening = e.target.checked;
+    renderPersonSheet();
+  });
+
+  document.getElementById('personCustomStartDate')?.addEventListener('change', (e) => {
+    state.personCustomStartDate = e.target.value || '';
+    renderPersonSheet();
+  });
+
+  document.getElementById('btnClearPersonStartDate')?.addEventListener('click', () => {
+    state.personCustomStartDate = '';
+    const inp = document.getElementById('personCustomStartDate');
+    if (inp) inp.value = '';
+    renderPersonSheet();
+  });
+
+  const pEntryNoteEl = document.getElementById('pEntryNote');
+  const pEntryNoteHelperEl = document.getElementById('pEntryNoteMathHelper');
+  if (pEntryNoteEl && pEntryNoteHelperEl) {
+    const refreshPEntryMath = () => {
+      const nm = extractNoteMathSum(pEntryNoteEl.value);
+      if (nm) {
+        pEntryNoteHelperEl.classList.remove('hidden');
+        pEntryNoteHelperEl.innerHTML = `
+          <span>🧮 مجموع الأرقام بالملاحظة (${escapeHtml(nm.expr)}): <strong>${formatNumber(nm.sum)}</strong> ر.ق</span>
+          <button type="button" class="note-math-btn" data-pentry-apply="invoice" data-pentry-sum="${nm.sum}">🧾 وضع في الفواتير</button>
+          <button type="button" class="note-math-btn" data-pentry-apply="cash" data-pentry-sum="${nm.sum}">💵 وضع في النقدية</button>
+        `;
+      } else {
+        pEntryNoteHelperEl.classList.add('hidden');
+        pEntryNoteHelperEl.innerHTML = '';
+      }
+    };
+    pEntryNoteEl.addEventListener('input', refreshPEntryMath);
+    pEntryNoteHelperEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-pentry-apply]');
+      if (!btn) return;
+      const target = btn.getAttribute('data-pentry-apply');
+      const sumVal = Number(btn.getAttribute('data-pentry-sum')) || 0;
+      if (target === 'invoice') {
+        const invEl = document.getElementById('pEntryInvoice');
+        if (invEl) invEl.value = sumVal;
+      } else if (target === 'cash') {
+        const cashEl = document.getElementById('pEntryCash');
+        if (cashEl) cashEl.value = sumVal;
+      }
+    });
+  }
+
   document.querySelectorAll('[data-ptag]').forEach(chip => {
     chip.addEventListener('click', () => {
       const tag = chip.getAttribute('data-ptag');
       const noteEl = document.getElementById('pEntryNote');
       const cur = noteEl.value.trim();
       noteEl.value = cur ? `${cur} - ${tag}` : tag;
+      noteEl.dispatchEvent(new Event('input', { bubbles: true }));
       noteEl.focus();
     });
   });
@@ -7307,6 +7724,29 @@ function bindEvents() {
   document.getElementById('tankerDeliveryModal')?.addEventListener('click', (e) => {
     if (e.target.id === 'tankerDeliveryModal') closeTankerModal();
   });
+
+  const tankerPrjInp = document.getElementById('tankerProjectInput');
+  const tankerRecInp = document.getElementById('tankerReceiverInput');
+  if (tankerPrjInp && tankerRecInp) {
+    tankerRecInp.addEventListener('input', () => {
+      tankerRecInp.dataset.userTyped = tankerRecInp.value.trim() ? '1' : '';
+    });
+    const autoFillProjectReceiver = () => {
+      if (state.editingTankerDeliveryId) return;
+      if (tankerRecInp.dataset.userTyped === '1' && tankerRecInp.value.trim() !== '') return;
+      const prj = tankerPrjInp.value.trim();
+      if (!prj) return;
+      const allDels = Array.isArray(state.data.tankerDeliveries) ? state.data.tankerDeliveries : [];
+      const matching = allDels
+        .filter(d => d.project && d.project.trim().toLowerCase() === prj.toLowerCase() && d.receiver && d.receiver.trim())
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+      if (matching.length > 0) {
+        tankerRecInp.value = matching[0].receiver.trim();
+      }
+    };
+    tankerPrjInp.addEventListener('change', autoFillProjectReceiver);
+    tankerPrjInp.addEventListener('input', autoFillProjectReceiver);
+  }
 
   // Tanker Projects Directory Listeners
   document.getElementById('btnManageTankerProjects')?.addEventListener('click', openTankerProjectsModal);
@@ -7885,6 +8325,7 @@ if (typeof module !== 'undefined' && module.exports) {
     getReportablePeople,
     getPersonBalanceBeforeDate,
     getDayTotals,
+    extractNoteMathSum,
     getPersonMonthTotals,
     getPersonYearTotals,
     loadState,

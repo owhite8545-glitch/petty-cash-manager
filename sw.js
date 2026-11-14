@@ -1,6 +1,6 @@
 // Service Worker for Daily Petty Cash Manager
 // Network-First with Cache Fallback and Automatic Cache Update for True Offline Support
-const CACHE_NAME = 'petty-cash-v21-company-name';
+const CACHE_NAME = 'petty-cash-v22-reconciliation-and-smart-tools';
 const STATIC_ASSETS = [
   './',
   './index.html',

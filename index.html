@@ -216,6 +216,9 @@
         <button id="btnSkipFriday" class="btn btn-primary">الانتقال ليوم السبت ◀</button>
       </div>
 
+      <!-- Smart Previous Workday Deficit / Surplus Reminder Banner -->
+      <div id="prevWorkdayReconBanner" class="prev-workday-recon-banner hidden no-print"></div>
+
       <!-- Daily Receipt & Live Balance Dashboard -->
       <div class="daily-summary-grid">
         <!-- Box 1: Received Today -->
@@ -284,6 +287,7 @@
           <div class="summary-label">⚖️ 3. المتبقي من فلوس اليوم (المطابقة)</div>
           <div class="summary-value" id="dailyRemainingValue">0</div>
           <div class="summary-status" id="dailyMatchStatus">اكتب المبلغ المستلم بالأول</div>
+          <div id="dailyReturnedCashSubNote" class="daily-returned-subnote hidden"></div>
           <div class="summary-actions no-print">
             <button type="button" id="btnCarryOverNextDay" class="btn btn-sm btn-outline hidden">
               🔄 ترحيل المتبقي ليوم الغد
@@ -749,6 +753,19 @@
               </div>
             </div>
 
+            <!-- Flexible Opening Balance & Custom Checkpoint Date Controls -->
+            <div class="person-balance-options-bar no-print">
+              <label class="checkbox-label person-opening-toggle-lbl" title="عند التفعيل يتم ضم الرصيد المتبقي من الشهور أو السنين السابقة إلى حسبة الفترة الحالية">
+                <input type="checkbox" id="chkPersonIncludeOpening" checked />
+                <span>🔗 ضم الرصيد السابق المرحّل من الفترات السابقة</span>
+              </label>
+              <div class="person-checkpoint-date-wrap">
+                <label for="personCustomStartDate">📅 أو احسب من تاريخ تسوية معين:</label>
+                <input type="date" id="personCustomStartDate" class="input-control person-checkpoint-input" title="اختر تاريخاً ليبدأ حساب الشخص من هذا اليوم فقط (مثلاً بعد تصفير الحساب)" />
+                <button type="button" id="btnClearPersonStartDate" class="btn btn-sm btn-outline hidden">✕ إلغاء التاريخ</button>
+              </div>
+            </div>
+
             <!-- Quick Inline Add Form on Person's Page -->
             <div id="personQuickEntryBox" class="person-quick-entry no-print">
               <h4>➕ إضافة حركة جديدة في صفحة <span id="quickEntryPersonName">-</span>:</h4>
@@ -772,6 +789,7 @@
                 <div class="field-group field-grow">
                   <label>📝 البيان / الملاحظة (أو اضغط على نوع الفاتورة)</label>
                   <input type="text" id="pEntryNote" class="input-control" placeholder="بيان الفاتورة..." />
+                  <div id="pEntryNoteMathHelper" class="note-math-helper hidden no-print"></div>
                   <div class="quick-invoice-tags">
                     <button type="button" class="tag-chip" data-ptag="⛽ بترول/وقود">⛽ بترول/وقود</button>
                     <button type="button" class="tag-chip" data-ptag="🔧 صيانة">🔧 صيانة</button>
@@ -1504,6 +1522,15 @@
             <span id="tankerBreakdownSummaryText" class="text-muted" style="font-size: 0.85rem;"></span>
           </div>
           <div id="tankerProjectsBreakdownList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+        </div>
+
+        <!-- Daily Totals Aggregation Strip (for matching daily representative diesel invoices) -->
+        <div id="tankerDailyTotalsWrap" class="hidden no-print" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border-color);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+            <strong id="lblTankerDailyTotalsTitle" style="font-size: 0.9rem; color: var(--text-color);">📅 إجمالي بونات كل يوم (لمطابقة الفاتورة المجمعة لليوم):</strong>
+            <span id="tankerDailyTotalsHint" class="text-muted" style="font-size: 0.8rem;">الأيام التي تم فيها تفريغ أكثر من بون واحد</span>
+          </div>
+          <div id="tankerDailyTotalsList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
         </div>
 
         <!-- Filter & Search Bar -->

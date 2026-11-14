@@ -3891,6 +3891,264 @@ body.dark-mode .project-breakdown-pill .pill-sub {
   font-weight: 800;
 }
 
+/* ============================================================================
+   Daily Reconciliation Enhancements, Note Math Calculator & Person Checkpoint
+   ============================================================================ */
+
+.prev-workday-recon-banner {
+  background: #fffbeb;
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.prev-workday-recon-banner.is-deficit {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+.prev-workday-recon-banner .pwr-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.prev-workday-recon-banner .pwr-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #991b1b;
+}
+
+.prev-workday-recon-banner:not(.is-deficit) .pwr-title {
+  color: #92400e;
+}
+
+.prev-workday-recon-banner .pwr-details {
+  font-size: 0.9rem;
+  color: #334155;
+  font-weight: 600;
+}
+
+.prev-workday-recon-banner .pwr-note {
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.75);
+  border-right: 3px solid #f59e0b;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: #1e293b;
+  margin-top: 2px;
+}
+
+.daily-returned-subnote {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px dashed #16a34a;
+  color: #14532d;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.day-pill.has-deficit {
+  border-color: #ef4444 !important;
+  box-shadow: inset 0 -3px 0 #ef4444;
+}
+
+.day-pill.has-surplus {
+  border-color: #f59e0b !important;
+  box-shadow: inset 0 -3px 0 #f59e0b;
+}
+
+.day-pill .d-diff-tag {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 4px;
+  margin-top: 2px;
+  line-height: 1.1;
+}
+
+.day-pill.has-deficit .d-diff-tag {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.day-pill.has-surplus .d-diff-tag {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.matrix-diff-row td {
+  background: #f8fafc;
+  font-weight: 800;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.note-math-helper {
+  margin-top: 5px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.note-math-helper .nmh-actions {
+  display: inline-flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.note-math-helper .nmh-btn {
+  padding: 2px 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  border-radius: 5px;
+  border: 1px solid #3b82f6;
+  background: #ffffff;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+
+.note-math-helper .nmh-btn:hover {
+  background: #dbeafe;
+}
+
+.person-balance-options-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+}
+
+.person-opening-toggle-lbl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  color: var(--text-main);
+}
+
+.person-checkpoint-date-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.person-checkpoint-input {
+  width: 160px;
+  padding: 4px 10px;
+  font-size: 0.9rem;
+}
+
+.tanker-daily-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #14532d;
+  cursor: pointer;
+}
+
+.tanker-daily-pill:hover {
+  background: #dcfce7;
+}
+
+body.dark-mode .prev-workday-recon-banner {
+  background: rgba(245, 158, 11, 0.14) !important;
+  border-color: #d97706 !important;
+}
+
+body.dark-mode .prev-workday-recon-banner.is-deficit {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: #ef4444 !important;
+}
+
+body.dark-mode .prev-workday-recon-banner .pwr-title {
+  color: #fca5a5 !important;
+}
+
+body.dark-mode .prev-workday-recon-banner:not(.is-deficit) .pwr-title {
+  color: #fcd34d !important;
+}
+
+body.dark-mode .prev-workday-recon-banner .pwr-details {
+  color: #e2e8f0 !important;
+}
+
+body.dark-mode .prev-workday-recon-banner .pwr-note {
+  background: rgba(15, 23, 42, 0.7) !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .daily-returned-subnote {
+  background: rgba(22, 163, 74, 0.16) !important;
+  border-color: #22c55e !important;
+  color: #86efac !important;
+}
+
+body.dark-mode .matrix-diff-row td {
+  background: #131c2e !important;
+  color: #e2e8f0 !important;
+}
+
+body.dark-mode .note-math-helper {
+  background: rgba(59, 130, 246, 0.16) !important;
+  border-color: #3b82f6 !important;
+  color: #93c5fd !important;
+}
+
+body.dark-mode .note-math-helper .nmh-btn {
+  background: #1e293b !important;
+  color: #93c5fd !important;
+  border-color: #3b82f6 !important;
+}
+
+body.dark-mode .person-balance-options-bar {
+  background: #151f32 !important;
+  border-color: #273549 !important;
+}
+
+body.dark-mode .tanker-daily-pill {
+  background: rgba(22, 163, 74, 0.16) !important;
+  border-color: #059669 !important;
+  color: #86efac !important;
+}
+
 /* Buttons in dark mode */
 body.dark-mode .btn-outline {
   background: #151f32 !important;
@@ -4808,4 +5066,262 @@ body.dark-mode .project-breakdown-pill .pill-val {
 body.dark-mode .project-breakdown-pill .pill-sub {
   color: #4ade80 !important;
   font-weight: 800;
+}
+
+/* ============================================================================
+   Daily Reconciliation Enhancements, Note Math Calculator & Person Checkpoint
+   ============================================================================ */
+
+.prev-workday-recon-banner {
+  background: #fffbeb;
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.prev-workday-recon-banner.is-deficit {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+.prev-workday-recon-banner .pwr-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.prev-workday-recon-banner .pwr-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #991b1b;
+}
+
+.prev-workday-recon-banner:not(.is-deficit) .pwr-title {
+  color: #92400e;
+}
+
+.prev-workday-recon-banner .pwr-details {
+  font-size: 0.9rem;
+  color: #334155;
+  font-weight: 600;
+}
+
+.prev-workday-recon-banner .pwr-note {
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.75);
+  border-right: 3px solid #f59e0b;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: #1e293b;
+  margin-top: 2px;
+}
+
+.daily-returned-subnote {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px dashed #16a34a;
+  color: #14532d;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.day-pill.has-deficit {
+  border-color: #ef4444 !important;
+  box-shadow: inset 0 -3px 0 #ef4444;
+}
+
+.day-pill.has-surplus {
+  border-color: #f59e0b !important;
+  box-shadow: inset 0 -3px 0 #f59e0b;
+}
+
+.day-pill .d-diff-tag {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 4px;
+  margin-top: 2px;
+  line-height: 1.1;
+}
+
+.day-pill.has-deficit .d-diff-tag {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.day-pill.has-surplus .d-diff-tag {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.matrix-diff-row td {
+  background: #f8fafc;
+  font-weight: 800;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.note-math-helper {
+  margin-top: 5px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.note-math-helper .nmh-actions {
+  display: inline-flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.note-math-helper .nmh-btn {
+  padding: 2px 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  border-radius: 5px;
+  border: 1px solid #3b82f6;
+  background: #ffffff;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+
+.note-math-helper .nmh-btn:hover {
+  background: #dbeafe;
+}
+
+.person-balance-options-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+}
+
+.person-opening-toggle-lbl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  color: var(--text-main);
+}
+
+.person-checkpoint-date-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.person-checkpoint-input {
+  width: 160px;
+  padding: 4px 10px;
+  font-size: 0.9rem;
+}
+
+.tanker-daily-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #14532d;
+  cursor: pointer;
+}
+
+.tanker-daily-pill:hover {
+  background: #dcfce7;
+}
+
+body.dark-mode .prev-workday-recon-banner {
+  background: rgba(245, 158, 11, 0.14) !important;
+  border-color: #d97706 !important;
+}
+
+body.dark-mode .prev-workday-recon-banner.is-deficit {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: #ef4444 !important;
+}
+
+body.dark-mode .prev-workday-recon-banner .pwr-title {
+  color: #fca5a5 !important;
+}
+
+body.dark-mode .prev-workday-recon-banner:not(.is-deficit) .pwr-title {
+  color: #fcd34d !important;
+}
+
+body.dark-mode .prev-workday-recon-banner .pwr-details {
+  color: #e2e8f0 !important;
+}
+
+body.dark-mode .prev-workday-recon-banner .pwr-note {
+  background: rgba(15, 23, 42, 0.7) !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .daily-returned-subnote {
+  background: rgba(22, 163, 74, 0.16) !important;
+  border-color: #22c55e !important;
+  color: #86efac !important;
+}
+
+body.dark-mode .matrix-diff-row td {
+  background: #131c2e !important;
+  color: #e2e8f0 !important;
+}
+
+body.dark-mode .note-math-helper {
+  background: rgba(59, 130, 246, 0.16) !important;
+  border-color: #3b82f6 !important;
+  color: #93c5fd !important;
+}
+
+body.dark-mode .note-math-helper .nmh-btn {
+  background: #1e293b !important;
+  color: #93c5fd !important;
+  border-color: #3b82f6 !important;
+}
+
+body.dark-mode .person-balance-options-bar {
+  background: #151f32 !important;
+  border-color: #273549 !important;
+}
+
+body.dark-mode .tanker-daily-pill {
+  background: rgba(22, 163, 74, 0.16) !important;
+  border-color: #059669 !important;
+  color: #86efac !important;
 }
